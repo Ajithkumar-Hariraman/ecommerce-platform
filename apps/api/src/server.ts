@@ -1,3 +1,4 @@
+import { PostgresCategoryRepository } from "./modules/categories/postgres-category.repository.js";
 import { createApp } from "./app.js";
 import { loadEnv, loadDatabaseConfig } from "./config/env.js";
 import { createPool, verifyDatabase } from "./database/pool.js";
@@ -19,6 +20,7 @@ async function main(): Promise<void> {
   }
   const app = createApp({
     productRepository: new PostgresProductRepository(pool),
+    categoryRepository: new PostgresCategoryRepository(pool),
     checkReady: () => verifyDatabase(pool),
   });
   await startServer(app, env, async () => {

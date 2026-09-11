@@ -1,3 +1,4 @@
+import type { CategoryRepository } from "../categories/category.repository.js";
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../errors/app-error.js";
 import { DuplicateSkuError } from "./product.repository.js";
@@ -10,10 +11,14 @@ import type {
 } from "./product.js";
 
 export class ProductService {
-  constructor(private readonly repository: ProductRepository) {}
+  constructor(
+    private readonly repository: ProductRepository,
+    private readonly categories: CategoryRepository,
+  ) {}
 
   private validateFields(input: UpdateProductInput): UpdateProductInput {
     const fields: UpdateProductInput = {};
+    if (input.categoryId !== undefined) fields.categoryId = input.categoryId;
     if (input.sku !== undefined) {
       fields.sku = input.sku.trim();
       if (!fields.sku) throw new AppError(400, "SKU must not be empty");
@@ -48,6 +53,12 @@ export class ProductService {
       fields.status = input.status;
     }
     return fields;
+  }
+
+  private async assertCategoryExists(categoryId: string | null | undefined): Promise<void> {
+    if (categoryId != null && !await this.categories.findById(categoryId)) {
+      throw new AppError(400, "Referenced category does not exist");
+    }
   }
 
   private async assertUniqueSku(
@@ -88,6 +99,7 @@ export class ProductService {
         "SKU, name, priceInMinorUnits, and stock are required",
       );
     }
+    await this.assertCategoryExists(fields.categoryId);
     await this.assertUniqueSku(fields.sku);
     const now = new Date().toISOString();
     return await this.save(
@@ -96,6 +108,7 @@ export class ProductService {
         sku: fields.sku,
         name: fields.name,
         description: fields.description ?? null,
+        categoryId: fields.categoryId ?? null,
         priceInMinorUnits: fields.priceInMinorUnits,
         stock: fields.stock,
         status: "ACTIVE",
@@ -125,6 +138,7 @@ export class ProductService {
     if (Object.keys(fields).length === 0)
       throw new AppError(400, "Update must contain at least one field");
     const existing = await this.findById(id);
+    await this.assertCategoryExists(fields.categoryId);
     if (fields.sku !== undefined) await this.assertUniqueSku(fields.sku, id);
     return await this.save(
       {

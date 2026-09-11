@@ -1,3 +1,5 @@
+import { AppError } from "../../src/errors/app-error.js";
+import { DuplicateCategorySlugError } from "../../src/modules/categories/category.repository.js";
 import { verifyStatusCollection } from "../helpers/status-contract.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -13,6 +15,7 @@ import { loadDatabaseConfig } from "../../src/config/env.js";
 import { createPool, verifyDatabase } from "../../src/database/pool.js";
 import { PostgresProductRepository } from "../../src/modules/products/postgres-product.repository.js";
 import { DuplicateSkuError } from "../../src/modules/products/product.repository.js";
+import { PostgresCategoryRepository } from "../../src/modules/categories/postgres-category.repository.js";
 import { createApp } from "../../src/app.js";
 import type { Product } from "../../src/modules/products/product.js";
 
@@ -20,7 +23,7 @@ function product(): Product {
   const now = new Date().toISOString();
   return {
     id: randomUUID(), sku: "TEST-" + randomUUID(), name: "Coffee",
-    description: null, priceInMinorUnits: 49999, stock: 0,
+    description: null, categoryId: null, priceInMinorUnits: 49999, stock: 0,
     status: "ACTIVE", createdAt: now, updatedAt: now,
   };
 }
@@ -137,7 +140,7 @@ test("PostgreSQL HTTP CRUD and isolated connectivity failure/recovery", { timeou
   const proxyAddress = proxy.address();
   assert(proxyAddress && typeof proxyAddress !== "string");
   const pool = createPool({ ...config, host: "127.0.0.1", port: proxyAddress.port });
-  const app = createApp({ productRepository: new PostgresProductRepository(pool), checkReady: () => verifyDatabase(pool) });
+  const app = createApp({ productRepository: new PostgresProductRepository(pool), categoryRepository: new PostgresCategoryRepository(pool), checkReady: () => verifyDatabase(pool) });
   const server = httpServer(app).listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -250,5 +253,138 @@ test("PostgreSQL status collection contract", async t => {
     }
   } finally {
     await pool.end();
+  }
+});
+
+test("Category persistence and Product foreign-key relationship", async t => {
+  const pool = createPool(loadDatabaseConfig("test"));
+  const categories = new PostgresCategoryRepository(pool);
+  const products = new PostgresProductRepository(pool);
+  const categoryIds: string[] = [];
+  const productIds: string[] = [];
+  const category = () => {
+    const now = new Date().toISOString();
+    const value = { id: randomUUID(), slug: "CATEGORY-" + randomUUID(), name: "Coffee",
+      status: "ACTIVE" as const, createdAt: now, updatedAt: now };
+    categoryIds.push(value.id);
+    return value;
+  };
+  const makeProduct = (categoryId: string | null = null) => {
+    const value = { ...product(), categoryId };
+    productIds.push(value.id);
+    return value;
+  };
+  try {
+    assert.equal((await pool.query("SELECT current_database() AS name")).rows[0].name, "ecommerce_test");
+    await t.test("Category persists and survives pool/repository recreation", async () => {
+      const input = category();
+      assert.deepEqual(await categories.create(input), input);
+      assert.deepEqual(await categories.findBySlug(input.slug), input);
+      assert((await categories.findAll()).some(value => value.id === input.id));
+      const otherPool = createPool(loadDatabaseConfig("test"));
+      try { assert.deepEqual(await new PostgresCategoryRepository(otherPool).findById(input.id), input); }
+      finally { await otherPool.end(); }
+    });
+    await t.test("PostgreSQL enforces slug uniqueness for simultaneous inserts", async () => {
+      const a = category();
+      const b = { ...category(), slug: a.slug };
+      const results = await Promise.allSettled([categories.create(a), categories.create(b)]);
+      assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+      const conflict = results.find(result => result.status === "rejected");
+      assert(conflict && conflict.status === "rejected");
+      assert(conflict.reason instanceof DuplicateCategorySlugError);
+    });
+    await t.test("Category constraints reject blank names/slugs and invalid status through raw SQL", async () => {
+      const c = await categories.create(category());
+      for (const sql of [
+        "UPDATE categories SET name=' ' WHERE id=$1",
+        "UPDATE categories SET slug=' ' WHERE id=$1",
+        "UPDATE categories SET status='ARCHIVED' WHERE id=$1",
+      ]) {
+        await assert.rejects(pool.query(sql, [c.id]), error => error instanceof DatabaseError && error.code === "23514");
+      }
+    });
+    await t.test("multiple Products reference one Category and map category_id to categoryId", async () => {
+      const c = await categories.create(category());
+      const a = makeProduct(c.id);
+      const b = makeProduct(c.id);
+      assert.deepEqual(await products.create(a), a);
+      assert.deepEqual(await products.create(b), b);
+      assert.deepEqual(await products.findById(a.id), a);
+      const row = (await pool.query("SELECT category_id FROM products WHERE id=$1", [a.id])).rows[0];
+      assert.equal(row.category_id, c.id);
+      const otherPool = createPool(loadDatabaseConfig("test"));
+      try { assert.deepEqual(await new PostgresProductRepository(otherPool).findById(a.id), a); }
+      finally { await otherPool.end(); }
+    });
+    await t.test("null Product category persists and UPDATE changes then clears category", async () => {
+      const a = await categories.create(category());
+      const b = await categories.create(category());
+      const p = await products.create(makeProduct());
+      assert.equal(p.categoryId, null);
+      for (const categoryId of [a.id, b.id, null]) {
+        const changed = await products.update({ ...p, categoryId });
+        assert.equal(changed?.categoryId, categoryId);
+        assert.equal((await products.findById(p.id))?.categoryId, categoryId);
+      }
+    });
+    await t.test("raw SQL foreign key rejects an unknown Category", async () => {
+      const p = await products.create(makeProduct());
+      await assert.rejects(pool.query("UPDATE products SET category_id=$1 WHERE id=$2", [randomUUID(), p.id]),
+        error => error instanceof DatabaseError && error.code === "23503" && error.constraint === "products_category_id_fkey");
+    });
+    await t.test("adapter translates insert/update foreign-key errors safely", async () => {
+      const invalid = makeProduct(randomUUID());
+      await assert.rejects(products.create(invalid), error =>
+        error instanceof AppError && error.statusCode === 400 && error.message === "Referenced category does not exist");
+      const p = await products.create(makeProduct());
+      await assert.rejects(products.update({ ...p, categoryId: randomUUID() }), error =>
+        error instanceof AppError && error.statusCode === 400);
+      assert.equal((await products.findById(p.id))?.categoryId, null);
+    });
+    await t.test("ON DELETE RESTRICT preserves a referenced Category and its Product", async () => {
+      const c = await categories.create(category());
+      const p = await products.create(makeProduct(c.id));
+      await assert.rejects(pool.query("DELETE FROM categories WHERE id=$1", [c.id]),
+        error => error instanceof DatabaseError && error.code === "23503");
+      assert.equal((await categories.findById(c.id))?.id, c.id);
+      assert.equal((await products.findById(p.id))?.categoryId, c.id);
+    });
+    await t.test("PostgreSQL-backed HTTP Category and Product wiring shares the same Category repository", async () => {
+      const server = httpServer(createApp({
+        productRepository: products, categoryRepository: categories, checkReady: () => verifyDatabase(pool),
+      })).listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const addr = server.address();
+      assert(addr && typeof addr !== "string");
+      const base = `http://127.0.0.1:${addr.port}/api/v1`;
+      try {
+        const response = await fetch(base + "/categories", { method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ slug: "HTTP-" + randomUUID(), name: "Coffee" }) });
+        assert.equal(response.status, 201);
+        const c = await response.json();
+        categoryIds.push(c.id);
+        assert.equal((await fetch(base + "/categories/" + c.id)).status, 200);
+        const create = await fetch(base + "/products", { method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sku: "HTTP-CATEGORY-" + randomUUID(), name: "Coffee", stock: 0,
+            priceInMinorUnits: 100, categoryId: c.id }) });
+        assert.equal(create.status, 201);
+        const p = await create.json();
+        productIds.push(p.id);
+        assert.equal(p.categoryId, c.id);
+        const unknown = await fetch(base + "/products/" + p.id, { method: "PUT",
+          headers: { "content-type": "application/json" }, body: JSON.stringify({ categoryId: randomUUID() }) });
+        assert.equal(unknown.status, 400);
+      } finally {
+        await new Promise<void>(resolve => server.close(() => resolve()));
+      }
+    });
+  } finally {
+    try {
+      await pool.query("DELETE FROM products WHERE id=ANY($1::uuid[])", [productIds]);
+      await pool.query("DELETE FROM categories WHERE id=ANY($1::uuid[])", [categoryIds]);
+    } finally { await pool.end(); }
   }
 });

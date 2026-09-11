@@ -8,7 +8,7 @@ import { toProduct } from "./product-row.js";
 import type { ProductRow } from "./product-row.js";
 
 const columns =
-  "id, sku, name, description, price_in_minor_units, stock, status, created_at, updated_at";
+  "id, sku, name, description, price_in_minor_units, stock, status, created_at, updated_at, category_id";
 
 export class PostgresProductRepository implements ProductRepository {
   constructor(private readonly pool: Pool) {}
@@ -21,6 +21,9 @@ export class PostgresProductRepository implements ProductRepository {
       return (await this.pool.query<ProductRow>(sql, values)).rows;
     } catch (error: unknown) {
       if (error instanceof DatabaseError) {
+        if (error.code === "23503" && error.constraint === "products_category_id_fkey") {
+          throw new AppError(400, "Referenced category does not exist");
+        }
         if (error.code === "23505" && error.constraint === "products_sku_key") {
           throw new DuplicateSkuError();
         }
@@ -44,7 +47,7 @@ export class PostgresProductRepository implements ProductRepository {
   async create(product: Product): Promise<Product> {
     const rows = await this.rows(
       `INSERT INTO public.products (${columns})
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${columns}`,
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${columns}`,
       [
         product.id,
         product.sku,
@@ -55,6 +58,7 @@ export class PostgresProductRepository implements ProductRepository {
         product.status,
         product.createdAt,
         product.updatedAt,
+        product.categoryId,
       ],
     );
     if (!rows[0]) throw new Error("Insert did not return a product");
@@ -100,7 +104,7 @@ export class PostgresProductRepository implements ProductRepository {
   async update(product: Product): Promise<Product | null> {
     const rows = await this.rows(
       `UPDATE public.products SET sku=$2, name=$3, description=$4,
-      price_in_minor_units=$5, stock=$6, status=$7, updated_at=$8
+      price_in_minor_units=$5, stock=$6, status=$7, updated_at=$8, category_id=$9
       WHERE id=$1 RETURNING ${columns}`,
       [
         product.id,
@@ -111,6 +115,7 @@ export class PostgresProductRepository implements ProductRepository {
         product.stock,
         product.status,
         product.updatedAt,
+        product.categoryId,
       ],
     );
     return rows[0] ? toProduct(rows[0]) : null;

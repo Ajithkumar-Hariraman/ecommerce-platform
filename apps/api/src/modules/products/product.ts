@@ -5,6 +5,7 @@ export interface Product {
   sku: string;
   name: string;
   description: string | null;
+  categoryId: string | null;
   priceInMinorUnits: number;
   stock: number;
   status: ProductStatus;
@@ -16,6 +17,7 @@ export interface CreateProductInput {
   sku: string;
   name: string;
   description?: string | null;
+  categoryId?: string | null;
   priceInMinorUnits: number;
   stock: number;
 }

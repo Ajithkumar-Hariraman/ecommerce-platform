@@ -8,6 +8,7 @@ import test from "node:test";
 import { createTestApp as createApp } from "./helpers/app.js";
 import { ProductService } from "../src/modules/products/product.service.js";
 import { InMemoryProductRepository } from "../src/modules/products/in-memory-product.repository.js";
+import { InMemoryCategoryRepository } from "../src/modules/categories/in-memory-category.repository.js";
 import { AppError } from "../src/errors/app-error.js";
 
 const valid = { sku: "SKU-1", name: "Coffee", priceInMinorUnits: 49999, stock: 0 };
@@ -42,7 +43,7 @@ test("Product HTTP contract", async t => {
       assert.equal(response.headers.get("location"), `/api/v1/products/${id}`);
       assert.equal(new Date(createdAt).toISOString(), createdAt);
       assert.deepEqual(product, {
-        ...valid, id, description: null, status: "ACTIVE", createdAt, updatedAt: createdAt,
+        ...valid, id, description: null, categoryId: null, status: "ACTIVE", createdAt, updatedAt: createdAt,
       });
     });
     await t.test("POST duplicate trimmed SKU returns safe 409", async () => {
@@ -143,7 +144,7 @@ test("Product HTTP contract", async t => {
 
 test("repository copies and service rules protect non-HTTP callers", async () => {
   const repository = new InMemoryProductRepository();
-  const service = new ProductService(repository);
+  const service = new ProductService(repository, new InMemoryCategoryRepository());
   const product = await service.create(valid);
   product.name = "External mutation";
   assert.equal((await service.findById(product.id)).name, "Coffee");
@@ -159,7 +160,7 @@ test("repository copies and service rules protect non-HTTP callers", async () =>
 });
 
 test("concurrent service creates and updates cannot duplicate SKU", async () => {
-  const service = new ProductService(new InMemoryProductRepository());
+  const service = new ProductService(new InMemoryProductRepository(), new InMemoryCategoryRepository());
   const created = await Promise.allSettled([service.create(valid), service.create(valid)]);
   assert.equal(created.filter(result => result.status === "fulfilled").length, 1);
   const failed = created.find(result => result.status === "rejected");

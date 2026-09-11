@@ -8,7 +8,7 @@ import type { ProductRepository } from "../../src/modules/products/product.repos
 export async function verifyStatusCollection(t: TestContext, repository: ProductRepository): Promise<void> {
   const now = new Date().toISOString();
   const make = (name: string): Product => ({
-    id: randomUUID(), sku: "STATUS-" + randomUUID(), name, description: null,
+    id: randomUUID(), sku: "STATUS-" + randomUUID(), name, description: null, categoryId: null,
     priceInMinorUnits: 49999, stock: 1, status: "ACTIVE", createdAt: now, updatedAt: now,
   });
   const a = make("Product A");

@@ -1,6 +1,6 @@
 # Ecommerce platform
 
-Production-learning Node.js backend with a PostgreSQL Product catalog.
+Production-learning Node.js backend with a PostgreSQL Product/Category catalog.
 Start with [current state](docs/current-state.md), then read
 [architecture](docs/architecture.md) or [learning map](docs/learning-map.md) as needed.
 Coding-agent rules live in [AGENTS.md](AGENTS.md).
@@ -50,9 +50,11 @@ See [current state](docs/current-state.md) for the latest verified counts.
 - POST/GET /api/v1/products.
 - GET /api/v1/products?status=ACTIVE or INACTIVE: filtered collection, possibly [].
 - GET/PUT/DELETE /api/v1/products/:id; PUT currently performs partial updates.
+- POST/GET /api/v1/categories and GET /api/v1/categories/:id.
+- Product categoryId is optional/nullable; assigned Categories must exist.
 
 ## Historical learning reports
-[Phase 1 archive](docs/phase-1.md) · [Phase 2](docs/phase-2.md) · [Phase 3](docs/phase-3.md).
+[Phase 1 archive](docs/phase-1.md) · [Phase 2](docs/phase-2.md) · [Phase 3](docs/phase-3.md) · [Phase 4A](docs/phase-4a.md).
 These explain earlier stages; current setup and state supersede historical commands.
 
 Architecture decisions:

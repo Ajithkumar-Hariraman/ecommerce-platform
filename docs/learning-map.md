@@ -27,6 +27,18 @@ Test totals and latest execution evidence live in [current state](current-state.
 | Map key vs property filtering | Yes | Pending | Yes | Yes | CERTIFIED: memory status collection behavior |
 | Express collection-filter routing | Yes | Pending | Yes | Yes | CERTIFIED: filter, invalid, absent query and ID regression |
 
+Phase 4A additions (agent-implemented, not claimed as learner manual certification):
+
+| Concept | Built | Understood | Manually modified | Tested | Certified / evidence |
+|---|---|---|---|---|---|
+| Category one-to-many relation | Yes | Pending | No | Yes | Phase 4A relationship acceptance |
+| Nullable foreign key / RESTRICT | Yes | Pending | No | Yes | Direct FK rejection and parent-delete protection |
+| Migration evolution | Yes | Pending | No | Yes | Existing data preserved; migration 001 unchanged |
+| Multiple repository injection | Yes | Pending | No | Yes | Shared Category lookup with memory and PostgreSQL |
+| INNER JOIN / LEFT JOIN | Yes | Pending | No | Manual SQL | One versus two sample rows observed |
+
+See [Phase 4A evidence](phase-4a.md).
+
 Manual-edit provenance comes from the status exercise and review in this project session.
 Tests can certify behavior but cannot establish unaided understanding or recall.
 Next coaching assessment can ask the learner to explain cardinality, Map keys,

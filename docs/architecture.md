@@ -9,10 +9,11 @@ database constraints protect persistent integrity. Errors reach the central hand
 Collection filters return arrays, including []; ID lookup has single-resource semantics.
 
 ## Composition / dependency injection
-Outer wiring (src/server.ts) -> concrete PostgresProductRepository(pg Pool)
--> ProductService -> ProductController.
+Outer wiring (src/server.ts) creates Product and Category PostgreSQL adapters with one Pool.
+ProductService receives ProductRepository and CategoryRepository; CategoryService receives
+CategoryRepository. Each controller receives its service.
 src/app.ts accepts dependencies; product.module.ts connects repository, service,
-controller and router. ProductService depends on ProductRepository, not pg or SQL.
+controller and router. ProductService depends on repository contracts, not pg or SQL.
 The interface defines WHAT; adapters define HOW; outer composition supplies WIRING.
 
 ## Runtime lifecycle
@@ -31,7 +32,9 @@ Status collection assertions are shared between both adapters.
 The explicit developer smoke script targets ecommerce_dev; it is not part of automated tests.
 
 ## Boundaries
-One backend application with a Product module: a modular monolith.
+One backend application with Product and Category modules: a modular monolith.
+Many Products may reference one Category; nullable category_id preserves existing data.
+The database FK uses ON DELETE RESTRICT; service lookup provides friendly input errors.
 SQL and row mapping belong in the PostgreSQL adapter/database infrastructure.
 Schema changes use versioned SQL migrations; no ORM, distributed services or frontend.
 Current setup is in [README](../README.md); changing operational facts belong in

@@ -5,6 +5,7 @@ export interface ProductRow {
   sku: string;
   name: string;
   description: string | null;
+  category_id: string | null;
   // pg returns bigint as strings to avoid silently losing precision.
   price_in_minor_units: string;
   stock: string;
@@ -21,7 +22,7 @@ export function toProduct(row: ProductRow): Product {
   }
   return {
     id: row.id, sku: row.sku, name: row.name, description: row.description,
-    priceInMinorUnits: price, stock, status: row.status,
+    priceInMinorUnits: price, stock, status: row.status, categoryId: row.category_id,
     createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString(),
   };
 }

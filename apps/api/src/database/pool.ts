@@ -21,5 +21,6 @@ export function createPool(config: DatabaseConfig): Pool {
 export async function verifyDatabase(pool: Pool): Promise<void> {
   // Checks connectivity AND the migrated table/columns. Does not create schema.
   await pool.query(`SELECT id, sku, name, description, price_in_minor_units,
-    stock, status, created_at, updated_at FROM public.products LIMIT 0`);
+    stock, status, created_at, updated_at, category_id FROM public.products LIMIT 0`);
+  await pool.query("SELECT id, slug, name, status, created_at, updated_at FROM public.categories LIMIT 0");
 }

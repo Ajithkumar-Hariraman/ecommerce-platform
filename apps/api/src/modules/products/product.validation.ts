@@ -8,6 +8,7 @@ const createSchema = z.strictObject({
   sku: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
   priceInMinorUnits: z.number(),
   stock: z.number(),
 });
@@ -37,6 +38,7 @@ export const validateCreate: RequestHandler = (req, res, next) => {
     stock: data.stock,
   };
   if (data.description !== undefined) input.description = data.description;
+  if (data.categoryId !== undefined) input.categoryId = data.categoryId;
   res.locals.productInput = input;
   next();
 };
@@ -47,6 +49,7 @@ export const validateUpdate: RequestHandler = (req, res, next) => {
   if (data.sku !== undefined) input.sku = data.sku;
   if (data.name !== undefined) input.name = data.name;
   if (data.description !== undefined) input.description = data.description;
+  if (data.categoryId !== undefined) input.categoryId = data.categoryId;
   if (data.priceInMinorUnits !== undefined)
     input.priceInMinorUnits = data.priceInMinorUnits;
   if (data.stock !== undefined) input.stock = data.stock;

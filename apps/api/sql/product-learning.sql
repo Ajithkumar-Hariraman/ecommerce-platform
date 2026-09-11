@@ -15,3 +15,28 @@ UPDATE products SET stock = 5, updated_at = now() WHERE id = :'learning_id' RETU
 EXPLAIN SELECT * FROM products WHERE sku = :'learning_sku';
 DELETE FROM products WHERE id = :'learning_id' RETURNING id;
 ROLLBACK;
+
+-- Phase 4A: optional Product -> Category association.
+SELECT id, slug, name, status FROM categories;
+BEGIN;
+INSERT INTO categories(id, slug, name, status, created_at, updated_at)
+VALUES (gen_random_uuid(), 'JOIN-LEARNING-' || gen_random_uuid()::text, 'Learning category', 'ACTIVE', now(), now())
+RETURNING id AS learning_category_id \gset
+
+INSERT INTO products(id, sku, name, price_in_minor_units, stock, status, created_at, updated_at, category_id)
+VALUES (gen_random_uuid(), 'JOIN-PRODUCT-' || gen_random_uuid()::text, 'Categorized product', 100, 1, 'ACTIVE', now(), now(), :'learning_category_id')
+RETURNING id AS categorized_id \gset
+INSERT INTO products(id, sku, name, price_in_minor_units, stock, status, created_at, updated_at)
+VALUES (gen_random_uuid(), 'JOIN-NULL-' || gen_random_uuid()::text, 'Uncategorized product', 100, 1, 'ACTIVE', now(), now())
+RETURNING id AS uncategorized_id \gset
+
+SELECT id, category_id FROM products WHERE id IN (:'categorized_id', :'uncategorized_id');
+-- INNER JOIN: only the product with a matching category.
+SELECT p.name AS product, c.name AS category
+FROM products p INNER JOIN categories c ON p.category_id = c.id
+WHERE p.id IN (:'categorized_id', :'uncategorized_id');
+-- LEFT JOIN: both products; the uncategorized product has NULL category columns.
+SELECT p.name AS product, c.name AS category
+FROM products p LEFT JOIN categories c ON p.category_id = c.id
+WHERE p.id IN (:'categorized_id', :'uncategorized_id');
+ROLLBACK;
