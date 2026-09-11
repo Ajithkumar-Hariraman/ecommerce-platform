@@ -1,0 +1,31 @@
+{
+  "name": "@ecommerce/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "start": "node --enable-source-maps dist/server.js",
+    "test": "npm run build && node --import tsx --test test/*.test.ts",
+    "db:migrate": "tsx src/database/migrate.ts",
+    "db:migrate:test": "tsx src/database/migrate.ts --test",
+    "test:integration": "npm run build && npm run db:migrate:test && node --import tsx --test test/integration/*.test.ts"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg": "^8.23.0",
+    "zod": "^4.6.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.13.4",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}
