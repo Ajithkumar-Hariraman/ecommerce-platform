@@ -11,6 +11,15 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - findByStatus practical correction and automated certification complete:
   ACTIVE/INACTIVE filtering returns Product[]; zero matches returns [] with HTTP 200.
 
+## Frontend checkpoint
+- React + TypeScript + Vite frontend exists in apps/web.
+- Category list/create UI and Product CRUD UI are implemented.
+- Backend status filtering and Product/Category assignment, change and clearing are available in the UI.
+- Native fetch uses the Vite /api proxy to the existing backend.
+- Frontend/backend runtime manually launched and confirmed working by the user (2026-09-13).
+- Frontend typecheck and production build passed at this checkpoint (2026-09-13).
+- Phase 4B remains unimplemented.
+
 ## Runtime
 - API: apps/api; Node 24, Express 5, strict TypeScript/ESM; no ORM.
 - server.ts wires Product/Category PostgreSQL adapters using one pool.
@@ -26,7 +35,7 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - Development: ecommerce_dev. Automated PostgreSQL tests: ecommerce_test only.
 
 ## Verification
-Latest verified run: 2026-09-11, Phase 4A milestone.
+Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Typecheck passed; npm test and test:integration rebuild successfully.
 - Fast tests: 88 passed, 0 failed.
 - PostgreSQL integration tests: 31 passed, 0 failed.
@@ -40,7 +49,7 @@ Latest verified run: 2026-09-11, Phase 4A milestone.
 ## Current limits / next boundary
 - Unpaginated collection; same-product updates are last-write-wins.
 - Next intended work: Phase 4B Product Catalog filtering/pagination/sorting, only after explicit authorization.
-- Not implemented: authentication, Redis, Kafka, microservices, React, Docker,
+- Not implemented: authentication, Redis, Kafka, microservices, Docker,
   Kubernetes or AWS deployment/infrastructure.
 - No next-phase feature is authorized by this snapshot.
 
