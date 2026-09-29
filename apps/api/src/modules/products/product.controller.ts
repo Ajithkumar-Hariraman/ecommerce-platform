@@ -1,9 +1,9 @@
+import type { ProductListInput } from "./product-list.types.js";
 import type { RequestHandler } from "express";
 import type { ProductService } from "./product.service.js";
 import type {
   CreateProductInput,
   UpdateProductInput,
-  ProductStatus,
 } from "./product.js";
 
 type CreateHandler = RequestHandler<
@@ -40,7 +40,7 @@ type ListHandler = RequestHandler<
   unknown,
   Record<string, unknown>,
   {
-    productStatus: ProductStatus | undefined;
+    productListInput: ProductListInput;
   }
 >;
 
@@ -54,14 +54,7 @@ export class ProductController {
   };
 
   findAll: ListHandler = async (_req, res) => {
-    const status = res.locals.productStatus;
-
-    const products =
-      status === undefined
-        ? await this.service.findAll()
-        : await this.service.findByStatus(status);
-
-    res.status(200).json(products);
+    res.status(200).json(await this.service.list(res.locals.productListInput));
   };
 
   findById: IdHandler = async (_req, res) => {

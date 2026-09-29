@@ -9,7 +9,7 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - Phase 3: PostgreSQL persistence with pg, migrations, constraints, readiness and pool cleanup.
 - Phase 4A: Category domain and nullable Product category relationship complete.
 - findByStatus practical correction and automated certification complete:
-  ACTIVE/INACTIVE filtering returns Product[]; zero matches returns [] with HTTP 200.
+  Repository findByStatus returns Product[]; HTTP listing now wraps products in the pagination envelope.
 
 ## Frontend checkpoint
 - React + TypeScript + Vite frontend exists in apps/web.
@@ -18,7 +18,8 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - Native fetch uses the Vite /api proxy to the existing backend.
 - Frontend/backend runtime manually launched and confirmed working by the user (2026-09-13).
 - Frontend typecheck and production build passed at this checkpoint (2026-09-13).
-- Phase 4B remains unimplemented.
+- Phase 4B.1 Product pagination and Previous/Next controls are implemented.
+- User reports visually observing the pagination UI running; no broader manual scenario coverage is claimed.
 
 ## Runtime
 - API: apps/api; Node 24, Express 5, strict TypeScript/ESM; no ORM.
@@ -26,7 +27,10 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - ProductService receives ProductRepository and CategoryRepository.
 - PostgreSQL is the active runtime store. InMemoryProductRepository remains for isolated tests.
 - GET /api/v1/products?status=ACTIVE or INACTIVE filters the collection.
-- Invalid status returns 400; absent status lists all; /products/:id still resolves one product.
+- Product GET collection returns { products, pagination }; optional status/page/limit, defaults 1/20, limit at most 100.
+- Invalid query values return safe 400; absent status lists an unfiltered page; /products/:id still resolves one product.
+- Ordering is created_at ASC, id ASC. Count and page are separate reads and can differ during concurrent writes.
+- React resets page on status changes; mutations refetch the current page. Previous remains available on an emptied last page.
 - POST/GET /api/v1/categories and GET /categories/:id are available.
 - Product categoryId may be omitted/null, assigned, changed or cleared. FK uses ON DELETE RESTRICT.
 - /health is liveness (200); /ready probes required database/table access (200 or 503).
@@ -34,7 +38,18 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - Central config loads apps/api/.env; shell values win. Never expose its contents.
 - Development: ecommerce_dev. Automated PostgreSQL tests: ecommerce_test only.
 
-## Verification
+## Phase 4B.1 checkpoint (reviewed 2026-09-29)
+- Backend typecheck and frontend typecheck/build passed.
+- Focused fast tests: 117 passed; relevant PostgreSQL tests: 31 passed, ecommerce_test only.
+- Pagination tests share adapter assertions and clean only their own records.
+- User-reported manual evidence: pagination UI visually observed running in the browser.
+- No dev servers or browser automation run during review; automated HTTP tests use temporary listeners.
+- Personal understanding/unaided reproduction remains unassessed; passing tests does not establish mastery.
+- Git checkpoint: this snapshot accompanies `feat: add product list pagination` on main.
+- Review required no production-code fixes; all changes are scoped to Phase 4B.1.
+- No category filter, search, new sort controls, indexes, migrations or listing transaction added.
+
+## Previous full-suite verification
 Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Typecheck passed; npm test and test:integration rebuild successfully.
 - Fast tests: 88 passed, 0 failed.
@@ -47,8 +62,8 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Expected error logs occur in intentional failure/recovery tests.
 
 ## Current limits / next boundary
-- Unpaginated collection; same-product updates are last-write-wins.
-- Next intended work: Phase 4B Product Catalog filtering/pagination/sorting, only after explicit authorization.
+- Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
+- Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.
 - Not implemented: authentication, Redis, Kafka, microservices, Docker,
   Kubernetes or AWS deployment/infrastructure.
 - No next-phase feature is authorized by this snapshot.

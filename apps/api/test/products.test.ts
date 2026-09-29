@@ -28,10 +28,10 @@ test("Product HTTP contract", async t => {
   let id = "";
   let createdAt = "";
   try {
-    await t.test("GET empty collection returns 200 and []", async () => {
+    await t.test("GET empty collection returns 200 with empty products", async () => {
       const response = await call("GET");
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), []);
+      assert.deepEqual((await response.json()).products, []);
     });
     await t.test("POST creates normalized product with server ID, timestamps and defaults", async () => {
       const response = await call("POST", "", { ...valid, sku: "  SKU-1  ", name: " Coffee " });
@@ -54,7 +54,7 @@ test("Product HTTP contract", async t => {
     await t.test("GET collection and existing ID return 200", async () => {
       const list = await call("GET");
       assert.equal(list.status, 200);
-      const products = await list.json();
+      const { products } = await list.json();
       assert.equal(products.length, 1);
       assert.equal(products[0].id, id);
       const single = await call("GET", "/" + id);
@@ -202,7 +202,7 @@ test("status query HTTP contract", async t => {
     await t.test("status HTTP no matches returns 200 and [] with ACTIVE products present", async () => {
       const response = await call("GET", "?status=INACTIVE");
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), []);
+      assert.deepEqual((await response.json()).products, []);
     });
 
     const b = await create("Product B");
@@ -213,7 +213,7 @@ test("status query HTTP contract", async t => {
     await t.test("status HTTP ACTIVE returns exactly A and C", async () => {
       const response = await call("GET", "?status=ACTIVE");
       assert.equal(response.status, 200);
-      const products = await response.json();
+      const { products } = await response.json();
       assert(Array.isArray(products));
       assert.equal(products.length, 2);
       assert.deepEqual(products.map(product => product.id).sort(), [a.id, c.id].sort());
@@ -222,7 +222,7 @@ test("status query HTTP contract", async t => {
     await t.test("status HTTP INACTIVE returns exactly B", async () => {
       const response = await call("GET", "?status=INACTIVE");
       assert.equal(response.status, 200);
-      const products = await response.json();
+      const { products } = await response.json();
       assert(Array.isArray(products));
       assert.equal(products.length, 1);
       assert.deepEqual(products, [inactiveB]);
@@ -234,14 +234,14 @@ test("status query HTTP contract", async t => {
       assert.match(response.headers.get("content-type") ?? "", /application\/json/);
       assert.deepEqual(await response.json(), {
         error: {
-          message: "Invalid product query: only optional status=ACTIVE or status=INACTIVE is supported",
+          message: "Invalid product listing query",
         },
       });
     });
-    await t.test("status HTTP absent query still returns all products", async () => {
+    await t.test("status HTTP absent query includes all three fixture products", async () => {
       const response = await call("GET");
       assert.equal(response.status, 200);
-      const products = await response.json();
+      const { products } = await response.json();
       assert(Array.isArray(products));
       assert.equal(products.length, 3);
       assert.deepEqual(products.map(product => product.id).sort(), [a.id, b.id, c.id].sort());

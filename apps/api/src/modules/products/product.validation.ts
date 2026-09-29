@@ -1,3 +1,4 @@
+import type { ProductListInput } from "./product-list.types.js";
 import type { RequestHandler } from "express";
 import { z } from "zod";
 import { AppError } from "../../errors/app-error.js";
@@ -16,8 +17,12 @@ const updateSchema = createSchema.partial().extend({
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
+const positiveIntegerQuery = z.string().regex(/^[0-9]+$/).transform(Number)
+  .refine(value => Number.isSafeInteger(value) && value >= 1);
 const listQuerySchema = z.strictObject({
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  page: positiveIntegerQuery.optional(),
+  limit: positiveIntegerQuery.refine(value => value <= 100).optional(),
 });
 
 const idSchema = z.uuid();
@@ -69,9 +74,13 @@ export const validateListQuery: RequestHandler = (req, res, next) => {
   const query = parse(
     listQuerySchema,
     req.query,
-    "Invalid product query: only optional status=ACTIVE or status=INACTIVE is supported",
+    "Invalid product listing query",
   );
 
-  res.locals.productStatus = query.status;
+  const input: ProductListInput = {};
+  if (query.status !== undefined) input.status = query.status;
+  if (query.page !== undefined) input.page = query.page;
+  if (query.limit !== undefined) input.limit = query.limit;
+  res.locals.productListInput = input;
   next();
 };

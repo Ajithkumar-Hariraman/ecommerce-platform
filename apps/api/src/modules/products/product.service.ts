@@ -1,3 +1,4 @@
+import type { ProductListInput, ProductListQuery, ProductListResponse } from "./product-list.types.js";
 import type { CategoryRepository } from "../categories/category.repository.js";
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../errors/app-error.js";
@@ -117,6 +118,30 @@ export class ProductService {
       },
       true,
     );
+  }
+
+  async list(input: ProductListInput = {}): Promise<ProductListResponse> {
+    const page = input.page ?? 1;
+    const limit = input.limit ?? 20;
+    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new AppError(400, "Page must be a positive safe integer and limit must be between 1 and 100");
+    }
+    if (input.status !== undefined && input.status !== "ACTIVE" && input.status !== "INACTIVE") {
+      throw new AppError(400, "Status must be ACTIVE or INACTIVE");
+    }
+    const offset = (page - 1) * limit;
+    if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(offset + limit)) {
+      throw new AppError(400, "Requested page exceeds safe pagination bounds");
+    }
+    const query: ProductListQuery = { limit, offset };
+    if (input.status !== undefined) query.status = input.status;
+    const { products, total } = await this.repository.list(query);
+    const totalPages = Math.ceil(total / limit);
+    return { products, pagination: {
+      page, limit, total, totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1 && total > 0,
+    } };
   }
 
   async findAll(): Promise<Product[]> {

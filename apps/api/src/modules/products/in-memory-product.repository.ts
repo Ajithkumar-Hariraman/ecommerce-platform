@@ -1,3 +1,4 @@
+import type { ProductListQuery, ProductListResult } from "./product-list.types.js";
 import type { Product, ProductStatus } from "./product.js";
 import { DuplicateSkuError } from "./product.repository.js";
 import type { ProductRepository } from "./product.repository.js";
@@ -37,6 +38,17 @@ export class InMemoryProductRepository implements ProductRepository {
       if (product.sku === sku) return { ...product };
     }
     return null;
+  }
+
+  async list(query: ProductListQuery): Promise<ProductListResult> {
+    const matches = Array.from(this.products.values())
+      .filter(product => query.status === undefined || product.status === query.status)
+      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
+        || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    return {
+      total: matches.length,
+      products: matches.slice(query.offset, query.offset + query.limit).map(product => ({ ...product })),
+    };
   }
 
   async findAll(): Promise<Product[]> {

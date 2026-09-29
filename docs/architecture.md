@@ -6,7 +6,10 @@ Client -> Express -> route -> runtime validation -> controller -> service
 
 Zod protects external shapes/types; ProductService owns business rules;
 database constraints protect persistent integrity. Errors reach the central handler.
-Collection filters return arrays, including []; ID lookup has single-resource semantics.
+Product HTTP listing returns { products, pagination }; products may be []. ID lookup retains single-resource semantics.
+ProductService calculates page defaults/offset and metadata; repository.list returns a page plus matching total.
+PostgreSQL uses separate parameterized count/page queries without a shared snapshot.
+Existing findAll/findByStatus repository methods retain their array contracts.
 
 ## Composition / dependency injection
 Outer wiring (src/server.ts) creates Product and Category PostgreSQL adapters with one Pool.
@@ -36,7 +39,8 @@ One backend application with Product and Category modules: a modular monolith.
 Many Products may reference one Category; nullable category_id preserves existing data.
 The database FK uses ON DELETE RESTRICT; service lookup provides friendly input errors.
 SQL and row mapping belong in the PostgreSQL adapter/database infrastructure.
-Schema changes use versioned SQL migrations; no ORM, distributed services or frontend.
+Schema changes use versioned SQL migrations; no ORM or distributed services.
+React uses API modules with native fetch; the Vite development proxy forwards /api to Express.
 Current setup is in [README](../README.md); changing operational facts belong in
 [current state](current-state.md), not this document.
 

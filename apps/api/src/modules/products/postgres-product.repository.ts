@@ -1,5 +1,6 @@
+import type { ProductListQuery, ProductListResult } from "./product-list.types.js";
 import { DatabaseError } from "pg";
-import type { Pool } from "pg";
+import type { Pool, QueryResultRow } from "pg";
 import { AppError } from "../../errors/app-error.js";
 import type { ProductRepository } from "./product.repository.js";
 import { DuplicateSkuError } from "./product.repository.js";
@@ -13,12 +14,12 @@ const columns =
 export class PostgresProductRepository implements ProductRepository {
   constructor(private readonly pool: Pool) {}
 
-  private async rows(
+  private async rows<Row extends QueryResultRow = ProductRow>(
     sql: string,
     values: unknown[] = [],
-  ): Promise<ProductRow[]> {
+  ): Promise<Row[]> {
     try {
-      return (await this.pool.query<ProductRow>(sql, values)).rows;
+      return (await this.pool.query<Row>(sql, values)).rows;
     } catch (error: unknown) {
       if (error instanceof DatabaseError) {
         if (error.code === "23503" && error.constraint === "products_category_id_fkey") {
@@ -91,6 +92,23 @@ export class PostgresProductRepository implements ProductRepository {
       [sku],
     );
     return rows[0] ? toProduct(rows[0]) : null;
+  }
+
+  async list(query: ProductListQuery): Promise<ProductListResult> {
+    const values: unknown[] = query.status === undefined ? [] : [query.status];
+    const where = query.status === undefined ? "" : " WHERE status = $1";
+    // Separate reads deliberately allow the total/page to differ during concurrent writes.
+    const counts = await this.rows<{ total: string }>(
+      `SELECT COUNT(*) AS total FROM public.products${where}`, values,
+    );
+    const total = Number(counts[0]?.total);
+    if (!Number.isSafeInteger(total) || total < 0) throw new Error("Invalid product count");
+    const rows = await this.rows(
+      `SELECT ${columns} FROM public.products${where}
+       ORDER BY created_at ASC, id ASC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+      [...values, query.limit, query.offset],
+    );
+    return { products: rows.map(toProduct), total };
   }
 
   async findAll(): Promise<Product[]> {

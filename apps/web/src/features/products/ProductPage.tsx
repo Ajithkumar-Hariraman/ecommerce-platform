@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Product, ProductStatus } from "./product.types";
+import type { Product, ProductStatus, ProductListResponse } from "./product.types";
 import type { Category } from "../categories/category.types";
 import { productsApi } from "../../api/products";
 import { errorMessage } from "../../api/http";
@@ -8,6 +8,8 @@ import { ProductList } from "./ProductList";
 export function ProductPage({ categories }: { categories: Category[] }) {
   const [status, setStatus] = useState<ProductStatus | "ALL">("ALL");
   const [products, setProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<ProductListResponse["pagination"] | null>(null);
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -21,8 +23,11 @@ export function ProductPage({ categories }: { categories: Category[] }) {
     setError("");
     async function load() {
       try {
-        const data = await productsApi.list(status, controller.signal);
-        if (!controller.signal.aborted) setProducts(data);
+        const data = await productsApi.list(status, page, controller.signal);
+        if (!controller.signal.aborted) {
+          setProducts(data.products);
+          setPagination(data.pagination);
+        }
       } catch (error) {
         if (!controller.signal.aborted) setError(errorMessage(error));
       } finally {
@@ -31,7 +36,7 @@ export function ProductPage({ categories }: { categories: Category[] }) {
     }
     void load();
     return () => controller.abort();
-  }, [status, revision]);
+  }, [status, page, revision]);
   async function edit(id: string) {
     setBusy(true);
     setError("");
@@ -85,7 +90,7 @@ export function ProductPage({ categories }: { categories: Category[] }) {
             Show status
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as typeof status)}
+              onChange={(e) => { setStatus(e.target.value as typeof status); setPage(1); setPagination(null); }}
             >
               <option value="ALL">ALL</option>
               <option>ACTIVE</option>
@@ -127,6 +132,17 @@ export function ProductPage({ categories }: { categories: Category[] }) {
               }}
             />
           )
+        )}
+        {pagination && (
+          <nav className="toolbar" aria-label="Product pagination">
+            <button className="subtle"
+              disabled={loading || busy || !!error || !pagination.hasPreviousPage || pagination.page !== page}
+              onClick={() => setPage(current => Math.max(1, current - 1))}>Previous</button>
+            <span aria-live="polite">Page {page} · {pagination.total} products · {pagination.totalPages} pages</span>
+            <button className="subtle"
+              disabled={loading || busy || !!error || !pagination.hasNextPage || pagination.page !== page}
+              onClick={() => setPage(current => current + 1)}>Next</button>
+          </nav>
         )}
         {deleting && (
           <div className="confirmation">

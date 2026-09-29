@@ -1,8 +1,10 @@
+import type { ProductListQuery, ProductListResult } from "./product-list.types.js";
 import type { Product, ProductStatus } from "./product.js";
 
 // Adapters must enforce SKU uniqueness atomically on create/update.
 // They return copies, never mutable references to stored records.
 export interface ProductRepository {
+  list(query: ProductListQuery): Promise<ProductListResult>;
   create(product: Product): Promise<Product>;
   findById(id: string): Promise<Product | null>;
   findBySku(sku: string): Promise<Product | null>;

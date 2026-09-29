@@ -1,3 +1,4 @@
+import { verifyListing } from "../helpers/listing-contract.js";
 import { AppError } from "../../src/errors/app-error.js";
 import { DuplicateCategorySlugError } from "../../src/modules/categories/category.repository.js";
 import { verifyStatusCollection } from "../helpers/status-contract.js";
@@ -387,4 +388,12 @@ test("Category persistence and Product foreign-key relationship", async t => {
       await pool.query("DELETE FROM categories WHERE id=ANY($1::uuid[])", [categoryIds]);
     } finally { await pool.end(); }
   }
+});
+
+test("PostgreSQL paginated listing contract", async t => {
+  const pool = createPool(loadDatabaseConfig("test"));
+  try {
+    assert.equal((await pool.query("SELECT current_database() AS name")).rows[0].name, "ecommerce_test");
+    await verifyListing(t, new PostgresProductRepository(pool));
+  } finally { await pool.end(); }
 });
