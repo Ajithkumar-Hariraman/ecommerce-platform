@@ -16,5 +16,5 @@
   },
   "include": [
     "src/**/*.ts"
-  ]
+, "src/modules/orders/order.types.ts"  ]
 }
