@@ -81,3 +81,21 @@ already completed creates remain persisted (the import is not atomic).
 creates. Required headers: sku, name, priceInMinorUnits, stock. Optional status
 accepts ACTIVE/INACTIVE and defaults to ACTIVE. Empty files are rejected.
 The JSON Product create endpoint retains its existing request contract.
+
+## Payment integration
+
+Reference: [payment integration](payment-integration.md).
+
+| Pattern | Implementation |
+| --- | --- |
+| ENTERPRISE_INTEGRATION | Separate payment-provider HTTP process and selected Order storage |
+| HTTP_CLIENT | HttpPaymentClient, native fetch, validated response |
+| TIMEOUT | 3000 ms abort deadline and bounded response body |
+| IDEMPOTENCY | Stable payment key in provider SQLite; persisted webhook event IDs |
+| WEBHOOK | Route-specific raw-body signed payment callback |
+| HMAC_SIGNATURE | SHA-256 plus timingSafeEqual before JSON validation |
+| STATUS_WORKFLOW | assertTransition and payment/order relationship validation |
+| AUDIT_TRAIL | OrderAuditRepository, event-keyed persisted terminal transitions |
+| DOWNSTREAM_FAILURE | Safe errors retain CREATED Order for retry |
+| RETRY_SAFETY | Same payment key/event ID; Mongo durable receipt repairs projections |
+| DEPENDENCY_INJECTION | OrderService receives PaymentClient and OrderRepository |

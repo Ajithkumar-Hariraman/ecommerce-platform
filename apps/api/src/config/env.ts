@@ -119,3 +119,15 @@ export function loadOrderStorageConfig(): OrderStorageConfig {
   }
   return { storage, uri, databaseName };
 }
+
+export function loadPaymentConfig(): {baseUrl: string; webhookSecret: string} {
+  loadLocalEnv();
+  const baseUrl = process.env.PAYMENT_PROVIDER_BASE_URL ?? "http://127.0.0.1:4100";
+  const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET ?? "";
+  try {
+    const url = new URL(baseUrl);
+    if (!["http:","https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error();
+  } catch { throw new Error("Invalid PAYMENT_PROVIDER_BASE_URL"); }
+  if (webhookSecret.length < 32 || webhookSecret.startsWith("REPLACE_")) throw new Error("PAYMENT_WEBHOOK_SECRET must contain at least 32 characters");
+  return {baseUrl,webhookSecret};
+}

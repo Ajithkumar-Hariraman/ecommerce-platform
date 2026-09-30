@@ -198,7 +198,7 @@ test("real runtime startup failure and ordered PostgreSQL shutdown", { timeout: 
   loadDatabaseConfig("test");
   async function launch(extra: Record<string, string>) {
     const child = spawn(process.execPath, ["dist/server.js"], {
-      env: { ...process.env, NODE_ENV: "test", HOST: "127.0.0.1", ORDER_STORAGE: "postgres", ...extra },
+      env: { ...process.env, NODE_ENV: "test", HOST: "127.0.0.1", ORDER_STORAGE: "postgres", PAYMENT_WEBHOOK_SECRET: randomUUID()+randomUUID(), ...extra },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";

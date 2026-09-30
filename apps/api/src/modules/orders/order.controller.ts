@@ -11,6 +11,9 @@ export class OrderController {
     const order = await this.service.create(res.locals.orderInput);
     res.location(`/api/v1/orders/${order.id}`).status(201).json(order);
   };
+  initiatePayment: IdHandler = async (_req, res) => {
+    res.status(200).json(await this.service.initiatePayment(res.locals.orderId));
+  };
   findById: IdHandler = async (_req, res) => {
     res.status(200).json(await this.service.findById(res.locals.orderId));
   };

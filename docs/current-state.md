@@ -91,6 +91,28 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Personal understanding remains unassessed. Local infra/compose.yaml remains excluded
   from Git because it contains development credentials.
 
+## Payment integration checkpoint (2026-09-30)
+- Order POST now persists CREATED, calls a separate payment provider over HTTP,
+  then returns PAYMENT_PENDING with paymentId and version 2. POST /orders/:id/payment
+  retries a retained CREATED order using the stable payment:<orderId> key.
+- Native-fetch HttpPaymentClient has a 3000 ms timeout and validates bounded responses.
+- Local provider process lives in services/payment-provider-simulator; SQLite stores
+  idempotent payments and repeatable callback event IDs across process restarts.
+- Signed raw-body payment webhooks validate HMAC, event shape, payment relationship
+  and state transitions. PAID/PAYMENT_FAILED transitions write audit and dedup records.
+- PostgreSQL commits webhook status/audit/event together. Mongo standalone atomically
+  stores a receipt with status and repairs audit/event projections on redelivery.
+- Migration 004 applied to ecommerce_dev and ecommerce_test; earlier migrations unchanged.
+- Typecheck/build passed; 135 fast tests, six Order/payment integration tests and two
+  PostgreSQL runtime regressions passed. Database tests used ecommerce_test only.
+- Real separate-process HTTP flows passed in both storage modes: pending -> signed
+  callback -> paid, duplicate/concurrent delivery without a second audit/version change,
+  failure callbacks, provider unavailability/recovery and Mongo projection repair.
+- PAYMENT_WEBHOOK_SECRET is required at startup; local .env was not edited.
+- Audit currently covers webhook terminal transitions. No background reconciliation,
+  outbox, client POST /orders idempotency, payment authentication or commercial provider.
+- See [payment integration](payment-integration.md) for commands and distributed failure boundaries.
+
 ## Current limits / next boundary
 - Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
 - Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.

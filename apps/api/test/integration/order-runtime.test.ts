@@ -1,3 +1,5 @@
+import { startProvider } from "../helpers/payment-provider.js";
+import { HttpPaymentClient } from "../../src/modules/payments/payment.client.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -25,7 +27,9 @@ for (const mode of ["postgres", "mongodb"] as const) {
     const mongo = process.env.MONGODB_TEST_URI ? await createMongoResources(process.env.MONGODB_TEST_URI, "ecommerce_test") : undefined;
     const ids: string[] = [];
     const repository = mode === "postgres" ? new PostgresOrderRepository(pool) : new MongoOrderRepository(mongo!.db);
-    const service = new OrderService(repository);
+    const secret = randomUUID() + randomUUID();
+    const provider = await startProvider("http://127.0.0.1:1/api/v1/webhooks/payments",secret);
+    const service = new OrderService(repository,new HttpPaymentClient(provider.baseUrl));
     let child: ReturnType<typeof spawn> | undefined;
     try {
       // Exercise the real service directly; no fake Order persistence.
@@ -33,8 +37,10 @@ for (const mode of ["postgres", "mongodb"] as const) {
         const created = await service.create({customerId: randomUUID(), items});
         ids.push(created.id);
         assert.equal(created.totalInMinorUnits, items.length === 1 ? 100000 : 120000);
-        assert.deepEqual(created.items.map(item=>item.lineTotalInMinorUnits), items.length === 1 ? [100000] : [100000,20000]);
-        assert.equal(created.status, "CREATED"); assert.equal(created.version,1); assert.equal(created.paymentId,null);
+        for (const item of items) {
+          assert.equal(created.items.find(saved => saved.productId === item.productId)?.lineTotalInMinorUnits, item.quantity * item.unitPriceInMinorUnits);
+        }
+        assert.equal(created.status, "PAYMENT_PENDING"); assert.equal(created.version,2); assert.equal(typeof created.paymentId,"string");
         assert.deepEqual(normalized(await service.findById(created.id)),normalized(created));
       }
       await assert.rejects(service.findById(randomUUID()), {statusCode:404, message:"Order not found"});
@@ -49,7 +55,7 @@ for (const mode of ["postgres", "mongodb"] as const) {
       const address = probe.address(); assert.ok(address && typeof address !== "string");
       await new Promise<void>(resolve=>probe.close(()=>resolve()));
       child = spawn(process.execPath, ["dist/server.js"], {
-        env: {...process.env, NODE_ENV:"test", HOST:"127.0.0.1", PORT:String(address.port), ORDER_STORAGE:mode,
+        env: {...process.env, NODE_ENV:"test", HOST:"127.0.0.1", PORT:String(address.port), ORDER_STORAGE:mode, PAYMENT_PROVIDER_BASE_URL:provider.baseUrl, PAYMENT_WEBHOOK_SECRET:secret,
           MONGODB_URI: mode === "mongodb" ? process.env.MONGODB_TEST_URI! : "",
           MONGODB_DB_NAME: mode === "mongodb" ? "ecommerce_test" : ""},
         stdio:["ignore","pipe","pipe"],
@@ -72,7 +78,7 @@ for (const mode of ["postgres", "mongodb"] as const) {
       assert.equal(response.status,201);
       const created = await response.json() as Order; ids.push(created.id);
       assert.equal(created.totalInMinorUnits,120000);
-      assert.equal(created.status,"CREATED"); assert.equal(created.version,1); assert.equal(created.paymentId,null);
+      assert.equal(created.status,"PAYMENT_PENDING"); assert.equal(created.version,2); assert.equal(typeof created.paymentId,"string");
       assert.equal(response.headers.get("location"),`/api/v1/orders/${created.id}`);
       const fetched = await fetch(base+`/api/v1/orders/${created.id}`);
       assert.equal(fetched.status,200);
@@ -99,7 +105,7 @@ for (const mode of ["postgres", "mongodb"] as const) {
       try {
         await pool.query("DELETE FROM orders WHERE id=ANY($1::uuid[])",[ids]);
         if(mongo) await mongo.db.collection<{_id:string}>("orders").deleteMany({_id:{$in:ids}});
-      } finally { await pool.end(); await mongo?.client.close(); }
+      } finally { await pool.end(); await mongo?.client.close(); await provider.cleanup(); }
     }
   });
 }
