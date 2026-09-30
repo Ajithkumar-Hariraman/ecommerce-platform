@@ -1,3 +1,4 @@
+import type { ProductCache } from "./product.cache.js";
 import type { CategoryRepository } from "../categories/category.repository.js";
 import type { ProductRepository } from "./product.repository.js";
 import { ProductService } from "./product.service.js";
@@ -11,8 +12,9 @@ import { ProductImportService } from "./import/product-import.service.js";
 export function createProductModule(
   repository: ProductRepository,
   categories: CategoryRepository,
+  cache?: ProductCache,
 ) {
-  const service = new ProductService(repository, categories);
+  const service = new ProductService(repository, categories, cache);
   const controller = new ProductController(service);
 
   const productImportService = new ProductImportService((input) =>

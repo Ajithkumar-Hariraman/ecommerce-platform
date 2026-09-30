@@ -131,10 +131,25 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Frontend login and customer/tenant object-level authorization remain out of scope.
 - Setup, commands and security limits: [authentication](authentication.md).
 
+## Redis cache/rate-limit checkpoint (2026-09-30)
+- Dedicated ecommerce-redis on loopback 6381; existing Redis6379 remains unchanged.
+- One Node Redis client serves validated Product ID cache-aside (default TTL 60s)
+  and atomic fixed-window counters keyed by verified principal. No collection caching.
+- Successful Product mutations invalidate cache; mutation reads remain authoritative.
+- Cache and limiter failures fail open with bounded commands; RBAC remains enforced.
+- Redis is optional for readiness. HTTP drains before Redis/database resource closure.
+- Typecheck/build passed; 155 fast tests and 47 selected real integration checks passed:
+  seven Redis checks, seven OIDC/Order/payment checks, 33 PostgreSQL regressions.
+- Separate-process real-token smoke with redis-cli observed PONG, initial miss,
+  cache presence/TTL 60, update invalidation/repopulation, 200/200/200/429 with
+  Retry-After 60, and graceful Redis shutdown. Only owned ecommerce_test data used.
+- No personal understanding claim. This snapshot accompanies the Redis feature commit;
+  no merge or push. See [Redis behavior and boundaries](redis-cache-rate-limit.md).
+
 ## Current limits / next boundary
 - Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
 - Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.
-- Not implemented: application Redis/Kafka integration, microservices, Kubernetes or AWS deployment.
+- Not implemented: Kafka integration, microservices, Kubernetes or AWS deployment.
 - Local Docker infrastructure exists; it is not a production deployment configuration.
 - No next-phase feature is authorized by this snapshot.
 

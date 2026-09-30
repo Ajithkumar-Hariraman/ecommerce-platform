@@ -117,3 +117,23 @@ Reference: [OIDC resource-server authentication](authentication.md).
 | SERVICE_IDENTITY | Confidential Keycloak CLI clients with distinct grants |
 | TOKEN_VALIDATION | RS256, issuer, audience, required claims, expiry, access-token type |
 | KEY_ROTATION | Remote JWKS refresh with cache and cooldown |
+
+## Redis cache and coordination
+
+Reference: [Redis cache and distributed rate limiting](redis-cache-rate-limit.md).
+
+| Concept | Implementation |
+| --- | --- |
+| REDIS | Dedicated host 6381 service, one injected Node client |
+| CACHE_ASIDE | ProductService ID reads through ProductCache |
+| CACHE_HIT | Valid cache response avoids PostgreSQL lookup |
+| CACHE_MISS | PostgreSQL read followed by atomic SET EX |
+| TTL | Configured positive Product expiry |
+| CACHE_INVALIDATION | Successful PostgreSQL update/delete then DEL |
+| STALE_DATA | DB/cache boundary and concurrent refill; bounded residency |
+| CACHE_STAMPEDE | Concurrent misses may duplicate reads; no lock added |
+| DISTRIBUTED_RATE_LIMITING | Shared verified-principal Redis state |
+| ATOMIC_COUNTER | Lua INCR plus expiry/TTL in one EVAL |
+| 429_TOO_MANY_REQUESTS | Safe error envelope with Retry-After |
+| FAIL_OPEN | Cache/limiter failure preserves availability and RBAC |
+| SOURCE_OF_TRUTH | PostgreSQL authoritative; Redis temporary derived state |

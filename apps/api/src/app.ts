@@ -1,3 +1,5 @@
+import type { RequestHandler } from "express";
+import type { ProductCache } from "./modules/products/product.cache.js";
 import { denyAccessPolicy } from "./auth/middleware.js";
 import type { AccessPolicy } from "./auth/middleware.js";
 import type { PaymentClient } from "./modules/payments/payment.client.js";
@@ -16,6 +18,8 @@ import type { ProductRepository } from "./modules/products/product.repository.js
 
 export interface AppDependencies {
   accessPolicy?: AccessPolicy;
+  productCache?: ProductCache;
+  rateLimiter?: RequestHandler;
   // Optional only for existing isolated Product/Category test apps; runtime always supplies it.
   orderRepository?: OrderRepository;
   paymentClient?: PaymentClient;
@@ -33,9 +37,10 @@ export function createApp(dependencies: AppDependencies): Express {
     app.use("/api/v1/webhooks", createPaymentWebhookRouter(dependencies.paymentWorkflow, dependencies.paymentWebhookSecret));
   }
   const access = dependencies.accessPolicy ?? denyAccessPolicy();
-  app.use("/api/v1/products", access.authenticate, access.catalog);
-  app.use("/api/v1/categories", access.authenticate, access.catalog);
-  app.use("/api/v1/orders", access.authenticate, access.orders);
+  const limiter: RequestHandler = dependencies.rateLimiter ?? ((_req, _res, next) => next());
+  app.use("/api/v1/products", access.authenticate, limiter, access.catalog);
+  app.use("/api/v1/categories", access.authenticate, limiter, access.catalog);
+  app.use("/api/v1/orders", access.authenticate, limiter, access.orders);
   app.use(express.json({ limit: "100kb" }));
   app.get("/health", (_req, res) => { res.status(200).json({ status: "ok" }); });
   app.get("/ready", async (_req, res) => {
@@ -43,7 +48,7 @@ export function createApp(dependencies: AppDependencies): Express {
     catch { throw new AppError(503, "Required database is unavailable"); }
     res.status(200).json({ status: "ready" });
   });
-  app.use("/api/v1/products", createProductModule(dependencies.productRepository, dependencies.categoryRepository));
+  app.use("/api/v1/products", createProductModule(dependencies.productRepository, dependencies.categoryRepository, dependencies.productCache));
   app.use("/api/v1/categories", createCategoryModule(dependencies.categoryRepository));
   if (dependencies.orderRepository) {
     if (!dependencies.paymentClient) throw new Error("Order module requires PaymentClient");

@@ -1,3 +1,6 @@
+import { createRedisResources } from "./database/redis.js";
+import { RedisProductCache } from "./modules/products/redis-product.cache.js";
+import { rateLimit, RedisRateLimiter } from "./middleware/rate-limit.js";
 import { createOidcVerifier } from "./auth/oidc.js";
 import { createAccessPolicy, disabledAccessPolicy } from "./auth/middleware.js";
 import { HttpPaymentClient } from "./modules/payments/payment.client.js";
@@ -12,7 +15,7 @@ import { PostgresOrderRepository } from "./modules/orders/postgres-order.reposit
 import type { OrderRepository } from "./modules/orders/order.repository.js";
 import { PostgresCategoryRepository } from "./modules/categories/postgres-category.repository.js";
 import { createApp } from "./app.js";
-import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig, loadAuthConfig } from "./config/env.js";
+import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig, loadAuthConfig, loadRedisConfig } from "./config/env.js";
 import { createPool, verifyDatabase } from "./database/pool.js";
 import { PostgresProductRepository } from "./modules/products/postgres-product.repository.js";
 import { startServer } from "./lifecycle.js";
@@ -23,11 +26,24 @@ async function main(): Promise<void> {
     loadDatabaseConfig(env.nodeEnv === "test" ? "test" : "application"),
   );
   let mongo: MongoResources | undefined;
+  let redis: Awaited<ReturnType<typeof createRedisResources>> | undefined;
+  let redisTestPrefix = "";
   let closed = false;
   const closeResources = async (): Promise<void> => {
     if (closed) return;
     closed = true;
+    if (redis && redisTestPrefix) {
+      try {
+        let cursor = "0";
+        do {
+          const result = await redis.commands.command(["SCAN", cursor, "MATCH", redisTestPrefix + "*", "COUNT", "100"]) as [string, string[]];
+          cursor = result[0];
+          if (result[1].length) await redis.commands.command(["DEL", ...result[1]]);
+        } while (cursor !== "0");
+      } catch { console.warn("Test Redis cleanup unavailable; owned keys expire by TTL."); }
+    }
     const results = await Promise.allSettled([
+      ...(redis ? [redis.close().then(() => { console.info("Redis client closed."); })] : []),
       pool.end().then(() => { console.info("PostgreSQL pool closed."); }),
       ...(mongo ? [mongo.client.close().then(() => { console.info("MongoDB client closed."); })] : []),
     ]);
@@ -57,7 +73,12 @@ async function main(): Promise<void> {
       orderRepository = new PostgresOrderRepository(pool);
       paymentWorkflow = new PostgresPaymentWorkflowRepository(pool);
     }
+    const redisConfig = loadRedisConfig();
+    redis = await createRedisResources(redisConfig.url);
+    redisTestPrefix = redisConfig.keyPrefix;
     const app = createApp({
+      productCache: new RedisProductCache(redis.commands, redisConfig.productTtlSeconds, redisConfig.keyPrefix),
+      rateLimiter: rateLimit(new RedisRateLimiter(redis.commands, redisConfig.rateWindowSeconds, redisConfig.rateMaxRequests, redisConfig.keyPrefix)),
       accessPolicy,
       productRepository: new PostgresProductRepository(pool),
       categoryRepository: new PostgresCategoryRepository(pool),

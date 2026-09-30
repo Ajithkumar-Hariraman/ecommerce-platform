@@ -1,3 +1,4 @@
+import type { ProductCache } from "./product.cache.js";
 import type { ProductListInput, ProductListQuery, ProductListResponse } from "./product-list.types.js";
 import type { CategoryRepository } from "../categories/category.repository.js";
 import { randomUUID } from "node:crypto";
@@ -15,6 +16,7 @@ export class ProductService {
   constructor(
     private readonly repository: ProductRepository,
     private readonly categories: CategoryRepository,
+    private readonly cache?: ProductCache,
   ) {}
 
   private validateFields(input: UpdateProductInput): UpdateProductInput {
@@ -149,8 +151,11 @@ export class ProductService {
   }
 
   async findById(id: string): Promise<Product> {
+    const cached = await this.cache?.get(id);
+    if (cached) return cached;
     const product = await this.repository.findById(id);
     if (!product) throw new AppError(404, "Product not found");
+    await this.cache?.set(product);
     return product;
   }
 
@@ -162,10 +167,11 @@ export class ProductService {
     const fields = this.validateFields(input);
     if (Object.keys(fields).length === 0)
       throw new AppError(400, "Update must contain at least one field");
-    const existing = await this.findById(id);
+    const existing = await this.repository.findById(id);
+    if (!existing) throw new AppError(404, "Product not found");
     await this.assertCategoryExists(fields.categoryId);
     if (fields.sku !== undefined) await this.assertUniqueSku(fields.sku, id);
-    return await this.save(
+    const saved = await this.save(
       {
         ...existing,
         ...fields,
@@ -173,10 +179,13 @@ export class ProductService {
       },
       false,
     );
+    await this.cache?.delete(id);
+    return saved;
   }
 
   async deleteById(id: string): Promise<void> {
     if (!(await this.repository.deleteById(id)))
       throw new AppError(404, "Product not found");
+    await this.cache?.delete(id);
   }
 }

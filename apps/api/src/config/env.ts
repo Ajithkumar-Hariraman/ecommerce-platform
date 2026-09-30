@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import { loadEnvFile } from "node:process";
 import { fileURLToPath } from "node:url";
@@ -152,4 +153,34 @@ export function loadAuthConfig(): AuthConfig {
     if(!audience.trim()||/\s/.test(audience))throw new Error();
   } catch {throw new Error("Valid OIDC_ISSUER and OIDC_AUDIENCE are required");}
   return {enabled:true,issuer,audience};
+}
+
+export interface RedisConfig {
+  url: string;
+  keyPrefix: string;
+  productTtlSeconds: number;
+  rateWindowSeconds: number;
+  rateMaxRequests: number;
+}
+export function loadRedisConfig(): RedisConfig {
+  loadLocalEnv();
+  const url = process.env.REDIS_URL ?? "redis://127.0.0.1:6381";
+  try {
+    const parsed = new URL(url);
+    if (!["redis:", "rediss:"].includes(parsed.protocol) || !parsed.hostname || parsed.hash || parsed.search) throw new Error();
+  } catch { throw new Error("Invalid REDIS_URL"); }
+  const positive = (name: string, fallback: number, max: number): number => {
+    const raw = process.env[name] ?? String(fallback);
+    const value = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1 || value > max)
+      throw new Error(`${name} must be an integer between 1 and ${max}`);
+    return value;
+  };
+  return {
+    url,
+    keyPrefix: loadEnv().nodeEnv === "test" ? `test:${randomUUID()}:` : "",
+    productTtlSeconds: positive("PRODUCT_CACHE_TTL_SECONDS", 60, 86400),
+    rateWindowSeconds: positive("RATE_LIMIT_WINDOW_SECONDS", 60, 3600),
+    rateMaxRequests: positive("RATE_LIMIT_MAX_REQUESTS", 100, 1000000),
+  };
 }
