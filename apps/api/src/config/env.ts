@@ -99,3 +99,23 @@ export function loadDatabaseConfig(
     password,
   };
 }
+
+export type OrderStorageConfig =
+  | { storage: "postgres" }
+  | { storage: "mongodb"; uri: string; databaseName: string };
+
+export function loadOrderStorageConfig(): OrderStorageConfig {
+  const env = loadEnv();
+  const storage = process.env.ORDER_STORAGE ?? "postgres";
+  if (storage === "postgres") return { storage };
+  if (storage !== "mongodb") throw new Error("Invalid ORDER_STORAGE: expected postgres or mongodb");
+  const uri = process.env.MONGODB_URI ?? "";
+  const databaseName = process.env.MONGODB_DB_NAME ?? "";
+  if (!/^mongodb(?:\+srv)?:\/\//.test(uri) || !databaseName.trim() || /[\s/\\."$]/.test(databaseName)) {
+    throw new Error("MongoDB configuration requires a valid MONGODB_URI and MONGODB_DB_NAME");
+  }
+  if (env.nodeEnv === "test" && databaseName !== "ecommerce_test") {
+    throw new Error("MongoDB tests require ecommerce_test");
+  }
+  return { storage, uri, databaseName };
+}

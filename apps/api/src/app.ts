@@ -1,3 +1,5 @@
+import { createOrderModule } from "./modules/orders/order.module.js";
+import type { OrderRepository } from "./modules/orders/order.repository.js";
 import { createCategoryModule } from "./modules/categories/category.module.js";
 import type { CategoryRepository } from "./modules/categories/category.repository.js";
 import express from "express";
@@ -8,6 +10,8 @@ import { createProductModule } from "./modules/products/product.module.js";
 import type { ProductRepository } from "./modules/products/product.repository.js";
 
 export interface AppDependencies {
+  // Optional only for existing isolated Product/Category test apps; runtime always supplies it.
+  orderRepository?: OrderRepository;
   productRepository: ProductRepository;
   categoryRepository: CategoryRepository;
   checkReady: () => Promise<void>;
@@ -25,6 +29,7 @@ export function createApp(dependencies: AppDependencies): Express {
   });
   app.use("/api/v1/products", createProductModule(dependencies.productRepository, dependencies.categoryRepository));
   app.use("/api/v1/categories", createCategoryModule(dependencies.categoryRepository));
+  if (dependencies.orderRepository) app.use("/api/v1/orders", createOrderModule(dependencies.orderRepository));
   app.use((_req, _res, next) => { next(new AppError(404, "Route not found")); });
   app.use(errorHandler);
   return app;

@@ -74,6 +74,23 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
   errors and partial success. No manual browser verification or personal mastery claimed.
 - This snapshot accompanies the streamed CSV import commit; pagination is unchanged.
 
+## Order runtime checkpoint (2026-09-30)
+- POST /api/v1/orders and GET /api/v1/orders/:id use one OrderService and repository contract.
+- ORDER_STORAGE defaults to postgres; mongodb selects MongoOrderRepository only.
+- PostgreSQL remains required for Products. Mongo URI/database are required only in Mongo mode.
+- Order creation computes safe integer line totals and total; initial state is CREATED,
+  paymentId null, version 1. No payment processing or status update HTTP endpoint exists.
+- Startup initializes Mongo indexes once; readiness checks PostgreSQL and, when selected,
+  Mongo ping. Shutdown drains HTTP before closing the pool and any Mongo client.
+- Typecheck/build and 132 fast tests passed; four real Order integration tests passed
+  in ecommerce_test, including service arithmetic, HTTP contracts and storage isolation.
+- One-off ecommerce_dev smoke checks returned POST 201 / GET 200 in both modes:
+  total 120000; PostgreSQL stored one order/two items, Mongo stored one embedded document.
+  Cross-store absence was verified and only the two smoke Orders were removed.
+- No in-memory Order persistence, dual write, authentication, payment, webhook or UI added.
+- Personal understanding remains unassessed. Local infra/compose.yaml remains excluded
+  from Git because it contains development credentials.
+
 ## Current limits / next boundary
 - Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
 - Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.
