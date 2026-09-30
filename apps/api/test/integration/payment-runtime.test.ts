@@ -18,7 +18,7 @@ for(const mode of ["postgres","mongodb"] as const) {
   const base=`http://127.0.0.1:${address.port}`;const secret=randomUUID()+randomUUID();
   const provider=await startProvider(base+"/api/v1/webhooks/payments",secret);
   let resumed: Awaited<ReturnType<typeof startProvider>> | undefined;
-  const child=spawn(process.execPath,["dist/server.js"],{env:{...process.env,NODE_ENV:"test",HOST:"127.0.0.1",PORT:String(address.port),ORDER_STORAGE:mode,
+  const child=spawn(process.execPath,["dist/server.js"],{env:{...process.env,AUTH_ENABLED:"false", NODE_ENV:"test",HOST:"127.0.0.1",PORT:String(address.port),ORDER_STORAGE:mode,
     MONGODB_URI:process.env.MONGODB_TEST_URI??"",MONGODB_DB_NAME:"ecommerce_test",PAYMENT_PROVIDER_BASE_URL:provider.baseUrl,PAYMENT_WEBHOOK_SECRET:secret},stdio:["ignore","pipe","pipe"]});
   const exited=once(child,"exit");let output="";child.stdout!.on("data",data=>output+=data);child.stderr!.on("data",()=>{});
   const ids:string[]=[];const events:string[]=[];

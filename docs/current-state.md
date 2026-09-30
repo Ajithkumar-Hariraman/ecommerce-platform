@@ -113,11 +113,29 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
   outbox, client POST /orders idempotency, payment authentication or commercial provider.
 - See [payment integration](payment-integration.md) for commands and distributed failure boundaries.
 
+## OIDC authentication checkpoint (2026-09-30)
+- AUTH_ENABLED defaults true; production forbids opt-out and requires HTTPS issuer.
+- Real Keycloak 26.7.4 realm ecommerce provides access tokens for ecommerce-api.
+- jose verifies RS256 signatures, issuer/audience, expiry and access-token claims with
+  cached rotating JWKS. Only audience-scoped client roles confer API permissions.
+- Product/Category reads require catalog reader/manager/admin; writes/import require
+  catalog manager/admin. Order reads require order reader/manager/admin; mutations
+  require order manager/admin. Health/readiness remain public; webhooks remain HMAC-only.
+- Typecheck/build passed; 145 fast tests and 25 selected integration/regression tests passed.
+- Real Keycloak/API observations: missing/invalid token 401, no-role token 403,
+  reader read 200, manager Product/Order create 201, HMAC-only provider callback 200.
+- Automated DB checks used ecommerce_test with test-owned cleanup. Existing Mongo/Redis
+  containers were left running unchanged; only Keycloak was started.
+- infra/compose.yaml now contains environment references only; local credentials live
+  in ignored infra/.env. apps/api/.env was not edited. No passwords or tokens committed.
+- Frontend login and customer/tenant object-level authorization remain out of scope.
+- Setup, commands and security limits: [authentication](authentication.md).
+
 ## Current limits / next boundary
 - Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
 - Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.
-- Not implemented: authentication, Redis, Kafka, microservices, Docker,
-  Kubernetes or AWS deployment/infrastructure.
+- Not implemented: application Redis/Kafka integration, microservices, Kubernetes or AWS deployment.
+- Local Docker infrastructure exists; it is not a production deployment configuration.
 - No next-phase feature is authorized by this snapshot.
 
 ## Details on demand

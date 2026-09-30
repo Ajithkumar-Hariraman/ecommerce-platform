@@ -55,7 +55,7 @@ for (const mode of ["postgres", "mongodb"] as const) {
       const address = probe.address(); assert.ok(address && typeof address !== "string");
       await new Promise<void>(resolve=>probe.close(()=>resolve()));
       child = spawn(process.execPath, ["dist/server.js"], {
-        env: {...process.env, NODE_ENV:"test", HOST:"127.0.0.1", PORT:String(address.port), ORDER_STORAGE:mode, PAYMENT_PROVIDER_BASE_URL:provider.baseUrl, PAYMENT_WEBHOOK_SECRET:secret,
+        env: {...process.env, AUTH_ENABLED:"false", NODE_ENV:"test", HOST:"127.0.0.1", PORT:String(address.port), ORDER_STORAGE:mode, PAYMENT_PROVIDER_BASE_URL:provider.baseUrl, PAYMENT_WEBHOOK_SECRET:secret,
           MONGODB_URI: mode === "mongodb" ? process.env.MONGODB_TEST_URI! : "",
           MONGODB_DB_NAME: mode === "mongodb" ? "ecommerce_test" : ""},
         stdio:["ignore","pipe","pipe"],

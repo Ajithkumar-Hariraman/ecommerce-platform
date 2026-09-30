@@ -1,0 +1,44 @@
+services:
+  mongodb:
+    image: mongo:8.0
+    container_name: ecommerce-mongodb
+    restart: unless-stopped
+
+    ports:
+      - "27018:27017"
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?Set MONGO_INITDB_ROOT_USERNAME in infra/.env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?Set MONGO_INITDB_ROOT_PASSWORD in infra/.env}
+
+    volumes:
+      - mongodb_data:/data/db
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    container_name: ecommerce-keycloak
+    command: ["start-dev", "--import-realm"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8180:8080"
+      - "127.0.0.1:9190:9000"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:?Set local admin username}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?Set local admin password}
+      ECOMMERCE_READER_CLIENT_SECRET: ${ECOMMERCE_READER_CLIENT_SECRET:?Set reader client secret}
+      ECOMMERCE_MANAGER_CLIENT_SECRET: ${ECOMMERCE_MANAGER_CLIENT_SECRET:?Set manager client secret}
+      ECOMMERCE_UNPRIVILEGED_CLIENT_SECRET: ${ECOMMERCE_UNPRIVILEGED_CLIENT_SECRET:?Set unprivileged client secret}
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000; printf \"GET /health/ready HTTP/1.0\\r\\n\\r\\n\" >&3; grep -q \"200\" <&3'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+
+volumes:
+  mongodb_data:
+  keycloak_data:

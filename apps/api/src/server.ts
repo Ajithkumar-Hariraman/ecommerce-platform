@@ -1,3 +1,5 @@
+import { createOidcVerifier } from "./auth/oidc.js";
+import { createAccessPolicy, disabledAccessPolicy } from "./auth/middleware.js";
 import { HttpPaymentClient } from "./modules/payments/payment.client.js";
 import { PostgresPaymentWorkflowRepository } from "./modules/payments/postgres-payment.repositories.js";
 import { MongoPaymentWorkflowRepository, ensurePaymentIndexes } from "./modules/payments/mongo-payment.repositories.js";
@@ -10,7 +12,7 @@ import { PostgresOrderRepository } from "./modules/orders/postgres-order.reposit
 import type { OrderRepository } from "./modules/orders/order.repository.js";
 import { PostgresCategoryRepository } from "./modules/categories/postgres-category.repository.js";
 import { createApp } from "./app.js";
-import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig } from "./config/env.js";
+import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig, loadAuthConfig } from "./config/env.js";
 import { createPool, verifyDatabase } from "./database/pool.js";
 import { PostgresProductRepository } from "./modules/products/postgres-product.repository.js";
 import { startServer } from "./lifecycle.js";
@@ -32,6 +34,9 @@ async function main(): Promise<void> {
     if (results.some(result => result.status === "rejected")) throw new Error("Resource shutdown failed");
   };
   try {
+    const authConfig = loadAuthConfig();
+    const accessPolicy = authConfig.enabled ? createAccessPolicy(await createOidcVerifier(authConfig)) : disabledAccessPolicy();
+    if (!authConfig.enabled) console.info("Authentication explicitly disabled for non-production runtime.");
     const orderConfig = loadOrderStorageConfig();
     const paymentConfig = loadPaymentConfig();
     try { await verifyDatabase(pool); }
@@ -53,6 +58,7 @@ async function main(): Promise<void> {
       paymentWorkflow = new PostgresPaymentWorkflowRepository(pool);
     }
     const app = createApp({
+      accessPolicy,
       productRepository: new PostgresProductRepository(pool),
       categoryRepository: new PostgresCategoryRepository(pool),
       orderRepository,

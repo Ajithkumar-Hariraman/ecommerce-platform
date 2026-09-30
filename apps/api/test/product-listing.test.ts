@@ -1,3 +1,4 @@
+import { disabledAccessPolicy } from "../src/auth/middleware.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
@@ -28,7 +29,7 @@ test("listing service guards direct caller bounds", async () => {
 test("paginated Product HTTP contract", async t => {
   const repository = new InMemoryProductRepository();
   const categories = new InMemoryCategoryRepository();
-  const server = createServer(createApp({ productRepository: repository, categoryRepository: categories, checkReady: async () => {} })).listen(0, "127.0.0.1");
+  const server = createServer(createApp({ accessPolicy: disabledAccessPolicy(), productRepository: repository, categoryRepository: categories, checkReady: async () => {} })).listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
   assert(address && typeof address !== "string");

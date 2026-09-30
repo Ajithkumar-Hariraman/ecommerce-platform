@@ -1,3 +1,4 @@
+import { disabledAccessPolicy } from "../../src/auth/middleware.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../../src/app.js";
@@ -7,7 +8,7 @@ import type { CategoryRepository } from "../../src/modules/categories/category.r
 export async function verifyImport(repository: ProductRepository, categories: CategoryRepository): Promise<void> {
   const prefix = "IMPORT-" + randomUUID();
   const skus = [prefix + "-A", prefix + "-B"];
-  const app = createApp({productRepository: repository, categoryRepository: categories, checkReady: async () => {}});
+  const app = createApp({ accessPolicy: disabledAccessPolicy(),productRepository: repository, categoryRepository: categories, checkReady: async () => {}});
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>(resolve => server.once("listening", resolve));
   const address = server.address();

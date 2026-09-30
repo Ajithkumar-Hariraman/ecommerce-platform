@@ -131,3 +131,25 @@ export function loadPaymentConfig(): {baseUrl: string; webhookSecret: string} {
   if (webhookSecret.length < 32 || webhookSecret.startsWith("REPLACE_")) throw new Error("PAYMENT_WEBHOOK_SECRET must contain at least 32 characters");
   return {baseUrl,webhookSecret};
 }
+
+export interface EnabledAuthConfig { enabled: true; issuer: string; audience: string; }
+export type AuthConfig = EnabledAuthConfig | {enabled:false};
+export function loadAuthConfig(): AuthConfig {
+  const env=loadEnv();
+  const value=process.env.AUTH_ENABLED ?? "true";
+  if(value!=="true"&&value!=="false")throw new Error("AUTH_ENABLED must be true or false");
+  if(value==="false") {
+    if(env.nodeEnv==="production")throw new Error("Authentication cannot be disabled in production");
+    return {enabled:false};
+  }
+  const issuer=process.env.OIDC_ISSUER ?? "";
+  const audience=process.env.OIDC_AUDIENCE ?? "";
+  try {
+    const url=new URL(issuer);
+    const local=["127.0.0.1","localhost","[::1]"].includes(url.hostname);
+    if(url.protocol!=="https:" && !(env.nodeEnv!=="production"&&local&&url.protocol==="http:"))throw new Error();
+    if(url.username||url.password||url.search||url.hash||issuer.endsWith("/"))throw new Error();
+    if(!audience.trim()||/\s/.test(audience))throw new Error();
+  } catch {throw new Error("Valid OIDC_ISSUER and OIDC_AUDIENCE are required");}
+  return {enabled:true,issuer,audience};
+}

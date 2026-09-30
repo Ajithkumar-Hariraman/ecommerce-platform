@@ -1,3 +1,4 @@
+import { disabledAccessPolicy } from "../../src/auth/middleware.js";
 import { verifyListing } from "../helpers/listing-contract.js";
 import { AppError } from "../../src/errors/app-error.js";
 import { DuplicateCategorySlugError } from "../../src/modules/categories/category.repository.js";
@@ -141,7 +142,7 @@ test("PostgreSQL HTTP CRUD and isolated connectivity failure/recovery", { timeou
   const proxyAddress = proxy.address();
   assert(proxyAddress && typeof proxyAddress !== "string");
   const pool = createPool({ ...config, host: "127.0.0.1", port: proxyAddress.port });
-  const app = createApp({ productRepository: new PostgresProductRepository(pool), categoryRepository: new PostgresCategoryRepository(pool), checkReady: () => verifyDatabase(pool) });
+  const app = createApp({ accessPolicy: disabledAccessPolicy(), productRepository: new PostgresProductRepository(pool), categoryRepository: new PostgresCategoryRepository(pool), checkReady: () => verifyDatabase(pool) });
   const server = httpServer(app).listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -198,7 +199,7 @@ test("real runtime startup failure and ordered PostgreSQL shutdown", { timeout: 
   loadDatabaseConfig("test");
   async function launch(extra: Record<string, string>) {
     const child = spawn(process.execPath, ["dist/server.js"], {
-      env: { ...process.env, NODE_ENV: "test", HOST: "127.0.0.1", ORDER_STORAGE: "postgres", PAYMENT_WEBHOOK_SECRET: randomUUID()+randomUUID(), ...extra },
+      env: { ...process.env, AUTH_ENABLED:"false", NODE_ENV: "test", HOST: "127.0.0.1", ORDER_STORAGE: "postgres", PAYMENT_WEBHOOK_SECRET: randomUUID()+randomUUID(), ...extra },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
@@ -352,7 +353,7 @@ test("Category persistence and Product foreign-key relationship", async t => {
       assert.equal((await products.findById(p.id))?.categoryId, c.id);
     });
     await t.test("PostgreSQL-backed HTTP Category and Product wiring shares the same Category repository", async () => {
-      const server = httpServer(createApp({
+      const server = httpServer(createApp({ accessPolicy: disabledAccessPolicy(),
         productRepository: products, categoryRepository: categories, checkReady: () => verifyDatabase(pool),
       })).listen(0, "127.0.0.1");
       await once(server, "listening");

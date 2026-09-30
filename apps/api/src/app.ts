@@ -1,3 +1,5 @@
+import { denyAccessPolicy } from "./auth/middleware.js";
+import type { AccessPolicy } from "./auth/middleware.js";
 import type { PaymentClient } from "./modules/payments/payment.client.js";
 import type { PaymentWorkflowRepository } from "./modules/payments/payment-workflow.js";
 import { createPaymentWebhookRouter } from "./modules/payments/payment-webhook.routes.js";
@@ -13,6 +15,7 @@ import { createProductModule } from "./modules/products/product.module.js";
 import type { ProductRepository } from "./modules/products/product.repository.js";
 
 export interface AppDependencies {
+  accessPolicy?: AccessPolicy;
   // Optional only for existing isolated Product/Category test apps; runtime always supplies it.
   orderRepository?: OrderRepository;
   paymentClient?: PaymentClient;
@@ -29,6 +32,10 @@ export function createApp(dependencies: AppDependencies): Express {
   if (dependencies.paymentWorkflow && dependencies.paymentWebhookSecret) {
     app.use("/api/v1/webhooks", createPaymentWebhookRouter(dependencies.paymentWorkflow, dependencies.paymentWebhookSecret));
   }
+  const access = dependencies.accessPolicy ?? denyAccessPolicy();
+  app.use("/api/v1/products", access.authenticate, access.catalog);
+  app.use("/api/v1/categories", access.authenticate, access.catalog);
+  app.use("/api/v1/orders", access.authenticate, access.orders);
   app.use(express.json({ limit: "100kb" }));
   app.get("/health", (_req, res) => { res.status(200).json({ status: "ok" }); });
   app.get("/ready", async (_req, res) => {

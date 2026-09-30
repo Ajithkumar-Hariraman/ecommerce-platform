@@ -1,0 +1,147 @@
+{
+  "realm": "ecommerce",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "client": {
+      "ecommerce-api": [
+        {
+          "name": "catalog_reader"
+        },
+        {
+          "name": "catalog_manager"
+        },
+        {
+          "name": "order_reader"
+        },
+        {
+          "name": "order_manager"
+        },
+        {
+          "name": "admin"
+        }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "ecommerce-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "ecommerce-cli-reader",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${ECOMMERCE_READER_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "ecommerce-api-access"
+      ]
+    },
+    {
+      "clientId": "ecommerce-cli-manager",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${ECOMMERCE_MANAGER_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "ecommerce-api-access"
+      ]
+    },
+    {
+      "clientId": "ecommerce-cli-unprivileged",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${ECOMMERCE_UNPRIVILEGED_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "ecommerce-api-access"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-ecommerce-cli-reader",
+      "enabled": true,
+      "serviceAccountClientId": "ecommerce-cli-reader",
+      "clientRoles": {
+        "ecommerce-api": [
+          "catalog_reader",
+          "order_reader"
+        ]
+      }
+    },
+    {
+      "username": "service-account-ecommerce-cli-manager",
+      "enabled": true,
+      "serviceAccountClientId": "ecommerce-cli-manager",
+      "clientRoles": {
+        "ecommerce-api": [
+          "catalog_manager",
+          "order_manager"
+        ]
+      }
+    },
+    {
+      "username": "service-account-ecommerce-cli-unprivileged",
+      "enabled": true,
+      "serviceAccountClientId": "ecommerce-cli-unprivileged",
+      "clientRoles": {
+        "ecommerce-api": []
+      }
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "ecommerce-api-access",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "ecommerce-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "ecommerce-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "ecommerce-api-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "config": {
+            "usermodel.clientRoleMapping.clientId": "ecommerce-api",
+            "claim.name": "resource_access.ecommerce-api.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ]
+}

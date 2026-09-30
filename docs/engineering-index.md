@@ -99,3 +99,21 @@ Reference: [payment integration](payment-integration.md).
 | DOWNSTREAM_FAILURE | Safe errors retain CREATED Order for retry |
 | RETRY_SAFETY | Same payment key/event ID; Mongo durable receipt repairs projections |
 | DEPENDENCY_INJECTION | OrderService receives PaymentClient and OrderRepository |
+
+## Identity and access control
+
+Reference: [OIDC resource-server authentication](authentication.md).
+
+| Pattern | Implementation |
+| --- | --- |
+| OAUTH2 | Client credentials for local service identities |
+| OIDC | Keycloak issuer discovery; Express resource server |
+| JWT | Asymmetrically signed access-token format |
+| JWKS | Cached remote public-key verification |
+| AUTHENTICATION | Bearer parsing and verified normalized principal |
+| AUTHORIZATION | Reusable role middleware before protected module dispatch |
+| RBAC | Audience-scoped catalog/order reader, manager and admin roles |
+| 401_VS_403 | Invalid identity versus insufficient role |
+| SERVICE_IDENTITY | Confidential Keycloak CLI clients with distinct grants |
+| TOKEN_VALIDATION | RS256, issuer, audience, required claims, expiry, access-token type |
+| KEY_ROTATION | Remote JWKS refresh with cache and cooldown |
