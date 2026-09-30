@@ -17,6 +17,7 @@
     "test:integration": "npm run build && npm run db:migrate:test && node --import tsx --test test/integration/*.test.ts"
   },
   "dependencies": {
+    "csv-parse": "^7.0.3",
     "express": "^5.2.1",
     "pg": "^8.23.0",
     "zod": "^4.6.1"

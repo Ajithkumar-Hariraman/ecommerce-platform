@@ -1,0 +1,11 @@
+sku,name,description,priceInMinorUnits,stock,status,categoryId
+PAG-001,Laptop Stand,Aluminium laptop stand,249900,15,ACTIVE,
+PAG-002,Wireless Mouse,Ergonomic wireless mouse,129900,40,ACTIVE,
+PAG-003,Mechanical Keyboard,RGB mechanical keyboard,349900,25,ACTIVE,
+PAG-004,USB-C Hub,7 in 1 USB-C hub,299900,30,ACTIVE,
+PAG-005,Webcam,Full HD webcam,219900,18,ACTIVE,
+PAG-006,Monitor Arm,Single monitor desk arm,399900,12,ACTIVE,
+PAG-007,Desk Lamp,LED desk lamp,159900,22,INACTIVE,
+PAG-008,Portable SSD,1TB portable SSD,799900,14,ACTIVE,
+PAG-009,Headset,USB noise cancelling headset,449900,20,INACTIVE,
+PAG-010,Office Chair,Ergonomic office chair,1299900,8,ACTIVE,

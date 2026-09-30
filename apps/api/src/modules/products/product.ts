@@ -14,6 +14,7 @@ export interface Product {
 }
 
 export interface CreateProductInput {
+  status?: ProductStatus;
   sku: string;
   name: string;
   description?: string | null;

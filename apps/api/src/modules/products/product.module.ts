@@ -4,9 +4,24 @@ import { ProductService } from "./product.service.js";
 import { ProductController } from "./product.controller.js";
 import { createProductRouter } from "./product.routes.js";
 
+import { ProductImportController } from "./import/product-import.controller.js";
+import { ProductImportService } from "./import/product-import.service.js";
+
 // Composition root: one repository per application, shared across its requests.
-export function createProductModule(repository: ProductRepository, categories: CategoryRepository) {
+export function createProductModule(
+  repository: ProductRepository,
+  categories: CategoryRepository,
+) {
   const service = new ProductService(repository, categories);
   const controller = new ProductController(service);
-  return createProductRouter(controller);
+
+  const productImportService = new ProductImportService((input) =>
+    service.create(input),
+  );
+
+  const productImportController = new ProductImportController(
+    productImportService,
+  );
+
+  return createProductRouter(controller, productImportController);
 }

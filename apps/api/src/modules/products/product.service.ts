@@ -112,7 +112,7 @@ export class ProductService {
         categoryId: fields.categoryId ?? null,
         priceInMinorUnits: fields.priceInMinorUnits,
         stock: fields.stock,
-        status: "ACTIVE",
+        status: fields.status ?? "ACTIVE",
         createdAt: now,
         updatedAt: now,
       },

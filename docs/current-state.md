@@ -61,6 +61,19 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
   unrelated rows, locks its transaction and rolls back its own writes. No TRUNCATE.
 - Expected error logs occur in intentional failure/recovery tests.
 
+## Product CSV import checkpoint (2026-09-30)
+- POST /api/v1/products/import accepts streamed text/csv; bounded parsing and batches
+  reuse ProductService.create and existing repositories. Imported status is preserved;
+  omitted status defaults to ACTIVE. Existing JSON create validation is unchanged.
+- Limits and partial-failure semantics: see [engineering index](engineering-index.md).
+- Typecheck/build passed; 130 fast tests and 34 focused PostgreSQL tests passed.
+- Full integration run: 34 passed, one existing status fixture failed because it
+  requires an empty products table and found one unrelated ecommerce_test row.
+  That row was left untouched; no development database was used by these tests.
+- Automated in-memory and PostgreSQL HTTP checks cover import persistence, safe
+  errors and partial success. No manual browser verification or personal mastery claimed.
+- This snapshot accompanies the streamed CSV import commit; pagination is unchanged.
+
 ## Current limits / next boundary
 - Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
 - Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.
