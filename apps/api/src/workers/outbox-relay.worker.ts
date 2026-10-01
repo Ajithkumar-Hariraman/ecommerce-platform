@@ -1,3 +1,4 @@
+import { installStructuredLogging } from "../logging.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadKafkaConfig, loadOutboxConfig } from "../config/env.js";
 import { createPool } from "../database/pool.js";
@@ -7,6 +8,8 @@ import { PostgresOutboxRepository } from "../outbox/postgres-outbox.repository.j
 import { MongoOutboxRepository, ensureOutboxIndex } from "../outbox/mongo-outbox.repository.js";
 import type { OutboxRepository } from "../outbox/outbox.js";
 import { OutboxRelay } from "../outbox/outbox-relay.js";
+
+installStructuredLogging();
 
 async function main(): Promise<void> {
   const env = loadEnv(); const storage = loadOrderStorageConfig(); const kafka = loadKafkaConfig(); const config = loadOutboxConfig();

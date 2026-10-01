@@ -221,3 +221,11 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
   integration checks against Compose PostgreSQL passed. Container smoke passed after API recreation.
 - CI verification exposed stale Nginx upstream DNS; request-time Docker DNS resolves recreated API containers.
 - No Git remote exists; remote workflow execution is unverified and no push occurred.
+
+## Platform readiness — checkpoint E
+- Project-locked GCP deployment script and operating guide added; no cloud resources changed.
+- Live deployment blocked: gcloud is absent from WSL/Windows PATH and no standard login configuration was found.
+- Account/project, billing/IAM, managed resources and cloud health remain unverified.
+- Production requires reachable HTTPS OIDC/payment services and external Redis; Kafka workers require a separate hosting decision.
+- JSON runtime logging verified. Full checks: 172 fast and 61 integration tests, typecheck/build passed.
+- See [GCP deployment](gcp-deployment.md) for plan, apply prerequisites and exact next actions.

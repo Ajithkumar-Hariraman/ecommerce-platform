@@ -1,3 +1,4 @@
+import { installStructuredLogging } from "./logging.js";
 import { createRedisResources } from "./database/redis.js";
 import { RedisProductCache } from "./modules/products/redis-product.cache.js";
 import { rateLimit, RedisRateLimiter } from "./middleware/rate-limit.js";
@@ -19,6 +20,8 @@ import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig,
 import { createPool, verifyDatabase } from "./database/pool.js";
 import { PostgresProductRepository } from "./modules/products/postgres-product.repository.js";
 import { startServer } from "./lifecycle.js";
+
+installStructuredLogging();
 
 async function main(): Promise<void> {
   const env = loadEnv();

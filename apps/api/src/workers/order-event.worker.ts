@@ -1,8 +1,11 @@
+import { installStructuredLogging } from "../logging.js";
 import { loadDatabaseConfig, loadEnv, loadKafkaConfig } from "../config/env.js";
 import { createPool } from "../database/pool.js";
 import { kafkaClient, kafkaProducer } from "../events/kafka.js";
 import { PostgresOrderNotificationRepository } from "../events/order-notification.repository.js";
 import { startOrderConsumer } from "../events/order-consumer.js";
+
+installStructuredLogging();
 
 async function main(): Promise<void> {
   const env = loadEnv(); const config = loadKafkaConfig();

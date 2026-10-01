@@ -201,3 +201,12 @@ See [container runtime](container-runtime.md).
 |---|---|
 | CI / CONTINUOUS_INTEGRATION | `.github/workflows/ci.yml`; complete service integration job |
 | CONTINUOUS_DELIVERY | Explicit promotion boundary; [delivery](continuous-delivery.md) |
+
+## Cloud deployment foundation
+| Concept | Implementation |
+|---|---|
+| GCP / CLOUD_RUN / CLOUD_SQL | Project-locked `infra/gcp/deploy.py`; migration job and SQL socket |
+| ARTIFACT_REGISTRY / SECRET_MANAGER / SERVICE_IDENTITY | Immutable digest, pinned secret versions, dedicated identity |
+| STRUCTURED_LOGGING | `apps/api/src/logging.ts`; JSON runtime entry-point logs |
+| HORIZONTAL_SCALING / STATELESS_SERVICE | Bounded instances/pool; external persistent stores |
+See [GCP deployment status and blockers](gcp-deployment.md).
