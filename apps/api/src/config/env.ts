@@ -227,3 +227,10 @@ export function loadOutboxConfig(): OutboxConfig {
   return {pollIntervalMs:integer("OUTBOX_POLL_INTERVAL_MS",1000,100,60000),batchSize:integer("OUTBOX_BATCH_SIZE",20,1,100),
     leaseMs:integer("OUTBOX_LEASE_MS",30000,5000,300000),maxAttempts:integer("OUTBOX_MAX_ATTEMPTS",10,1,100)};
 }
+
+export function loadDocsConfig(): boolean {
+  const env = loadEnv();
+  const value = process.env.DOCS_ENABLED ?? String(env.nodeEnv !== "production");
+  if (value !== "true" && value !== "false") throw new Error("DOCS_ENABLED must be true or false");
+  return value === "true";
+}

@@ -201,3 +201,9 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - No table-empty prerequisite, table lock, exclusions, or unrelated cleanup.
 - Full unfiltered verification: 168 fast tests and 61 integration tests passed; typecheck/build passed.
 - Automated persistence checks used ecommerce_test only.
+
+## Platform readiness — checkpoint B
+- OpenAPI 3.1 and locally served Swagger UI document existing routes, roles, HMAC, and response envelopes.
+- Runtime Zod input schemas are reused; router inventory and OpenAPI validation are tested.
+- Full verification: 170 fast tests, 61 integration tests, typecheck/build passed.
+- Documentation defaults off in production; see [API contract](api-contract.md).

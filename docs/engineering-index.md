@@ -181,3 +181,9 @@ Reference: [Transactional Outbox](transactional-outbox.md).
 | POISON_EVENT | FAILED record retained for explicit operational recovery |
 | IDEMPOTENT_CONSUMER | Unique notification event ID protects durable side effects |
 | DISTRIBUTED_TRANSACTION_BOUNDARY | Payment HTTP, DB and Kafka remain separate systems |
+
+## API documentation
+| Concept | Implementation |
+|---|---|
+| OPENAPI / API_CONTRACT | `apps/api/src/openapi.ts`; runtime Zod input schemas |
+| SWAGGER | Configurable `/docs/` and `/openapi.json`; see [API contract](api-contract.md) |

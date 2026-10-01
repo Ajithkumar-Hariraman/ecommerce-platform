@@ -1,3 +1,5 @@
+import swaggerUi from "swagger-ui-express";
+import { openApiDocument } from "./openapi.js";
 import type { RequestHandler } from "express";
 import type { ProductCache } from "./modules/products/product.cache.js";
 import { denyAccessPolicy } from "./auth/middleware.js";
@@ -17,6 +19,7 @@ import { createProductModule } from "./modules/products/product.module.js";
 import type { ProductRepository } from "./modules/products/product.repository.js";
 
 export interface AppDependencies {
+  docsEnabled?: boolean;
   accessPolicy?: AccessPolicy;
   productCache?: ProductCache;
   rateLimiter?: RequestHandler;
@@ -33,6 +36,10 @@ export interface AppDependencies {
 export function createApp(dependencies: AppDependencies): Express {
   const app = express();
   app.disable("x-powered-by");
+  if (dependencies.docsEnabled) {
+    app.get("/openapi.json", (_req, res) => res.json(openApiDocument));
+    app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument, {swaggerOptions:{persistAuthorization:false}}));
+  }
   if (dependencies.paymentWorkflow && dependencies.paymentWebhookSecret) {
     app.use("/api/v1/webhooks", createPaymentWebhookRouter(dependencies.paymentWorkflow, dependencies.paymentWebhookSecret));
   }

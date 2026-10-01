@@ -15,7 +15,7 @@ import { PostgresOrderRepository } from "./modules/orders/postgres-order.reposit
 import type { OrderRepository } from "./modules/orders/order.repository.js";
 import { PostgresCategoryRepository } from "./modules/categories/postgres-category.repository.js";
 import { createApp } from "./app.js";
-import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig, loadAuthConfig, loadRedisConfig } from "./config/env.js";
+import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig, loadAuthConfig, loadRedisConfig, loadDocsConfig } from "./config/env.js";
 import { createPool, verifyDatabase } from "./database/pool.js";
 import { PostgresProductRepository } from "./modules/products/postgres-product.repository.js";
 import { startServer } from "./lifecycle.js";
@@ -78,6 +78,7 @@ async function main(): Promise<void> {
     redis = await createRedisResources(redisConfig.url);
     redisTestPrefix = redisConfig.keyPrefix;
     const app = createApp({
+      docsEnabled: loadDocsConfig(),
       productCache: new RedisProductCache(redis.commands, redisConfig.productTtlSeconds, redisConfig.keyPrefix),
       rateLimiter: rateLimit(new RedisRateLimiter(redis.commands, redisConfig.rateWindowSeconds, redisConfig.rateMaxRequests, redisConfig.keyPrefix)),
       accessPolicy,

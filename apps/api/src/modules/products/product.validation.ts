@@ -5,7 +5,7 @@ import { AppError } from "../../errors/app-error.js";
 import type { CreateProductInput, UpdateProductInput } from "./product.js";
 
 // Boundary schemas validate shape/types; service owns normalization and rules.
-const createSchema = z.strictObject({
+export const createSchema = z.strictObject({
   sku: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
@@ -13,13 +13,13 @@ const createSchema = z.strictObject({
   priceInMinorUnits: z.number(),
   stock: z.number(),
 });
-const updateSchema = createSchema.partial().extend({
+export const updateSchema = createSchema.partial().extend({
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
 const positiveIntegerQuery = z.string().regex(/^[0-9]+$/).transform(Number)
   .refine(value => Number.isSafeInteger(value) && value >= 1);
-const listQuerySchema = z.strictObject({
+export const listQuerySchema = z.strictObject({
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   page: positiveIntegerQuery.optional(),
   limit: positiveIntegerQuery.refine(value => value <= 100).optional(),

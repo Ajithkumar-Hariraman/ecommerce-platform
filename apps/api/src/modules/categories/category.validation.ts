@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AppError } from "../../errors/app-error.js";
 import type { CreateCategoryInput } from "./category.js";
 
-const createSchema = z.strictObject({
+export const createSchema = z.strictObject({
   slug: z.string(), name: z.string(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });

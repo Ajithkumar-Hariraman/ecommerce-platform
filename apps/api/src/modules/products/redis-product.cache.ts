@@ -3,7 +3,7 @@ import type { RedisCommands, OperationalLog } from "../../database/redis.js";
 import type { Product } from "./product.js";
 import type { ProductCache } from "./product.cache.js";
 
-const cachedProduct = z.strictObject({
+export const cachedProduct = z.strictObject({
   id: z.uuid(), sku: z.string().min(1), name: z.string().min(1),
   description: z.string().nullable(), categoryId: z.uuid().nullable(),
   priceInMinorUnits: z.number().int().positive(), stock: z.number().int().nonnegative(),
