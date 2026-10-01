@@ -5,7 +5,6 @@ import { orderPaid, orderPaidSchema } from "../src/events/order-paid.js";
 import { KafkaEventPublisher } from "../src/events/kafka.js";
 import { OrderEventHandler } from "../src/events/order-event.handler.js";
 import { TransientProcessingError } from "../src/events/order-notification.repository.js";
-import { PublishingPaymentWorkflow } from "../src/modules/payments/publishing-payment.workflow.js";
 import type { ProducerRecord } from "kafkajs";
 import type { KafkaConfig } from "../src/config/env.js";
 const config: KafkaConfig = {brokers: ["127.0.0.1:9093"], clientId: "unit", orderTopic: "events", retryTopic: "retry", dlqTopic: "dlq", consumerGroup: "unit", maxRetries: 3};
@@ -16,13 +15,6 @@ test("versioned OrderPaid contract and Kafka order key", async () => {
   const sent: ProducerRecord[] = []; const producer = {async send(record: ProducerRecord) {sent.push(record); return [];}};
   await new KafkaEventPublisher(producer, "events").publish(event);
   assert.equal(sent[0]!.messages[0]!.key, event.aggregateId); assert.deepEqual(JSON.parse(String(sent[0]!.messages[0]!.value)), event);
-});
-test("post-commit publication preserves state on failure; duplicate and failed payment do not publish", async () => {
-  let persisted = false; let count = 0; let applied = true;
-  const workflow = new PublishingPaymentWorkflow({async applyEvent() {persisted = true; return applied;}}, {async publish() {assert.ok(persisted); count++; throw new Error("private");}});
-  await workflow.applyEvent(payment()); assert.equal(count, 1);
-  applied = false; await workflow.applyEvent(payment()); assert.equal(count, 1);
-  applied = true; await workflow.applyEvent({...payment(), type: "payment.failed"}); assert.equal(count, 1);
 });
 test("validation, retry counts, permanent rejection and safe DLQ metadata", async t => {
   const sent: ProducerRecord[] = []; let attempts = 0; let transient = true;

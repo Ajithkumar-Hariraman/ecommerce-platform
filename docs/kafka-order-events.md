@@ -1,5 +1,10 @@
 # Kafka Order event processing
 
+Publication now uses the [Transactional Outbox](transactional-outbox.md). The
+consumer, versioned contract, retry/DLQ topics and offsets below remain applicable.
+The original direct-publication boundary described here is historical; API startup
+no longer creates a Kafka producer. Run worker:outbox alongside worker:orders.
+
 ## Runtime and commands
 
 A dedicated Apache Kafka 4.1.2 broker runs in KRaft combined broker/controller

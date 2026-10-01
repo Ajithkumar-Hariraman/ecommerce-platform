@@ -162,10 +162,31 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - DB commit then Kafka publish retains an explicit event-loss gap; no outbox added.
   See [Kafka contracts and operating boundaries](kafka-order-events.md).
 
+## Transactional outbox checkpoint (2026-10-01)
+- API direct Kafka publication removed; webhook commits durable publication intent.
+- PostgreSQL PAID/audit/provider receipt/outbox share one transaction (migration 006).
+- Mongo standalone atomically embeds one outbox record with status/canonical receipt;
+  separate audit/provider collections remain repairable projections, not one transaction.
+- Separate storage-selectable relay uses claim tokens/expiry, SKIP LOCKED or atomic
+  findOneAndUpdate, bounded polling, durable backoff and retained FAILED state.
+- Kafka contract/key remain stable; send-before-ack crash can redeliver. Notification
+  deduplication still produces one durable side effect. No exactly-once claim.
+- PostgreSQL/Mongo real HTTP recovery and claim contention checks passed. Kafka was
+  made unreachable via a closed endpoint, without stopping the shared broker.
+- Automatic retention cleanup is not implemented; published-only 30-day operational
+  policy and FAILED recovery are documented in [outbox operations](transactional-outbox.md).
+- Typecheck/build and 168 fast tests passed; 57 selected real integration tests passed.
+- The existing PostgreSQL status collection fixture requires an empty products table;
+  it failed on one unrelated existing row and was excluded from the final scoped run.
+  That row was left untouched; the unfiltered integration suite is not certified green.
+- Direct mongosh inspection observed test-owned PAID Orders with PENDING and then
+  PUBLISHED embedded outbox state. All automated database data used ecommerce_test.
+- Personal understanding remains unassessed; this snapshot accompanies the outbox commit.
+
 ## Current limits / next boundary
 - Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
 - Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.
-- Not implemented: transactional outbox, microservices, Kubernetes or AWS deployment.
+- Not implemented: microservices, Kubernetes or AWS deployment.
 - Local Docker infrastructure exists; it is not a production deployment configuration.
 - No next-phase feature is authorized by this snapshot.
 

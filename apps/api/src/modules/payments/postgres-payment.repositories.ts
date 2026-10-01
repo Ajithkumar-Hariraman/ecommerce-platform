@@ -1,3 +1,5 @@
+import { orderPaid } from "../../events/order-paid.js";
+import { insertPostgresOutbox } from "../../outbox/postgres-outbox.repository.js";
 import type { Pool, PoolClient } from "pg";
 import { AppError } from "../../errors/app-error.js";
 import { webhookAudit } from "./payment-workflow.js";
@@ -40,6 +42,7 @@ export class PostgresPaymentWorkflowRepository implements PaymentWorkflowReposit
         if (updated.rowCount !== 1) throw new AppError(409, "Order update conflict");
         await new PostgresOrderAuditRepository(client).append(audit);
         await events.record(event.eventId);
+        if (event.type === "payment.succeeded") await insertPostgresOutbox(client,orderPaid(event));
       }
       await client.query("COMMIT");
       return applied;

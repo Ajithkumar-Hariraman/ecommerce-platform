@@ -215,3 +215,15 @@ export function loadKafkaConfig(): KafkaConfig {
   }
   return config;
 }
+
+export interface OutboxConfig { pollIntervalMs: number; batchSize: number; leaseMs: number; maxAttempts: number; }
+export function loadOutboxConfig(): OutboxConfig {
+  loadLocalEnv();
+  const integer = (name: string, fallback: number, min: number, max: number) => {
+    const raw = process.env[name] ?? String(fallback); const n = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(n) || n<min || n>max) throw new Error("Invalid " + name);
+    return n;
+  };
+  return {pollIntervalMs:integer("OUTBOX_POLL_INTERVAL_MS",1000,100,60000),batchSize:integer("OUTBOX_BATCH_SIZE",20,1,100),
+    leaseMs:integer("OUTBOX_LEASE_MS",30000,5000,300000),maxAttempts:integer("OUTBOX_MAX_ATTEMPTS",10,1,100)};
+}

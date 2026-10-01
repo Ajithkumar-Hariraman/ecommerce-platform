@@ -50,6 +50,6 @@ test("real Keycloak service identities protect API while HMAC provider callback 
   child.kill("SIGTERM");assert.equal((await exited)[0],0);
  }finally{
   if(child.exitCode===null){child.kill("SIGKILL");await exited;}await provider.cleanup();
-  try{await pool.query("DELETE FROM processed_webhook_events WHERE event_id=ANY($1::uuid[])",[events]);await pool.query("DELETE FROM orders WHERE id=ANY($1::uuid[])",[orders]);await pool.query("DELETE FROM products WHERE id=ANY($1::uuid[])",[products]);}finally{await pool.end();}
+  try{await pool.query("DELETE FROM outbox_events WHERE event_id=ANY($1::uuid[])",[events]);await pool.query("DELETE FROM processed_webhook_events WHERE event_id=ANY($1::uuid[])",[events]);await pool.query("DELETE FROM orders WHERE id=ANY($1::uuid[])",[orders]);await pool.query("DELETE FROM products WHERE id=ANY($1::uuid[])",[products]);}finally{await pool.end();}
  }
 });

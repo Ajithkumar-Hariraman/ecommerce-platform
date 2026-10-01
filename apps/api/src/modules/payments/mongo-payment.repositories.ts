@@ -1,3 +1,7 @@
+import { orderPaid } from "../../events/order-paid.js";
+import { pendingOutbox } from "../../outbox/outbox.js";
+import type { OutboxEvent } from "../../outbox/outbox.js";
+import { ensureOutboxIndex } from "../../outbox/mongo-outbox.repository.js";
 import type { Db } from "mongodb";
 import { AppError } from "../../errors/app-error.js";
 import type { MongoOrderDocument } from "../orders/mongo-order.document.js";
@@ -6,7 +10,7 @@ import type { OrderAudit, OrderAuditRepository, PaymentEvent, PaymentWorkflowRep
 
 type EventDocument = { _id: string; identity: string; processedAt: Date | null };
 type Receipt = OrderAudit & {identity: string};
-type OrderDocument = MongoOrderDocument & {paymentReceipt?: Receipt};
+type OrderDocument = MongoOrderDocument & {paymentReceipt?: Receipt; outbox?: OutboxEvent};
 export class MongoOrderAuditRepository implements OrderAuditRepository {
   constructor(private readonly db: Db) {}
   async append(audit: OrderAudit): Promise<void> {
@@ -46,7 +50,7 @@ export class MongoPaymentWorkflowRepository implements PaymentWorkflowRepository
       const audit = webhookAudit(event,order);
       const proposed: Receipt = {...audit,identity:JSON.stringify(event)};
       const result = await collection.updateOne({_id:event.orderId,version:order.version,status:"PAYMENT_PENDING",paymentId:event.paymentId},
-        {$set:{status:audit.toStatus,updatedAt:audit.changedAt,paymentReceipt:proposed},$inc:{version:1}});
+        {$set:{status:audit.toStatus,updatedAt:audit.changedAt,paymentReceipt:proposed,...(event.type === "payment.succeeded" ? {outbox:pendingOutbox(orderPaid(event),audit.changedAt)} : {})},$inc:{version:1}});
       if (result.matchedCount === 1) receipt = proposed;
       else {
         order = await collection.findOne({_id:event.orderId});
@@ -64,6 +68,7 @@ export class MongoPaymentWorkflowRepository implements PaymentWorkflowRepository
   }
 }
 export async function ensurePaymentIndexes(db: Db): Promise<void> {
+  await ensureOutboxIndex(db);
   await db.collection("order_status_history").createIndex({orderId:1,changedAt:1},{name:"order_history_order_changed_idx"});
   // createCollection preserves the built-in unique _id index without speculative indexes.
   if (!await db.listCollections({name:"processed_webhook_events"}).hasNext()) {

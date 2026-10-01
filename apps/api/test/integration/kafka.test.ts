@@ -77,14 +77,14 @@ test("real Keycloak Order payment publishes to separate Kafka worker", {skip: !p
   const provider = await startProvider(base + "/api/v1/webhooks/payments", secret);
   const env = {...process.env, NODE_ENV: "test", AUTH_ENABLED: "true", OIDC_ISSUER: process.env.OIDC_TEST_ISSUER!, OIDC_AUDIENCE: "ecommerce-api", HOST: "127.0.0.1", PORT: String(address.port), ORDER_STORAGE: "postgres", PAYMENT_PROVIDER_BASE_URL: provider.baseUrl, PAYMENT_WEBHOOK_SECRET: secret,
     KAFKA_ORDER_TOPIC: f.c.orderTopic, KAFKA_ORDER_RETRY_TOPIC: f.c.retryTopic, KAFKA_ORDER_DLQ_TOPIC: f.c.dlqTopic, KAFKA_ORDER_CONSUMER_GROUP: f.c.consumerGroup};
-  const children = ["dist/server.js", "dist/workers/order-event.worker.js"].map(path => {
+  const children = ["dist/server.js", "dist/workers/order-event.worker.js", "dist/workers/outbox-relay.worker.js"].map(path => {
     const child = spawn(process.execPath, [path], {env, stdio: ["ignore", "pipe", "pipe"]}); let output = "";
     child.stdout!.on("data", d => output += d); child.stderr!.on("data", () => {});
     return {child, exited: once(child, "exit"), output: () => output};
   });
   let orderId: string | undefined; let eventId: string | undefined;
   try {
-    await until(async () => children[0]!.output().includes("API listening") && children[1]!.output().includes("Order worker started"), "API and worker startup");
+    await until(async () => children[0]!.output().includes("API listening") && children[1]!.output().includes("Order worker started") && children[2]!.output().includes("Outbox relay started"), "API and worker startup");
     const tokenResponse = await fetch(env.OIDC_ISSUER + "/protocol/openid-connect/token", {method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}, body: new URLSearchParams({grant_type: "client_credentials", client_id: "ecommerce-cli-manager", client_secret: process.env.ECOMMERCE_MANAGER_CLIENT_SECRET!})});
     assert.equal(tokenResponse.status, 200); const token = (await tokenResponse.json()).access_token;
     const created = await fetch(base + "/api/v1/orders", {method: "POST", headers: {Authorization: "Bearer " + token, "Content-Type": "application/json"}, body: JSON.stringify({customerId: randomUUID(), items: [{productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 100}]})});
@@ -97,12 +97,12 @@ test("real Keycloak Order payment publishes to separate Kafka worker", {skip: !p
     await until(async () => children[1]!.output().includes("duplicate"), "worker duplicate");
     assert.equal((await pool.query("SELECT count(*) FROM order_notifications WHERE event_id=$1", [eventId])).rows[0].count, "1");
     for (const c of children) {c.child.kill("SIGTERM"); assert.equal((await c.exited)[0], 0);}
-    assert.match(children[0]!.output(), /Kafka producer disconnected/); assert.match(children[1]!.output(), /Order worker resources closed/);
+    assert.match(children[2]!.output(), /Outbox relay resources closed/); assert.match(children[1]!.output(), /Order worker resources closed/);
     console.info("Real Keycloak -> Order201 pending -> provider HMAC -> PAID -> Kafka OrderPaid -> separate worker -> one durable notification; duplicate + graceful shutdown PASS");
   } finally {
     for (const c of children) if (c.child.exitCode === null) {c.child.kill("SIGKILL"); await c.exited;}
     await provider.cleanup();
-    if (eventId) {await pool.query("DELETE FROM order_notifications WHERE event_id=$1", [eventId]); await pool.query("DELETE FROM processed_webhook_events WHERE event_id=$1", [eventId]);}
+    if (eventId) {await pool.query("DELETE FROM outbox_events WHERE event_id=$1", [eventId]); await pool.query("DELETE FROM order_notifications WHERE event_id=$1", [eventId]); await pool.query("DELETE FROM processed_webhook_events WHERE event_id=$1", [eventId]);}
     if (orderId) await pool.query("DELETE FROM orders WHERE id=$1", [orderId]);
     await pool.end(); await f.close();
   }

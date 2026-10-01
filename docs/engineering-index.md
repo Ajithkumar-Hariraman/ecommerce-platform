@@ -161,4 +161,23 @@ Reference: [Kafka Order event processing](kafka-order-events.md).
 | PARTITION_ORDERING | Sequential per-partition handling; no cross-topic guarantee |
 | CONSUMER_REBALANCE | Group redistributes partitions; committed offsets resume |
 | DISTRIBUTED_FAILURE | Database commit and Kafka publish are separate operations |
-| TRANSACTIONAL_OUTBOX | Next separate feature; not implemented in this checkpoint |
+| TRANSACTIONAL_OUTBOX | Atomic business/event intent plus separate durable relay |
+
+## Transactional outbox delivery
+
+Reference: [Transactional Outbox](transactional-outbox.md).
+
+| Concept | Implementation |
+| --- | --- |
+| TRANSACTIONAL_OUTBOX | PostgreSQL transaction or Mongo single-document update |
+| DUAL_WRITE_PROBLEM | Request no longer commits DB then directly publishes Kafka |
+| AT_LEAST_ONCE | Send-before-ack crash can redeliver the stable event ID |
+| OUTBOX_RELAY | Separate process selects the configured Order storage |
+| OUTBOX_POLLING | Bounded work per poll, configurable wait |
+| SKIP_LOCKED | PostgreSQL concurrent claims avoid selecting locked rows |
+| DURABLE_EVENT | Pending intent survives process/network failure |
+| EVENTUAL_CONSISTENCY | Kafka/notification state follows committed Order state |
+| RETRY_BACKOFF | Durable exponential schedule capped at 60 seconds |
+| POISON_EVENT | FAILED record retained for explicit operational recovery |
+| IDEMPOTENT_CONSUMER | Unique notification event ID protects durable side effects |
+| DISTRIBUTED_TRANSACTION_BOUNDARY | Payment HTTP, DB and Kafka remain separate systems |

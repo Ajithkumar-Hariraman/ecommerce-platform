@@ -80,7 +80,7 @@ for(const mode of ["postgres","mongodb"] as const) {
     if(child.exitCode===null){child.kill("SIGKILL");await exited;}
     await resumed?.cleanup();await provider.cleanup();
     try {
-      await pool.query("DELETE FROM processed_webhook_events WHERE event_id=ANY($1::uuid[])",[events]);
+      await pool.query("DELETE FROM outbox_events WHERE event_id=ANY($1::uuid[])",[events]);await pool.query("DELETE FROM processed_webhook_events WHERE event_id=ANY($1::uuid[])",[events]);
       await pool.query("DELETE FROM orders WHERE id=ANY($1::uuid[])",[ids]);
       if(mongo){await mongo.db.collection("order_status_history").deleteMany({orderId:{$in:ids}});await mongo.db.collection<{_id:string}>("processed_webhook_events").deleteMany({_id:{$in:events}});await mongo.db.collection<{_id:string}>("orders").deleteMany({_id:{$in:ids}});}
     } finally {await pool.end();await mongo?.client.close();}
