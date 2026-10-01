@@ -214,3 +214,10 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Host and Compose PostgreSQL are separate; existing infrastructure volumes preserved.
 - Full checks: 171 fast tests, 61 integration tests, typecheck/build and image builds passed.
 - Local HTTP OIDC opt-in is forbidden in production. See [container runtime](container-runtime.md).
+
+## Platform readiness — checkpoint D
+- GitHub Actions fast and real-service integration jobs added; no automatic deployment.
+- actionlint, private CI configuration generation, frontend CI commands and all 61
+  integration checks against Compose PostgreSQL passed. Container smoke passed after API recreation.
+- CI verification exposed stale Nginx upstream DNS; request-time Docker DNS resolves recreated API containers.
+- No Git remote exists; remote workflow execution is unverified and no push occurred.

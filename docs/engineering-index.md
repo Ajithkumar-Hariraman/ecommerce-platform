@@ -195,3 +195,9 @@ Reference: [Transactional Outbox](transactional-outbox.md).
 | CONTAINER_NETWORKING | Compose service DNS; internal Kafka listener; web /api proxy |
 | HEALTH_CHECK | Dependency health and completed migration/topic jobs |
 See [container runtime](container-runtime.md).
+
+## Delivery automation
+| Concept | Implementation |
+|---|---|
+| CI / CONTINUOUS_INTEGRATION | `.github/workflows/ci.yml`; complete service integration job |
+| CONTINUOUS_DELIVERY | Explicit promotion boundary; [delivery](continuous-delivery.md) |

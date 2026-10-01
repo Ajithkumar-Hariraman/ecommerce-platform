@@ -63,3 +63,6 @@ PostgreSQL/Mongo ping, Redis cache/invalidation, provider HMAC, outbox and Kafka
 checks passed. Verification used the Compose ecommerce_test database.
 
 [Compose dependency conditions](https://docs.docker.com/compose/how-tos/startup-order/).
+
+Nginx uses Docker DNS resolution at request time so API container recreation does not
+leave the web proxy pointing to an obsolete container IP. CI restart verification covers this path.
