@@ -15,7 +15,8 @@ export interface WebhookEventRepository {
   isProcessed(eventId: string): Promise<boolean>;
   record(eventId: string): Promise<void>;
 }
-export interface PaymentWorkflowRepository { applyEvent(event: PaymentEvent): Promise<void>; }
+// True means a durable transition/projection was applied; false means already processed.
+export interface PaymentWorkflowRepository { applyEvent(event: PaymentEvent): Promise<boolean>; }
 export function assertTransition(from: OrderStatus, to: OrderStatus): void {
   if ((from === "CREATED" && to === "PAYMENT_PENDING") ||
       (from === "PAYMENT_PENDING" && (to === "PAID" || to === "PAYMENT_FAILED"))) return;

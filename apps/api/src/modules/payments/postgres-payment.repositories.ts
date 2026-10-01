@@ -22,14 +22,15 @@ export class PostgresWebhookEventRepository implements WebhookEventRepository {
 }
 export class PostgresPaymentWorkflowRepository implements PaymentWorkflowRepository {
   constructor(private readonly pool: Pool) {}
-  async applyEvent(event: PaymentEvent): Promise<void> {
+  async applyEvent(event: PaymentEvent): Promise<boolean> {
     const client = await this.pool.connect(); let discard = false;
     try {
       await client.query("BEGIN");
       // Serialize the same event even when delivered concurrently for different orders.
       await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[event.eventId]);
       const events = new PostgresWebhookEventRepository(client);
-      if (!await events.isProcessed(event.eventId)) {
+      const applied = !await events.isProcessed(event.eventId);
+      if (applied) {
         const row = (await client.query<{status: OrderStatus; payment_id: string | null; version: number}>(
           "SELECT status,payment_id,version FROM orders WHERE id=$1 FOR UPDATE",[event.orderId])).rows[0];
         if (!row) throw new AppError(404, "Order not found");
@@ -41,6 +42,7 @@ export class PostgresPaymentWorkflowRepository implements PaymentWorkflowReposit
         await events.record(event.eventId);
       }
       await client.query("COMMIT");
+      return applied;
     } catch(error) {
       try { await client.query("ROLLBACK"); } catch { discard = true; }
       throw error;

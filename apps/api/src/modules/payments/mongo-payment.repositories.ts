@@ -34,10 +34,10 @@ export class MongoWebhookEventRepository implements WebhookEventRepository {
 }
 export class MongoPaymentWorkflowRepository implements PaymentWorkflowRepository {
   constructor(private readonly db: Db) {}
-  async applyEvent(event: PaymentEvent): Promise<void> {
+  async applyEvent(event: PaymentEvent): Promise<boolean> {
     const events = new MongoWebhookEventRepository(this.db);
     await events.claim(event);
-    if (await events.isProcessed(event.eventId)) return;
+    if (await events.isProcessed(event.eventId)) return false;
     const collection = this.db.collection<OrderDocument>("orders");
     let order = await collection.findOne({_id:event.orderId});
     if (!order) throw new AppError(404,"Order not found");
@@ -60,6 +60,7 @@ export class MongoPaymentWorkflowRepository implements PaymentWorkflowRepository
     const {identity: _identity,...audit} = receipt;
     await new MongoOrderAuditRepository(this.db).append(audit);
     await events.record(event.eventId);
+    return true;
   }
 }
 export async function ensurePaymentIndexes(db: Db): Promise<void> {

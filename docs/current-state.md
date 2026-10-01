@@ -146,10 +146,26 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - No personal understanding claim. This snapshot accompanies the Redis feature commit;
   no merge or push. See [Redis behavior and boundaries](redis-cache-rate-limit.md).
 
+## Kafka Order event checkpoint (2026-10-01)
+- Apache Kafka 4.1.2 KRaft runs as ecommerce-kafka; WSL 9093 maps container 9092,
+  with separate internal kafka:19092 listener. Three Order topics have three partitions each.
+- Durable PAID webhook transitions publish version 1 OrderPaid keyed by Order UUID.
+- Separate worker persists a PostgreSQL notification/consumer receipt atomically,
+  including when Order runtime uses Mongo. Migration 005 applied to dev and test.
+- Manual next-offset commits follow processing or acknowledged retry/DLQ routing.
+- Real duplicate, lock-timeout retry/recovery, exhausted retry DLQ, broker metadata,
+  authenticated Order/provider/API/worker flow and graceful shutdown checks passed.
+- Typecheck/build and 162 fast tests passed; two Kafka integration tests and 48
+  selected Redis/OIDC/payment/Order/Product/Category/PostgreSQL regressions passed.
+- Automated data uses ecommerce_test and unique Kafka topics/groups/event IDs.
+- No personal understanding claim. This snapshot accompanies the Kafka feature commit.
+- DB commit then Kafka publish retains an explicit event-loss gap; no outbox added.
+  See [Kafka contracts and operating boundaries](kafka-order-events.md).
+
 ## Current limits / next boundary
 - Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
 - Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.
-- Not implemented: Kafka integration, microservices, Kubernetes or AWS deployment.
+- Not implemented: transactional outbox, microservices, Kubernetes or AWS deployment.
 - Local Docker infrastructure exists; it is not a production deployment configuration.
 - No next-phase feature is authorized by this snapshot.
 

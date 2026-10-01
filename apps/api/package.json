@@ -14,12 +14,15 @@
     "test": "npm run build && node --import tsx --test test/*.test.ts",
     "db:migrate": "tsx src/database/migrate.ts",
     "db:migrate:test": "tsx src/database/migrate.ts --test",
-    "test:integration": "npm run build && npm run db:migrate:test && node --import tsx --test test/integration/*.test.ts"
+    "test:integration": "npm run build && npm run db:migrate:test && node --import tsx --test test/integration/*.test.ts",
+    "kafka:topics": "tsx src/events/setup-topics.ts",
+    "worker:orders": "node --enable-source-maps dist/workers/order-event.worker.js"
   },
   "dependencies": {
     "csv-parse": "^7.0.3",
     "express": "^5.2.1",
     "jose": "^6.2.12",
+    "kafkajs": "^2.2.4",
     "mongodb": "^7.7.0",
     "pg": "^8.23.0",
     "redis": "^6.2.1",

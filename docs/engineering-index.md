@@ -137,3 +137,28 @@ Reference: [Redis cache and distributed rate limiting](redis-cache-rate-limit.md
 | 429_TOO_MANY_REQUESTS | Safe error envelope with Retry-After |
 | FAIL_OPEN | Cache/limiter failure preserves availability and RBAC |
 | SOURCE_OF_TRUTH | PostgreSQL authoritative; Redis temporary derived state |
+
+## Kafka Order events
+
+Reference: [Kafka Order event processing](kafka-order-events.md).
+
+| Concept | Implementation |
+| --- | --- |
+| KAFKA | Dedicated real Apache KRaft broker and KafkaJS |
+| TOPIC | Primary, retry and dead-letter streams |
+| PARTITION | Three ordered shards per topic |
+| OFFSET | Explicit next-offset commit after durable handling |
+| MESSAGE_KEY | Order UUID routes related events consistently |
+| PRODUCER | One API producer; worker producer for retry/DLQ |
+| CONSUMER | Separate process writes durable notification records |
+| CONSUMER_GROUP | order-notification-worker shares partition ownership |
+| AT_LEAST_ONCE | Repeated delivery across commit/crash boundaries |
+| IDEMPOTENT_CONSUMER | Atomic INSERT with unique notification event ID |
+| EVENT_CONTRACT | Explicit validated OrderPaid envelope |
+| EVENT_VERSIONING | Version 1 accepted; unsupported versions rejected |
+| RETRY_TOPIC | Immediate bounded retries for transient storage failures |
+| DLQ / DEAD_LETTER_TOPIC | Permanent failures or exhausted retries; safe metadata |
+| PARTITION_ORDERING | Sequential per-partition handling; no cross-topic guarantee |
+| CONSUMER_REBALANCE | Group redistributes partitions; committed offsets resume |
+| DISTRIBUTED_FAILURE | Database commit and Kafka publish are separate operations |
+| TRANSACTIONAL_OUTBOX | Next separate feature; not implemented in this checkpoint |

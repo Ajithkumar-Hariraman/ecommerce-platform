@@ -184,3 +184,34 @@ export function loadRedisConfig(): RedisConfig {
     rateMaxRequests: positive("RATE_LIMIT_MAX_REQUESTS", 100, 1000000),
   };
 }
+
+export interface KafkaConfig {
+  brokers: string[]; clientId: string; orderTopic: string; retryTopic: string;
+  dlqTopic: string; consumerGroup: string; maxRetries: number;
+}
+export function loadKafkaConfig(): KafkaConfig {
+  loadLocalEnv();
+  const brokers = (process.env.KAFKA_BROKERS ?? "127.0.0.1:9093").split(",").map(v => v.trim());
+  if (!brokers.length || brokers.some(v => !/^[a-zA-Z0-9.-]+:[0-9]+$/.test(v) || Number(v.split(":")[1]) < 1 || Number(v.split(":")[1]) > 65535)) throw new Error("Invalid KAFKA_BROKERS");
+  const name = (key: string, fallback: string): string => {
+    const value = process.env[key] ?? fallback;
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,199}$/.test(value)) throw new Error("Invalid " + key);
+    return value;
+  };
+  const retries = process.env.KAFKA_MAX_RETRIES ?? "3";
+  if (!/^\d+$/.test(retries) || Number(retries) > 10) throw new Error("KAFKA_MAX_RETRIES must be 0..10");
+  const testPrefix = loadEnv().nodeEnv === "test" ? `test-${randomUUID()}-` : "";
+  const config = {
+    brokers, clientId: name("KAFKA_CLIENT_ID", "ecommerce-api"),
+    orderTopic: name("KAFKA_ORDER_TOPIC", testPrefix + "order-events"),
+    retryTopic: name("KAFKA_ORDER_RETRY_TOPIC", testPrefix + "order-events-retry"),
+    dlqTopic: name("KAFKA_ORDER_DLQ_TOPIC", testPrefix + "order-events-dlq"),
+    consumerGroup: name("KAFKA_ORDER_CONSUMER_GROUP", testPrefix + "order-notification-worker"), maxRetries: Number(retries),
+  };
+  if (new Set([config.orderTopic, config.retryTopic, config.dlqTopic]).size !== 3) throw new Error("Kafka topics must be distinct");
+  if (loadEnv().nodeEnv === "test" && ![config.orderTopic, config.retryTopic, config.dlqTopic, config.consumerGroup].every(v => v.startsWith("test-"))) {
+    // Tests must explicitly supply their own topic/group namespace.
+    throw new Error("Kafka test topics and group must start with test-");
+  }
+  return config;
+}

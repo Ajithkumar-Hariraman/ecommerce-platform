@@ -1,3 +1,5 @@
+import { kafkaClient, kafkaProducer, KafkaEventPublisher } from "./events/kafka.js";
+import { PublishingPaymentWorkflow } from "./modules/payments/publishing-payment.workflow.js";
 import { createRedisResources } from "./database/redis.js";
 import { RedisProductCache } from "./modules/products/redis-product.cache.js";
 import { rateLimit, RedisRateLimiter } from "./middleware/rate-limit.js";
@@ -15,7 +17,7 @@ import { PostgresOrderRepository } from "./modules/orders/postgres-order.reposit
 import type { OrderRepository } from "./modules/orders/order.repository.js";
 import { PostgresCategoryRepository } from "./modules/categories/postgres-category.repository.js";
 import { createApp } from "./app.js";
-import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig, loadAuthConfig, loadRedisConfig } from "./config/env.js";
+import { loadEnv, loadDatabaseConfig, loadOrderStorageConfig, loadPaymentConfig, loadAuthConfig, loadRedisConfig, loadKafkaConfig } from "./config/env.js";
 import { createPool, verifyDatabase } from "./database/pool.js";
 import { PostgresProductRepository } from "./modules/products/postgres-product.repository.js";
 import { startServer } from "./lifecycle.js";
@@ -28,10 +30,15 @@ async function main(): Promise<void> {
   let mongo: MongoResources | undefined;
   let redis: Awaited<ReturnType<typeof createRedisResources>> | undefined;
   let redisTestPrefix = "";
+  let producer: ReturnType<typeof kafkaProducer> | undefined;
   let closed = false;
   const closeResources = async (): Promise<void> => {
     if (closed) return;
     closed = true;
+    if (producer) {
+      try { await producer.disconnect(); console.info("Kafka producer disconnected."); }
+      catch { console.warn("Kafka producer shutdown failed."); }
+    }
     if (redis && redisTestPrefix) {
       try {
         let cursor = "0";
@@ -73,6 +80,11 @@ async function main(): Promise<void> {
       orderRepository = new PostgresOrderRepository(pool);
       paymentWorkflow = new PostgresPaymentWorkflowRepository(pool);
     }
+    const kafkaConfig = loadKafkaConfig();
+    producer = kafkaProducer(kafkaClient(kafkaConfig));
+    try { await producer.connect(); }
+    catch { console.warn("Kafka startup degraded; committed Order events may not publish."); }
+    paymentWorkflow = new PublishingPaymentWorkflow(paymentWorkflow, new KafkaEventPublisher(producer, kafkaConfig.orderTopic));
     const redisConfig = loadRedisConfig();
     redis = await createRedisResources(redisConfig.url);
     redisTestPrefix = redisConfig.keyPrefix;
