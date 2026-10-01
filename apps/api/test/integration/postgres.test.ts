@@ -239,15 +239,10 @@ test("PostgreSQL status collection contract", async t => {
   const pool = new Pool({ ...loadDatabaseConfig("test"), max: 1, connectionTimeoutMillis: 3000 });
   try {
     assert.equal((await pool.query("SELECT current_database() AS name")).rows[0].name, "ecommerce_test");
-    await pool.query("BEGIN");
+    await pool.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
     try {
-      await pool.query("SET LOCAL lock_timeout = '5s'");
       await pool.query("SET LOCAL statement_timeout = '5s'");
-      // Prevent concurrent test writers from contaminating a status-only filter.
-      await pool.query("LOCK TABLE public.products IN EXCLUSIVE MODE");
-      const count = (await pool.query("SELECT count(*)::int AS count FROM public.products")).rows[0].count;
-      assert.equal(count, 0,
-        "Status contract fixture requires an empty ecommerce_test products table; unrelated rows were left untouched");
+      // Stable baseline plus owned fixtures; unrelated products remain visible and unchanged.
       await verifyStatusCollection(t, new PostgresProductRepository(pool));
     } finally {
       // Revert only this transaction's test writes; never TRUNCATE or clear other rows.

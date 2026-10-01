@@ -195,3 +195,9 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 [Phase 3 report](phase-3.md) · [Phase 4A report](phase-4a.md) · [Learning map](learning-map.md) ·
 [PostgreSQL decision](decisions/001-postgresql-raw-sql.md) ·
 [Module-boundary decision](decisions/002-modular-monolith.md)
+
+## Platform readiness — checkpoint A (2026-10-01)
+- Status integration fixtures now compare a stable baseline plus uniquely owned rows.
+- No table-empty prerequisite, table lock, exclusions, or unrelated cleanup.
+- Full unfiltered verification: 168 fast tests and 61 integration tests passed; typecheck/build passed.
+- Automated persistence checks used ecommerce_test only.
