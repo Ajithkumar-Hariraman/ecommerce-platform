@@ -207,3 +207,10 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Runtime Zod input schemas are reused; router inventory and OpenAPI validation are tested.
 - Full verification: 170 fast tests, 61 integration tests, typecheck/build passed.
 - Documentation defaults off in production; see [API contract](api-contract.md).
+
+## Platform readiness — checkpoint C
+- Non-root API/web/provider images and full Compose service runtime added.
+- Real container HTTP/OIDC/HMAC/cache/outbox/Kafka notification flow passed using ecommerce_test.
+- Host and Compose PostgreSQL are separate; existing infrastructure volumes preserved.
+- Full checks: 171 fast tests, 61 integration tests, typecheck/build and image builds passed.
+- Local HTTP OIDC opt-in is forbidden in production. See [container runtime](container-runtime.md).

@@ -77,3 +77,14 @@ test("auth config defaults enabled and rejects unsafe production opt-out",()=>{
   process.env.OIDC_ISSUER="https://identity.example/realms/ecommerce";assert.equal(loadAuthConfig().enabled,true);
  }finally{keys.forEach((key,i)=>{const value=saved[i];if(value===undefined)delete process.env[key];else process.env[key]=value;});}
 });
+
+test("internal HTTP OIDC requires explicit non-production opt-in",()=>{
+ const saved={...process.env};
+ try {
+  process.env.NODE_ENV="development";process.env.AUTH_ENABLED="true";
+  process.env.OIDC_ISSUER="http://keycloak:8080/realms/ecommerce";process.env.OIDC_AUDIENCE="ecommerce-api";
+  process.env.OIDC_ALLOW_HTTP="false";assert.throws(()=>loadAuthConfig());
+  process.env.OIDC_ALLOW_HTTP="true";assert.equal(loadAuthConfig().enabled,true);
+  process.env.NODE_ENV="production";assert.throws(()=>loadAuthConfig());
+ }finally{process.env=saved;}
+});

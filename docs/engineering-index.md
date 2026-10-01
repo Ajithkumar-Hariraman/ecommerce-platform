@@ -187,3 +187,11 @@ Reference: [Transactional Outbox](transactional-outbox.md).
 |---|---|
 | OPENAPI / API_CONTRACT | `apps/api/src/openapi.ts`; runtime Zod input schemas |
 | SWAGGER | Configurable `/docs/` and `/openapi.json`; see [API contract](api-contract.md) |
+
+## Container platform
+| Concept | Implementation |
+|---|---|
+| DOCKER / MULTI_STAGE_BUILD | API and web Dockerfiles; non-root runtimes |
+| CONTAINER_NETWORKING | Compose service DNS; internal Kafka listener; web /api proxy |
+| HEALTH_CHECK | Dependency health and completed migration/topic jobs |
+See [container runtime](container-runtime.md).

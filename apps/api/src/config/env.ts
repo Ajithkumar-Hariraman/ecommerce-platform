@@ -143,12 +143,15 @@ export function loadAuthConfig(): AuthConfig {
     if(env.nodeEnv==="production")throw new Error("Authentication cannot be disabled in production");
     return {enabled:false};
   }
+  const insecure = process.env.OIDC_ALLOW_HTTP ?? "false";
+  if (!["true", "false"].includes(insecure) || (env.nodeEnv === "production" && insecure === "true"))
+    throw new Error("OIDC_ALLOW_HTTP is a non-production boolean only");
   const issuer=process.env.OIDC_ISSUER ?? "";
   const audience=process.env.OIDC_AUDIENCE ?? "";
   try {
     const url=new URL(issuer);
     const local=["127.0.0.1","localhost","[::1]"].includes(url.hostname);
-    if(url.protocol!=="https:" && !(env.nodeEnv!=="production"&&local&&url.protocol==="http:"))throw new Error();
+    if(url.protocol!=="https:" && !(env.nodeEnv!=="production"&&(local||insecure==="true")&&url.protocol==="http:"))throw new Error();
     if(url.username||url.password||url.search||url.hash||issuer.endsWith("/"))throw new Error();
     if(!audience.trim()||/\s/.test(audience))throw new Error();
   } catch {throw new Error("Valid OIDC_ISSUER and OIDC_AUDIENCE are required");}

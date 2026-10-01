@@ -1,4 +1,128 @@
+x-api-environment: &api-environment
+  NODE_ENV: development
+  HOST: 0.0.0.0
+  PORT: 3000
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_NAME: ${COMPOSE_DB_NAME:-ecommerce_dev}
+  DB_USER: ecommerce_app
+  DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+  ORDER_STORAGE: ${ORDER_STORAGE:-postgres}
+  MONGODB_URI: ${COMPOSE_MONGODB_URI:?Set percent-encoded internal Mongo URI}
+  MONGODB_DB_NAME: ${COMPOSE_DB_NAME:-ecommerce_dev}
+  REDIS_URL: redis://redis-cache:6379
+  AUTH_ENABLED: "true"
+  OIDC_ALLOW_HTTP: "true"
+  OIDC_ISSUER: http://keycloak:8080/realms/ecommerce
+  OIDC_AUDIENCE: ecommerce-api
+  PAYMENT_PROVIDER_BASE_URL: http://payment-provider:4100
+  PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?Set webhook secret}
+  KAFKA_BROKERS: kafka:19092
+  KAFKA_ORDER_TOPIC: ${COMPOSE_ORDER_TOPIC:-order-events}
+  KAFKA_ORDER_RETRY_TOPIC: ${COMPOSE_RETRY_TOPIC:-order-events-retry}
+  KAFKA_ORDER_DLQ_TOPIC: ${COMPOSE_DLQ_TOPIC:-order-events-dlq}
+  KAFKA_ORDER_CONSUMER_GROUP: ${COMPOSE_CONSUMER_GROUP:-order-notification-worker}
+  DOCS_ENABLED: "true"
+
 services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    ports: ["127.0.0.1:5433:5432"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set bootstrap password}
+      DB_PASSWORD: ${DB_PASSWORD:?Set application password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/10-app.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  migrate:
+    build: ../apps/api
+    image: ecommerce-api:local
+    environment: *api-environment
+    command: ["node", "dist/database/migrate.js"]
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  kafka-topics:
+    image: ecommerce-api:local
+    environment: *api-environment
+    command: ["node", "dist/events/setup-topics.js"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      kafka: {condition: service_healthy}
+
+  api:
+    build: ../apps/api
+    image: ecommerce-api:local
+    init: true
+    restart: unless-stopped
+    environment: *api-environment
+    ports: ["127.0.0.1:3001:3000"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      keycloak: {condition: service_healthy}
+      mongodb: {condition: service_healthy}
+      redis-cache: {condition: service_healthy}
+      payment-provider: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  outbox-relay:
+    image: ecommerce-api:local
+    init: true
+    restart: unless-stopped
+    environment: *api-environment
+    command: ["node", "dist/workers/outbox-relay.worker.js"]
+    depends_on:
+      api: {condition: service_healthy}
+      kafka-topics: {condition: service_completed_successfully}
+
+  order-event-worker:
+    image: ecommerce-api:local
+    init: true
+    restart: unless-stopped
+    environment: *api-environment
+    command: ["node", "dist/workers/order-event.worker.js"]
+    depends_on:
+      api: {condition: service_healthy}
+      kafka-topics: {condition: service_completed_successfully}
+
+  payment-provider:
+    build: ../services/payment-provider-simulator
+    restart: unless-stopped
+    environment:
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?Set webhook secret}
+      PAYMENT_WEBHOOK_URL: http://api:3000/api/v1/webhooks/payments
+    volumes: ["payment_data:/data"]
+    ports: ["127.0.0.1:4101:4100"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build: ../apps/web
+    restart: unless-stopped
+    ports: ["127.0.0.1:8088:8080"]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   kafka:
     image: apache/kafka:4.1.2
     container_name: ecommerce-kafka
@@ -47,6 +171,11 @@ services:
       retries: 5
 
   mongodb:
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand({ping:1}).ok ? 0 : 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     image: mongo:8.0
     container_name: ecommerce-mongodb
     restart: unless-stopped
@@ -87,6 +216,8 @@ services:
       start_period: 90s
 
 volumes:
+  postgres_data:
+  payment_data:
   kafka_data:
   redis_data:
   mongodb_data:
