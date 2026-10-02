@@ -229,3 +229,11 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Production requires reachable HTTPS OIDC/payment services and external Redis; Kafka workers require a separate hosting decision.
 - JSON runtime logging verified. Full checks: 172 fast and 61 integration tests, typecheck/build passed.
 - See [GCP deployment](gcp-deployment.md) for plan, apply prerequisites and exact next actions.
+
+## Platform readiness — final checkpoint F (2026-10-02)
+- Full unfiltered backend verification: 172 fast and 61 integration tests passed; no exclusions/skips.
+- Backend/frontend typecheck/build, Docker images, container E2E and workflow lint passed.
+- CSV import spec correction and idle Kafka request-timeout fix verified; no unrelated feature changes.
+- GCP foundation committed; live cloud deployment and remote GitHub execution remain unverified.
+- This supersedes the historical status-fixture exclusion above. No personal-understanding claim.
+- Detailed evidence and operational boundaries: [platform readiness](platform-readiness.md).

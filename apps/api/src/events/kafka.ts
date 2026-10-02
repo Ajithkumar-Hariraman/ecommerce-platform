@@ -6,7 +6,8 @@ import type { EventPublisher, OrderPaid } from "./order-paid.js";
 export function kafkaClient(config: KafkaConfig): Kafka {
   // SDK raw error logs can contain message payloads; application logs safe metadata.
   return new Kafka({brokers: config.brokers, clientId: config.clientId, logLevel: logLevel.NOTHING,
-    connectionTimeout: 1000, requestTimeout: 2000, retry: {retries: 2, initialRetryTime: 100}});
+    // Allow broker long polls/admin operations to finish under container scheduling delays.
+    connectionTimeout: 1000, requestTimeout: 10000, retry: {retries: 2, initialRetryTime: 100}});
 }
 export function kafkaProducer(kafka: Kafka): Producer {
   return kafka.producer({allowAutoTopicCreation: false, createPartitioner: Partitioners.DefaultPartitioner});

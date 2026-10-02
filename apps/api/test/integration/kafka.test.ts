@@ -37,13 +37,16 @@ async function fixture() {
 test("real Kafka partitions, durable dedupe, transient DB retry, DLQ and committed offsets", {timeout: 60000}, async () => {
   const f = await fixture(); const pool = new Pool({...loadDatabaseConfig("test"), statement_timeout: 500, lock_timeout: 150});
   const repository = new PostgresOrderNotificationRepository(pool);
-  const worker = await startOrderConsumer(f.kafka, f.producer, f.c, repository);
+  let crashed = false;
+  const worker = await startOrderConsumer(f.kafka, f.producer, f.c, repository, () => { crashed = true; });
   const publisher = new KafkaEventPublisher(f.producer, f.c.orderTopic); const ids: string[] = [];
   const make = () => {const e = orderPaid({eventId: randomUUID(), orderId: randomUUID(), paymentId: randomUUID(), type: "payment.succeeded", occurredAt: new Date().toISOString()}); ids.push(e.eventId); return e;};
   const count = async (id: string) => Number((await pool.query("SELECT count(*) FROM order_notifications WHERE event_id=$1", [id])).rows[0].count);
   const lock = await pool.connect();
   try {
     const metadata = await f.admin.fetchTopicMetadata({topics: [f.c.orderTopic, f.c.retryTopic, f.c.dlqTopic]}); assert.ok(metadata.topics.every(t => t.partitions.length === 3));
+    await delay(12000); // More than two empty broker fetch windows.
+    assert.equal(crashed, false, "idle consumer must survive broker long polling");
     const duplicate = make(); await publisher.publish(duplicate); await publisher.publish(duplicate);
     await until(async () => await count(duplicate.eventId) === 1 && f.messages.filter(m => m.value.eventId === duplicate.eventId).length === 2, "duplicate consumed");
     const copies = f.messages.filter(m => m.value.eventId === duplicate.eventId); assert.equal(copies[0]!.partition, copies[1]!.partition);
