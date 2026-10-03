@@ -281,7 +281,6 @@ test(
         method: "POST",
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerId: randomUUID(),
           items: [{ productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 100 }],
         }),
       });

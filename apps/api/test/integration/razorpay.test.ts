@@ -90,6 +90,10 @@ for (const storage of ["postgres", "mongodb"] as const)
       const app = express();
       app.use("/webhooks", razorpayWebhookRouter(gateway, orders, workflow));
       app.use(express.json());
+      app.use("/orders", (_req, res, next) => {
+        res.locals.principal = { subject: "test-manager", roles: ["order_manager"] };
+        next();
+      });
       app.use("/orders", razorpayCheckoutRouter(gateway, orders));
       app.use(errorHandler);
       const server = app.listen(0, "127.0.0.1");

@@ -5,14 +5,14 @@ import { createOrderSchema } from "../src/modules/orders/order.validation.js";
 
 test("Order input is strict and accepts only bounded integer quantities and prices", () => {
   const input = {
-    customerId: randomUUID(),
     items: [{ productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 0 }],
   };
   assert.deepEqual(createOrderSchema.parse(input), input);
   for (const bad of [
     { ...input, extra: true },
     { ...input, items: [] },
-    { ...input, customerId: "bad" },
+    { ...input, customerId: randomUUID() },
+    { ...input, ownerSubject: "forged" },
     ...[0, -1, 1.5, 2147483648].map((quantity) => ({
       ...input,
       items: [{ ...input.items[0], quantity }],

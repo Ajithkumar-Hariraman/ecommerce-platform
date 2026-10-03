@@ -267,3 +267,11 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Migration 007 applied to test and development PostgreSQL. Test cleanup targets only owned records.
 - Live Razorpay transaction is not verified. Private webhook-secret configuration must meet validation and match Dashboard before API restart and hosted checkout verification.
 - Changes remain uncommitted pending live verification. Personal understanding is not assessed by automated tests.
+
+## Authenticated Order ownership checkpoint (2026-10-03)
+
+- New Orders derive immutable ownerSubject from the verified JWT sub; request-provided customerId/ownerSubject are rejected. Checkout no longer asks for a customer reference.
+- Owners can read/resume/checkout their Orders; unrelated users receive safe 404. Existing order_manager/admin elevation remains. Historical Orders have no implicit owner and require elevated access.
+- Both PostgreSQL and MongoDB persist the subject reference; no identity profiles or passwords are copied. Migration 008 is additive and leaves historical customer IDs intact.
+- Automated ownership and payment regression verification uses ecommerce_test and owned-record cleanup. Browser verification and personal understanding are not claimed.
+- Cloud resource names are supplied; deployment remains pending. Earlier cloud and live-payment entries above are historical evidence.

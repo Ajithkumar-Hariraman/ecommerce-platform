@@ -19,6 +19,7 @@ export class MongoOrderRepository implements OrderRepository {
       _id: order.id,
 
       customerId: order.customerId,
+      ...(order.ownerSubject != null ? { ownerSubject: order.ownerSubject } : {}),
 
       items: order.items.map((item) => ({
         ...item,
@@ -51,6 +52,7 @@ export class MongoOrderRepository implements OrderRepository {
       id: document._id,
 
       customerId: document.customerId,
+      ...(document.ownerSubject != null ? { ownerSubject: document.ownerSubject } : {}),
 
       items: document.items.map((item) => ({
         ...item,

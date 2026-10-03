@@ -1,3 +1,4 @@
+import { startOrderAuth } from "../helpers/order-auth.js";
 import assert from "node:assert/strict";
 import { randomUUID, createHmac } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -25,13 +26,16 @@ for (const mode of ["postgres", "mongodb"] as const) {
       assert.ok(address && typeof address !== "string");
       await new Promise<void>((resolve) => probe.close(() => resolve()));
       const base = `http://127.0.0.1:${address.port}`;
+      const auth = await startOrderAuth();
       const secret = randomUUID() + randomUUID();
       const provider = await startProvider(base + "/api/v1/webhooks/payments", secret);
       let resumed: Awaited<ReturnType<typeof startProvider>> | undefined;
       const child = spawn(process.execPath, ["dist/server.js"], {
         env: {
           ...process.env,
-          AUTH_ENABLED: "false",
+          ...auth.env,
+          PAYMENT_PROVIDER: "local",
+          BUSINESS_STORAGE: mode,
           NODE_ENV: "test",
           HOST: "127.0.0.1",
           PORT: String(address.port),
@@ -48,18 +52,18 @@ for (const mode of ["postgres", "mongodb"] as const) {
       child.stdout!.on("data", (data) => (output += data));
       child.stderr!.on("data", () => {});
       const ids: string[] = [];
+      const productIds: string[] = [];
       const events: string[] = [];
       const input = () => ({
-        customerId: randomUUID(),
         items: [
-          { productId: randomUUID(), quantity: 2, unitPriceInMinorUnits: 50000 },
-          { productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 20000 },
+          { productId: productIds[0]!, quantity: 2, unitPriceInMinorUnits: 50000 },
+          { productId: productIds[1]!, quantity: 1, unitPriceInMinorUnits: 20000 },
         ],
       });
       const post = (url: string, body: unknown) =>
         fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { ...auth.headers, "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
       const sendEvent = async (event: Record<string, unknown>, signature?: string) => {
@@ -85,6 +89,20 @@ for (const mode of ["postgres", "mongodb"] as const) {
           await delay(30);
         }
         assert.match(output, /API listening/);
+        for (const price of [50000, 20000]) {
+          const response = await fetch(base + "/api/v1/products", {
+            method: "POST",
+            headers: { ...auth.headers, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sku: randomUUID(),
+              name: "Order runtime fixture",
+              priceInMinorUnits: price,
+              stock: 10,
+            }),
+          });
+          assert.equal(response.status, 201);
+          productIds.push((await response.json()).id);
+        }
         const created = await post(base + "/api/v1/orders", input());
         assert.equal(created.status, 201);
         const order = await created.json();
@@ -121,14 +139,20 @@ for (const mode of ["postgres", "mongodb"] as const) {
           400,
         );
         assert.equal(
-          (await fetch(base + `/api/v1/orders/${order.id}`).then((r) => r.json())).status,
+          (
+            await fetch(base + `/api/v1/orders/${order.id}`, { headers: auth.headers }).then((r) =>
+              r.json(),
+            )
+          ).status,
           "PAYMENT_PENDING",
         );
         const delivered = await post(provider.baseUrl + `/payments/${order.paymentId}/succeed`, {});
         assert.equal(delivered.status, 200);
         const delivery = await delivered.json();
         events.push(delivery.eventId);
-        const paid = await fetch(base + `/api/v1/orders/${order.id}`).then((r) => r.json());
+        const paid = await fetch(base + `/api/v1/orders/${order.id}`, {
+          headers: auth.headers,
+        }).then((r) => r.json());
         assert.equal(paid.status, "PAID");
         assert.equal(paid.version, 3);
         const duplicates = await Promise.all([
@@ -138,7 +162,11 @@ for (const mode of ["postgres", "mongodb"] as const) {
         for (const response of duplicates) assert.equal(response.status, 200);
         assert.equal((await history(order.id)).length, 1);
         assert.equal(
-          (await fetch(base + `/api/v1/orders/${order.id}`).then((r) => r.json())).version,
+          (
+            await fetch(base + `/api/v1/orders/${order.id}`, { headers: auth.headers }).then((r) =>
+              r.json(),
+            )
+          ).version,
           3,
         );
         assert.equal((await sendEvent({ ...event, eventId: randomUUID() })).status, 409);
@@ -154,7 +182,11 @@ for (const mode of ["postgres", "mongodb"] as const) {
           );
           assert.equal((await history(order.id)).length, 1);
           assert.equal(
-            (await fetch(base + `/api/v1/orders/${order.id}`).then((r) => r.json())).version,
+            (
+              await fetch(base + `/api/v1/orders/${order.id}`, { headers: auth.headers }).then(
+                (r) => r.json(),
+              )
+            ).version,
             3,
           );
           assert.equal(
@@ -175,7 +207,11 @@ for (const mode of ["postgres", "mongodb"] as const) {
           events.push((await failedDelivery.json()).eventId);
         }
         assert.equal(
-          (await fetch(base + `/api/v1/orders/${failedOrder.id}`).then((r) => r.json())).status,
+          (
+            await fetch(base + `/api/v1/orders/${failedOrder.id}`, { headers: auth.headers }).then(
+              (r) => r.json(),
+            )
+          ).status,
           "PAYMENT_FAILED",
         );
         assert.equal((await history(failedOrder.id)).length, 1);
@@ -186,7 +222,9 @@ for (const mode of ["postgres", "mongodb"] as const) {
         const retainedId = /order ([0-9a-f-]{36})/.exec(message)?.[1];
         assert.ok(retainedId);
         ids.push(retainedId);
-        const retained = await fetch(base + `/api/v1/orders/${retainedId}`).then((r) => r.json());
+        const retained = await fetch(base + `/api/v1/orders/${retainedId}`, {
+          headers: auth.headers,
+        }).then((r) => r.json());
         assert.equal(retained.status, "CREATED");
         assert.equal(retained.paymentId, null);
         resumed = await startProvider(base + "/api/v1/webhooks/payments", secret, {
@@ -196,10 +234,11 @@ for (const mode of ["postgres", "mongodb"] as const) {
         const recovered = await post(base + `/api/v1/orders/${retainedId}/payment`, {});
         assert.equal(recovered.status, 200);
         assert.equal((await recovered.json()).status, "PAYMENT_PENDING");
-        assert.equal((await fetch(base + "/ready")).status, 200);
+        assert.equal((await fetch(base + "/ready", { headers: auth.headers })).status, 200);
         child.kill("SIGTERM");
         assert.equal((await exited)[0], 0);
       } finally {
+        await auth.close();
         if (child.exitCode === null) {
           child.kill("SIGKILL");
           await exited;
@@ -220,6 +259,11 @@ for (const mode of ["postgres", "mongodb"] as const) {
             await mongo.db.collection<{ _id: string }>("orders").deleteMany({ _id: { $in: ids } });
           }
         } finally {
+          await pool.query("DELETE FROM products WHERE id=ANY($1::uuid[])", [productIds]);
+          if (mongo)
+            await mongo.db
+              .collection<{ _id: string }>("products")
+              .deleteMany({ _id: { $in: productIds } });
           await pool.end();
           await mongo?.client.close();
         }

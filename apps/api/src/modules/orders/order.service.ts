@@ -13,7 +13,9 @@ export class OrderService {
     private readonly products?: ProductRepository,
   ) {}
 
-  async create(input: CreateOrderInput): Promise<Order> {
+  async create(input: CreateOrderInput, ownerSubject: string): Promise<Order> {
+    if (typeof ownerSubject !== "string" || !ownerSubject.trim())
+      throw new AppError(401, "Authentication required");
     if (!input.items.length) throw new AppError(400, "Order must contain items");
     if (this.products) {
       const items = [];
@@ -52,7 +54,8 @@ export class OrderService {
     const now = new Date().toISOString();
     const order: Order = {
       id: randomUUID(),
-      customerId: input.customerId,
+      customerId: null,
+      ownerSubject,
       items,
       totalInMinorUnits,
       status: "CREATED",

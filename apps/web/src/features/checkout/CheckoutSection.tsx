@@ -55,7 +55,6 @@ function loadCheckout(): Promise<void> {
 }
 export function CheckoutSection({ products }: { products: Product[] }) {
   const [productId, setProductId] = useState("");
-  const [customerId, setCustomerId] = useState<string>(() => crypto.randomUUID());
   const [quantity, setQuantity] = useState(1);
   const [existingId, setExistingId] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
@@ -150,7 +149,6 @@ export function CheckoutSection({ products }: { products: Product[] }) {
         : await request<Order>("/orders", {
             method: "POST",
             body: JSON.stringify({
-              customerId,
               items: [{ productId, quantity, unitPriceInMinorUnits: 0 }],
             }),
           });
@@ -185,10 +183,6 @@ export function CheckoutSection({ products }: { products: Product[] }) {
           void begin(false);
         }}
       >
-        <label>
-          Customer reference
-          <input required value={customerId} onChange={(e) => setCustomerId(e.target.value)} />
-        </label>
         <label>
           Product
           {products.length ? (

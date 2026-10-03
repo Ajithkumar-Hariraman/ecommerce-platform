@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const createOrderSchema = z.strictObject({
-  customerId: z.uuid(),
   items: z
     .array(
       z.strictObject({

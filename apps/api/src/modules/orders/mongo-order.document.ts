@@ -3,7 +3,9 @@ import type { OrderItem, OrderStatus } from "./order.types.js";
 export interface MongoOrderDocument {
   _id: string;
 
-  customerId: string;
+  customerId: string | null;
+
+  ownerSubject?: string | null;
 
   items: OrderItem[];
 

@@ -7,7 +7,8 @@ import type { Order, OrderItem } from "./order.types.js";
 
 interface OrderRow {
   id: string;
-  customer_id: string;
+  customer_id: string | null;
+  owner_subject: string | null;
   status: Order["status"];
   total_in_minor_units: string;
   payment_id: string | null;
@@ -38,6 +39,7 @@ export class PostgresOrderRepository implements OrderRepository {
           INSERT INTO orders (
             id,
             customer_id,
+            owner_subject,
             status,
             total_in_minor_units,
             payment_id,
@@ -47,12 +49,13 @@ export class PostgresOrderRepository implements OrderRepository {
           )
           VALUES (
             $1, $2, $3, $4,
-            $5, $6, $7, $8
+            $5, $6, $7, $8, $9
           )
         `,
         [
           order.id,
           order.customerId,
+          order.ownerSubject ?? null,
           order.status,
           order.totalInMinorUnits,
           order.paymentId,
@@ -86,6 +89,7 @@ export class PostgresOrderRepository implements OrderRepository {
           SELECT
             id,
             customer_id,
+            owner_subject,
             status,
             total_in_minor_units,
             payment_id,
@@ -122,6 +126,7 @@ export class PostgresOrderRepository implements OrderRepository {
       id: row.id,
 
       customerId: row.customer_id,
+      ...(row.owner_subject !== null ? { ownerSubject: row.owner_subject } : {}),
 
       items: itemResult.rows.map((item) => ({
         productId: item.product_id,

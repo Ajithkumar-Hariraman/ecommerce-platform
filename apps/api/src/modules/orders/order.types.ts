@@ -15,7 +15,6 @@ export interface OrderItemInput {
 }
 
 export interface CreateOrderInput {
-  customerId: string;
   items: OrderItemInput[];
 }
 
@@ -25,7 +24,9 @@ export interface OrderItem extends OrderItemInput {
 
 export interface Order {
   id: string;
-  customerId: string;
+  // Historical customer reference; never used for authorization.
+  customerId: string | null;
+  ownerSubject?: string | null;
   items: OrderItem[];
   version: number;
   status: OrderStatus;

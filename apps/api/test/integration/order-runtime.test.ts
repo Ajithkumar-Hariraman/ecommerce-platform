@@ -1,3 +1,4 @@
+import { startOrderAuth } from "../helpers/order-auth.js";
 import { startProvider } from "../helpers/payment-provider.js";
 import { HttpPaymentClient } from "../../src/modules/payments/payment.client.js";
 import assert from "node:assert/strict";
@@ -16,7 +17,6 @@ import { OrderService } from "../../src/modules/orders/order.service.js";
 import type { Order } from "../../src/modules/orders/order.types.js";
 
 const input = () => ({
-  customerId: randomUUID(),
   items: [
     { productId: randomUUID(), quantity: 2, unitPriceInMinorUnits: 50000 },
     { productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 20000 },
@@ -37,10 +37,12 @@ for (const mode of ["postgres", "mongodb"] as const) {
         ? await createMongoResources(process.env.MONGODB_TEST_URI, "ecommerce_test")
         : undefined;
       const ids: string[] = [];
+      const productIds: string[] = [];
       const repository =
         mode === "postgres"
           ? new PostgresOrderRepository(pool)
           : new MongoOrderRepository(mongo!.db);
+      const auth = await startOrderAuth();
       const secret = randomUUID() + randomUUID();
       const provider = await startProvider("http://127.0.0.1:1/api/v1/webhooks/payments", secret);
       const service = new OrderService(repository, new HttpPaymentClient(provider.baseUrl));
@@ -48,7 +50,7 @@ for (const mode of ["postgres", "mongodb"] as const) {
       try {
         // Exercise the real service directly; no fake Order persistence.
         for (const items of [input().items.slice(0, 1), input().items]) {
-          const created = await service.create({ customerId: randomUUID(), items });
+          const created = await service.create({ items }, "runtime-order-owner");
           ids.push(created.id);
           assert.equal(created.totalInMinorUnits, items.length === 1 ? 100000 : 120000);
           for (const item of items) {
@@ -84,7 +86,7 @@ for (const mode of ["postgres", "mongodb"] as const) {
             { productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 1 },
           ],
         ])
-          await assert.rejects(service.create({ customerId: randomUUID(), items }), {
+          await assert.rejects(service.create({ items }, "runtime-order-owner"), {
             statusCode: 400,
           });
 
@@ -97,7 +99,9 @@ for (const mode of ["postgres", "mongodb"] as const) {
         child = spawn(process.execPath, ["dist/server.js"], {
           env: {
             ...process.env,
-            AUTH_ENABLED: "false",
+            ...auth.env,
+            PAYMENT_PROVIDER: "local",
+            BUSINESS_STORAGE: mode,
             NODE_ENV: "test",
             HOST: "127.0.0.1",
             PORT: String(address.port),
@@ -124,13 +128,37 @@ for (const mode of ["postgres", "mongodb"] as const) {
         const port = /API listening on 127\.0\.0\.1:(\d+)/.exec(output)?.[1];
         assert.ok(port, "runtime must listen");
         const base = `http://127.0.0.1:${port}`;
-        assert.equal((await fetch(base + "/health")).status, 200);
-        assert.equal((await fetch(base + "/ready")).status, 200);
-        assert.equal((await fetch(base + "/api/v1/products?limit=1")).status, 200);
+        assert.equal((await fetch(base + "/health", { headers: auth.headers })).status, 200);
+        assert.equal((await fetch(base + "/ready", { headers: auth.headers })).status, 200);
+        assert.equal(
+          (await fetch(base + "/api/v1/products?limit=1", { headers: auth.headers })).status,
+          200,
+        );
+        for (const price of [50000, 20000]) {
+          const response = await fetch(base + "/api/v1/products", {
+            method: "POST",
+            headers: { ...auth.headers, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sku: randomUUID(),
+              name: "Order runtime fixture",
+              priceInMinorUnits: price,
+              stock: 10,
+            }),
+          });
+          assert.equal(response.status, 201);
+          productIds.push((await response.json()).id);
+        }
         const response = await fetch(base + "/api/v1/orders", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(input()),
+          headers: { ...auth.headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...input(),
+            items: productIds.map((productId, i) => ({
+              productId,
+              quantity: i === 0 ? 2 : 1,
+              unitPriceInMinorUnits: i === 0 ? 50000 : 20000,
+            })),
+          }),
         });
         assert.equal(response.status, 201);
         const created = (await response.json()) as Order;
@@ -140,7 +168,9 @@ for (const mode of ["postgres", "mongodb"] as const) {
         assert.equal(created.version, 2);
         assert.equal(typeof created.paymentId, "string");
         assert.equal(response.headers.get("location"), `/api/v1/orders/${created.id}`);
-        const fetched = await fetch(base + `/api/v1/orders/${created.id}`);
+        const fetched = await fetch(base + `/api/v1/orders/${created.id}`, {
+          headers: auth.headers,
+        });
         assert.equal(fetched.status, 200);
         assert.deepEqual(normalized(await fetched.json()), normalized(created));
         assert.deepEqual(
@@ -148,6 +178,7 @@ for (const mode of ["postgres", "mongodb"] as const) {
           [
             "id",
             "customerId",
+            "ownerSubject",
             "items",
             "status",
             "totalInMinorUnits",
@@ -192,23 +223,31 @@ for (const mode of ["postgres", "mongodb"] as const) {
         ]) {
           const bad = await fetch(base + "/api/v1/orders", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { ...auth.headers, "Content-Type": "application/json" },
             body: JSON.stringify(body),
           });
           assert.equal(bad.status, 400);
           assert.equal(typeof (await bad.json()).error.message, "string");
         }
-        assert.equal((await fetch(base + "/api/v1/orders/invalid")).status, 400);
-        const absent = await fetch(base + `/api/v1/orders/${randomUUID()}`);
+        assert.equal(
+          (await fetch(base + "/api/v1/orders/invalid", { headers: auth.headers })).status,
+          400,
+        );
+        const absent = await fetch(base + `/api/v1/orders/${randomUUID()}`, {
+          headers: auth.headers,
+        });
         assert.equal(absent.status, 404);
         assert.deepEqual(await absent.json(), { error: { message: "Order not found" } });
         child.kill("SIGTERM");
         assert.equal((await exited)[0], 0);
-        assert.match(output, /HTTP server closed\.[\s\S]*PostgreSQL pool closed\./);
+        if (mode === "postgres")
+          assert.match(output, /HTTP server closed\.[\s\S]*PostgreSQL pool closed\./);
+        else assert.doesNotMatch(output, /PostgreSQL pool closed/);
         if (mode === "mongodb")
           assert.match(output, /HTTP server closed\.[\s\S]*MongoDB client closed\./);
         else assert.doesNotMatch(output, /MongoDB client closed/);
       } finally {
+        await auth.close();
         if (child && child.exitCode === null) {
           const exited = once(child, "exit");
           child.kill("SIGKILL");
@@ -219,6 +258,11 @@ for (const mode of ["postgres", "mongodb"] as const) {
           if (mongo)
             await mongo.db.collection<{ _id: string }>("orders").deleteMany({ _id: { $in: ids } });
         } finally {
+          await pool.query("DELETE FROM products WHERE id=ANY($1::uuid[])", [productIds]);
+          if (mongo)
+            await mongo.db
+              .collection<{ _id: string }>("products")
+              .deleteMany({ _id: { $in: productIds } });
           await pool.end();
           await mongo?.client.close();
           await provider.cleanup();

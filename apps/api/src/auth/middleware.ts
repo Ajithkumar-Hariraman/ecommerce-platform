@@ -57,7 +57,10 @@ export function createAccessPolicy(verifier: TokenVerifier): AccessPolicy {
   return {
     authenticate: authenticate(verifier),
     catalog: permission("catalog_reader", "catalog_manager"),
-    orders: permission("order_reader", "order_manager"),
+    orders: (_req, res, next) => {
+      if (!res.locals.principal) throw new AppError(401, "Authentication required");
+      next(); // Each Order operation checks ownership or manager/admin elevation.
+    },
   };
 }
 // Explicit opt-out for isolated tests/local unauthenticated operation only.

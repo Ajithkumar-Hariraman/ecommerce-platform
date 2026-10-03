@@ -7,7 +7,6 @@ import { createSchema as categoryCreate } from "./modules/categories/category.va
 import { createOrderSchema } from "./modules/orders/order.validation.js";
 import { cachedProduct } from "./modules/products/redis-product.cache.js";
 import { paymentEventSchema } from "./modules/payments/payment-workflow.js";
-import type { Order } from "./modules/orders/order.types.js";
 import type { Category } from "./modules/categories/category.js";
 
 const integer = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -22,9 +21,10 @@ const category: z.ZodType<Category> = z.strictObject({
 const orderItem = createOrderSchema.shape.items.element.extend({
   lineTotalInMinorUnits: integer,
 });
-const order: z.ZodType<Order> = z.strictObject({
+const order = z.strictObject({
   id: z.uuid(),
-  customerId: z.uuid(),
+  customerId: z.uuid().nullable(),
+  ownerSubject: z.string().min(1).nullable().optional(),
   items: z.array(orderItem),
   version: integer,
   status: z.enum([

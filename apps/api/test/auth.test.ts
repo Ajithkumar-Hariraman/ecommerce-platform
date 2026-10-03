@@ -124,7 +124,7 @@ test("JWT signatures, claims, JWKS caching/rotation and route RBAC", async (t) =
         ["/api/v1/products/00000000-0000-4000-8000-000000000000", "DELETE"],
       ])
         assert.equal((await request(path!, reader, method!)).status, 403);
-      assert.equal((await request("/api/v1/orders/some-id", reader)).status, 403);
+      assert.equal((await request("/api/v1/orders/some-id", reader)).status, 404);
     });
     await t.test("catalog manager/admin permissions reach existing validation", async () => {
       for (const role of ["catalog_manager", "admin"]) {
@@ -133,11 +133,11 @@ test("JWT signatures, claims, JWKS caching/rotation and route RBAC", async (t) =
         assert.equal((await request("/api/v1/products", manager, "POST")).status, 400);
       }
     });
-    await t.test("Order role boundary distinguishes read from mutations", async () => {
+    await t.test("Order routes require authentication before per-order authorization", async () => {
       const reader = "Bearer " + (await token(["order_reader"]));
       assert.equal((await request("/api/v1/orders/id", reader)).status, 404); // no Order module in this isolated app
-      assert.equal((await request("/api/v1/orders", reader, "POST")).status, 403);
-      assert.equal((await request("/api/v1/orders/id/payment", reader, "POST")).status, 403);
+      assert.equal((await request("/api/v1/orders", reader, "POST")).status, 404);
+      assert.equal((await request("/api/v1/orders/id/payment", reader, "POST")).status, 404);
       const manager = "Bearer " + (await token(["order_manager"]));
       assert.equal((await request("/api/v1/orders", manager, "POST")).status, 404);
       assert.equal((await request("/api/v1/products", manager)).status, 403);
