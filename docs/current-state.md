@@ -275,3 +275,10 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Both PostgreSQL and MongoDB persist the subject reference; no identity profiles or passwords are copied. Migration 008 is additive and leaves historical customer IDs intact.
 - Automated ownership and payment regression verification uses ecommerce_test and owned-record cleanup. Browser verification and personal understanding are not claimed.
 - Cloud resource names are supplied; deployment remains pending. Earlier cloud and live-payment entries above are historical evidence.
+
+## Pub/Sub transport checkpoint (2026-10-03)
+
+- EVENT_TRANSPORT selects Kafka (unchanged local default) or Pub/Sub behind EventPublisher; durable outbox and notification contracts are retained.
+- Pub/Sub uses ADC/runtime identity, bounded subscriber flow control, validation before persistence, and acknowledgement after durable processing/deduplication. Subscription retries/DLQ handle rejected events.
+- Sixteen focused Kafka/outbox/Pub/Sub checks passed; a real Google Pub/Sub + PostgreSQL ecommerce_test flow published the outbox event and persisted exactly one notification after duplicate delivery. Test-owned cloud resources/schema were removed. Backend typecheck/build passed.
+- Migration 009 identifies Pub/Sub publication failures separately. No cloud application deployment or browser verification is claimed. See [Pub/Sub transport](pubsub-events.md).

@@ -72,7 +72,7 @@ export class PostgresOutboxRepository implements OutboxRepository {
   }
   async markFailed(
     claim: OutboxClaim,
-    category: "KAFKA_UNAVAILABLE" | "INVALID_EVENT",
+    category: "KAFKA_UNAVAILABLE" | "PUBSUB_UNAVAILABLE" | "INVALID_EVENT",
     retryMs: number,
     maxAttempts: number,
   ): Promise<boolean> {

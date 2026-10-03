@@ -11,6 +11,7 @@ export const orderPaidSchema = z.strictObject({
 });
 export type OrderPaid = z.infer<typeof orderPaidSchema>;
 export interface EventPublisher {
+  readonly failureCategory?: "KAFKA_UNAVAILABLE" | "PUBSUB_UNAVAILABLE";
   publish(event: OrderPaid): Promise<void>;
 }
 export function orderPaid(event: PaymentEvent): OrderPaid {

@@ -1,16 +1,15 @@
 import { installStructuredLogging } from "../logging.js";
 import { setTimeout as delay } from "node:timers/promises";
-import { loadKafkaConfig, loadOutboxConfig } from "../config/env.js";
+import { loadOutboxConfig } from "../config/env.js";
 import { createBusinessResources } from "../database/business.js";
-import { kafkaClient, kafkaProducer, KafkaEventPublisher } from "../events/kafka.js";
+import { createPublisherRuntime } from "../events/event-runtime.js";
 import { OutboxRelay } from "../outbox/outbox-relay.js";
 
 installStructuredLogging();
 
 async function main(): Promise<void> {
-  const kafka = loadKafkaConfig();
   const config = loadOutboxConfig();
-  const producer = kafkaProducer(kafkaClient(kafka));
+  let publisher: Awaited<ReturnType<typeof createPublisherRuntime>> | undefined;
   let business: Awaited<ReturnType<typeof createBusinessResources>> | undefined;
   let stopping = false;
   let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -29,12 +28,9 @@ async function main(): Promise<void> {
   try {
     business = await createBusinessResources();
     const repository = business.outbox;
-    await producer.connect();
-    const relay = new OutboxRelay(
-      repository,
-      new KafkaEventPublisher(producer, kafka.orderTopic),
-      config,
-    );
+    await business.ready();
+    publisher = await createPublisherRuntime();
+    const relay = new OutboxRelay(repository, publisher.publisher, config);
     console.info({
       operation: "Outbox relay started",
       storageBackend: repository.storageBackend,
@@ -58,7 +54,7 @@ async function main(): Promise<void> {
     process.exitCode = 1;
   } finally {
     const results = await Promise.allSettled([
-      producer.disconnect(),
+      ...(publisher ? [publisher.close()] : []),
       ...(business ? [business.close()] : []),
     ]);
     if (results.some((r) => r.status === "rejected")) process.exitCode = 1;

@@ -1,17 +1,12 @@
 import { installStructuredLogging } from "../logging.js";
-import { loadKafkaConfig } from "../config/env.js";
 import { createBusinessResources } from "../database/business.js";
-import { kafkaClient, kafkaProducer } from "../events/kafka.js";
-import { startOrderConsumer } from "../events/order-consumer.js";
+import { createConsumerRuntime } from "../events/event-runtime.js";
 
 installStructuredLogging();
 
 async function main(): Promise<void> {
-  const config = loadKafkaConfig();
   const business = await createBusinessResources();
-  const kafka = kafkaClient(config);
-  const producer = kafkaProducer(kafka);
-  let worker: Awaited<ReturnType<typeof startOrderConsumer>> | undefined;
+  let worker: Awaited<ReturnType<typeof createConsumerRuntime>> | undefined;
   let closing = false;
   const shutdown = async (failed = false) => {
     if (closing) return;
@@ -26,7 +21,7 @@ async function main(): Promise<void> {
     } catch {
       process.exitCode = 1;
     } finally {
-      await Promise.allSettled([producer.disconnect(), business.close()]);
+      await Promise.allSettled([business.close()]);
       clearTimeout(deadline);
       process.off("SIGINT", stop);
       process.off("SIGTERM", stop);
@@ -40,8 +35,7 @@ async function main(): Promise<void> {
   process.on("SIGTERM", stop);
   try {
     await business.ready();
-    await producer.connect();
-    worker = await startOrderConsumer(kafka, producer, config, business.notifications, () => {
+    worker = await createConsumerRuntime(business.notifications, () => {
       void shutdown(true);
     });
     if (closing) {
@@ -50,7 +44,7 @@ async function main(): Promise<void> {
     }
     console.info({
       operation: "Order worker started",
-      consumerGroup: config.consumerGroup,
+      consumerGroup: worker.identity,
     });
   } catch {
     console.error("Order worker startup failed");

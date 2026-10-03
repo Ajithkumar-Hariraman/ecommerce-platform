@@ -14,14 +14,14 @@ export class OutboxRelay {
       // Claim just in time: later batch members cannot exhaust their lease waiting for earlier sends.
       const claim = (await this.repository.claimBatch({ ...this.options, batchSize: 1 }))[0];
       if (!claim) break;
-      let category: "INVALID_EVENT" | "KAFKA_UNAVAILABLE" | undefined;
+      let category: "INVALID_EVENT" | "KAFKA_UNAVAILABLE" | "PUBSUB_UNAVAILABLE" | undefined;
       const parsed = orderPaidSchema.safeParse(claim.event);
       if (!parsed.success) category = "INVALID_EVENT";
       else {
         try {
           await this.publisher.publish(parsed.data);
         } catch {
-          category = "KAFKA_UNAVAILABLE";
+          category = this.publisher.failureCategory ?? "KAFKA_UNAVAILABLE";
         }
       }
       // A failed DB acknowledgement leaves PROCESSING intact; lease expiry recovers it.

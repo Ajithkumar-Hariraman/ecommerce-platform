@@ -337,3 +337,26 @@ export function loadDocsConfig(): boolean {
   if (value !== "true" && value !== "false") throw new Error("DOCS_ENABLED must be true or false");
   return value === "true";
 }
+
+export function loadEventTransportConfig() {
+  loadLocalEnv();
+  const transport = process.env.EVENT_TRANSPORT ?? "kafka";
+  if (transport === "kafka") return { transport } as const;
+  if (transport !== "pubsub") throw new Error("EVENT_TRANSPORT must be kafka or pubsub");
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT ?? "";
+  const region = process.env.GOOGLE_CLOUD_REGION ?? "asia-south1";
+  const topic = process.env.PUBSUB_ORDER_TOPIC ?? "ecommerce-order-events";
+  const subscription =
+    process.env.PUBSUB_ORDER_SUBSCRIPTION ?? "ecommerce-order-notification-worker";
+  if (!/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(projectId) || !/^[a-z]+-[a-z]+[0-9]+$/.test(region))
+    throw new Error("Valid Pub/Sub project and region required");
+  for (const name of [topic, subscription])
+    if (!/^[A-Za-z][A-Za-z0-9._~-]{2,254}$/.test(name))
+      throw new Error("Invalid Pub/Sub resource name");
+  if (
+    loadEnv().nodeEnv === "test" &&
+    ![topic, subscription].every((name) => name.startsWith("test-"))
+  )
+    throw new Error("Pub/Sub tests require test-owned resources");
+  return { transport, projectId, region, topic, subscription } as const;
+}
