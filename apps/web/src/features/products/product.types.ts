@@ -1,5 +1,12 @@
 export type ProductStatus = "ACTIVE" | "INACTIVE";
 export interface Product {
+  image?: {
+    bucket: string;
+    objectName: string;
+    generation: string;
+    contentType: string;
+    size: number;
+  };
   id: string;
   sku: string;
   name: string;

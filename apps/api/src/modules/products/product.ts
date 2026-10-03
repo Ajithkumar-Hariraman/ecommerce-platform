@@ -1,6 +1,8 @@
+import type { ProductImage } from "./product-image.js";
 export type ProductStatus = "ACTIVE" | "INACTIVE";
 
 export interface Product {
+  image?: ProductImage | undefined;
   id: string;
   sku: string;
   name: string;

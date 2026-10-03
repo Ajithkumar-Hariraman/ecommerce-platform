@@ -1,0 +1,19 @@
+[
+  {
+    "origin": [
+      "http://127.0.0.1:5173"
+    ],
+    "method": [
+      "PUT",
+      "GET",
+      "HEAD"
+    ],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "x-goog-if-generation-match",
+      "ETag"
+    ],
+    "maxAgeSeconds": 300
+  }
+]

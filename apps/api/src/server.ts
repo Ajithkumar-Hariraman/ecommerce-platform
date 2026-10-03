@@ -1,3 +1,8 @@
+import {
+  createImageStorage,
+  GcsProductImageStore,
+} from "./modules/products/gcs-product-image.store.js";
+import { loadProductImageConfig } from "./config/env.js";
 import { RazorpayPaymentClient } from "./modules/payments/razorpay.gateway.js";
 import { RazorpayHttpApi } from "./modules/payments/razorpay.api.js";
 import { installStructuredLogging } from "./logging.js";
@@ -100,7 +105,16 @@ async function main(): Promise<void> {
           razorpayConfig.webhookSecret,
         )
       : undefined;
+    const imageConfig = loadProductImageConfig();
+    const productImages = imageConfig
+      ? new GcsProductImageStore(
+          await createImageStorage(imageConfig),
+          imageConfig.bucket,
+          imageConfig.ttlSeconds,
+        )
+      : undefined;
     const app = createApp({
+      ...(productImages ? { productImages } : {}),
       ...(razorpay ? { razorpay } : {}),
       docsEnabled: loadDocsConfig(),
       productCache: new RedisProductCache(

@@ -23,6 +23,8 @@ export function ProductForm({
   const [stock, setStock] = useState(String(product?.stock ?? 0));
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? "");
   const [status, setStatus] = useState<ProductStatus>(product?.status ?? "ACTIVE");
+  const [image, setImage] = useState<File | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(product?.id ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent) {
@@ -38,8 +40,18 @@ export function ProductForm({
         stock: Number(stock),
         categoryId: categoryId || null,
       };
-      if (product) await productsApi.update(product.id, { ...input, status });
-      else await productsApi.create(input);
+      if (
+        image &&
+        (!["image/jpeg", "image/png", "image/webp"].includes(image.type) ||
+          image.size < 1 ||
+          image.size > 5 * 1024 * 1024)
+      )
+        throw new Error("Choose a JPEG, PNG or WebP image up to 5 MB");
+      const saved = savedId
+        ? await productsApi.update(savedId, { ...input, status })
+        : await productsApi.create(input);
+      setSavedId(saved.id); // An upload retry must update this Product rather than create a duplicate.
+      if (image) await productsApi.uploadImage(saved.id, image);
       onSaved();
     } catch (error) {
       setError(errorMessage(error));
@@ -105,6 +117,14 @@ export function ProductForm({
                 </select>
               </label>
             )}
+            <label className="wide">
+              Product image (optional, JPEG/PNG/WebP, up to 5 MB)
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => setImage(e.target.files?.[0] ?? null)}
+              />
+            </label>
             <label className="wide">
               Description
               <textarea

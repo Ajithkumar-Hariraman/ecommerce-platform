@@ -1,3 +1,4 @@
+import {productImageSchema} from "./product-image.js";
 import { z } from "zod";
 import type { RedisCommands, OperationalLog } from "../../database/redis.js";
 import type { Product } from "./product.js";
@@ -5,6 +6,7 @@ import type { ProductCache } from "./product.cache.js";
 
 export const cachedProduct = z.strictObject({
   id: z.uuid(),
+  image: productImageSchema.optional(),
   sku: z.string().min(1),
   name: z.string().min(1),
   description: z.string().nullable(),

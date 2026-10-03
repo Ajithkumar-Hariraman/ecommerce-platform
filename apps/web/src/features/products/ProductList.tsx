@@ -1,3 +1,4 @@
+import { ProductImage } from "./ProductImage";
 import type { Product } from "./product.types";
 import type { Category } from "../categories/category.types";
 const currency = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
@@ -38,7 +39,16 @@ export function ProductList({
           {products.map((product) => (
             <tr key={product.id}>
               <td>
-                <strong>{product.name}</strong>
+                <strong>
+                  {product.image && (
+                    <ProductImage
+                      id={product.id}
+                      generation={product.image.generation}
+                      name={product.name}
+                    />
+                  )}
+                  {product.name}
+                </strong>
               </td>
               <td className="sku">{product.sku}</td>
               <td className="numeric">{currency.format(product.priceInMinorUnits / 100)}</td>

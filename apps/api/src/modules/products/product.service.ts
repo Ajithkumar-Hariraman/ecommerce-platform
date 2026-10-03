@@ -1,3 +1,5 @@
+import { productImageSchema } from "./product-image.js";
+import type { ProductImage } from "./product-image.js";
 import type { ProductCache } from "./product.cache.js";
 import type {
   ProductListInput,
@@ -178,6 +180,17 @@ export class ProductService {
         ...fields,
         updatedAt: new Date().toISOString(),
       },
+      false,
+    );
+    await this.cache?.delete(id);
+    return saved;
+  }
+
+  async setImage(id: string, image: ProductImage): Promise<Product> {
+    const existing = await this.repository.findById(id);
+    if (!existing) throw new AppError(404, "Product not found");
+    const saved = await this.save(
+      { ...existing, image: productImageSchema.parse(image), updatedAt: new Date().toISOString() },
       false,
     );
     await this.cache?.delete(id);

@@ -1,3 +1,4 @@
+import { imageUploadSchema } from "./modules/products/product-image.js";
 import { z } from "zod";
 import {
   createSchema as productCreate,
@@ -59,6 +60,15 @@ const importSummary = z.strictObject({
 });
 const schemas = {
   Product: cachedProduct,
+  ProductImageUpload: imageUploadSchema,
+  ProductImageComplete: z.strictObject({ objectName: z.string().min(1).max(200) }),
+  ProductImageUrl: z.strictObject({ url: z.url(), expiresAt: z.iso.datetime() }),
+  ProductImageUploadResponse: z.strictObject({
+    url: z.url(),
+    objectName: z.string(),
+    headers: z.record(z.string(), z.string()),
+    expiresAt: z.iso.datetime(),
+  }),
   Category: category,
   Order: order,
   OrderItem: orderItem,
@@ -232,6 +242,32 @@ export const openApiDocument = {
         requestBody: body("ProductUpdate"),
       }),
       delete: operation("Delete product", 204, undefined, read, {
+        description: catalog,
+      }),
+    },
+    "/api/v1/products/{id}/image-upload": {
+      parameters: [id],
+      post: operation(
+        "Create signed image upload",
+        200,
+        ref("ProductImageUploadResponse"),
+        [...write, 404, 503],
+        { description: catalog, requestBody: body("ProductImageUpload") },
+      ),
+    },
+    "/api/v1/products/{id}/image": {
+      parameters: [id],
+      put: operation(
+        "Validate and attach uploaded image",
+        200,
+        ref("Product"),
+        [...write, 404, 503],
+        { description: catalog, requestBody: body("ProductImageComplete") },
+      ),
+    },
+    "/api/v1/products/{id}/image-url": {
+      parameters: [id],
+      get: operation("Create signed image read URL", 200, ref("ProductImageUrl"), [...read, 503], {
         description: catalog,
       }),
     },

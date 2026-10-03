@@ -9,7 +9,7 @@ import { toProduct } from "./product-row.js";
 import type { ProductRow } from "./product-row.js";
 
 const columns =
-  "id, sku, name, description, price_in_minor_units, stock, status, created_at, updated_at, category_id";
+  "id, sku, name, description, price_in_minor_units, stock, status, created_at, updated_at, category_id, image_asset";
 
 export class PostgresProductRepository implements ProductRepository {
   constructor(private readonly pool: Pool) {}
@@ -44,7 +44,7 @@ export class PostgresProductRepository implements ProductRepository {
   async create(product: Product): Promise<Product> {
     const rows = await this.rows(
       `INSERT INTO public.products (${columns})
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${columns}`,
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ${columns}`,
       [
         product.id,
         product.sku,
@@ -56,6 +56,7 @@ export class PostgresProductRepository implements ProductRepository {
         product.createdAt,
         product.updatedAt,
         product.categoryId,
+        product.image ?? null,
       ],
     );
     if (!rows[0]) throw new Error("Insert did not return a product");
@@ -111,7 +112,7 @@ export class PostgresProductRepository implements ProductRepository {
   async update(product: Product): Promise<Product | null> {
     const rows = await this.rows(
       `UPDATE public.products SET sku=$2, name=$3, description=$4,
-      price_in_minor_units=$5, stock=$6, status=$7, updated_at=$8, category_id=$9
+      price_in_minor_units=$5, stock=$6, status=$7, updated_at=$8, category_id=$9, image_asset=$10
       WHERE id=$1 RETURNING ${columns}`,
       [
         product.id,
@@ -123,6 +124,7 @@ export class PostgresProductRepository implements ProductRepository {
         product.status,
         product.updatedAt,
         product.categoryId,
+        product.image ?? null,
       ],
     );
     return rows[0] ? toProduct(rows[0]) : null;

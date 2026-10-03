@@ -3,6 +3,10 @@ import type { Product, ProductStatus } from "./product.js";
 import { DuplicateSkuError } from "./product.repository.js";
 import type { ProductRepository } from "./product.repository.js";
 
+function copyProduct(product: Product): Product {
+  return { ...product, ...(product.image ? { image: { ...product.image } } : {}) };
+}
+
 export class InMemoryProductRepository implements ProductRepository {
   private readonly products = new Map<string, Product>();
 
@@ -18,24 +22,24 @@ export class InMemoryProductRepository implements ProductRepository {
     if (this.products.has(product.id)) throw new Error("Product ID collision");
     // No await between the uniqueness check and write: atomic in this process.
     this.assertUniqueSku(product);
-    this.products.set(product.id, { ...product });
-    return { ...product };
+    this.products.set(product.id, copyProduct(product));
+    return copyProduct(product);
   }
 
   async findById(id: string): Promise<Product | null> {
     const product = this.products.get(id);
-    return product ? { ...product } : null;
+    return product ? copyProduct(product) : null;
   }
 
   async findByStatus(status: ProductStatus): Promise<Product[]> {
     return Array.from(this.products.values())
       .filter((product) => product.status === status)
-      .map((product) => ({ ...product }));
+      .map((product) => copyProduct(product));
   }
 
   async findBySku(sku: string): Promise<Product | null> {
     for (const product of this.products.values()) {
-      if (product.sku === sku) return { ...product };
+      if (product.sku === sku) return copyProduct(product);
     }
     return null;
   }
@@ -52,19 +56,19 @@ export class InMemoryProductRepository implements ProductRepository {
       total: matches.length,
       products: matches
         .slice(query.offset, query.offset + query.limit)
-        .map((product) => ({ ...product })),
+        .map((product) => copyProduct(product)),
     };
   }
 
   async findAll(): Promise<Product[]> {
-    return Array.from(this.products.values(), (product) => ({ ...product }));
+    return Array.from(this.products.values(), (product) => copyProduct(product));
   }
 
   async update(product: Product): Promise<Product | null> {
     if (!this.products.has(product.id)) return null;
     this.assertUniqueSku(product);
-    this.products.set(product.id, { ...product });
-    return { ...product };
+    this.products.set(product.id, copyProduct(product));
+    return copyProduct(product);
   }
 
   async deleteById(id: string): Promise<boolean> {

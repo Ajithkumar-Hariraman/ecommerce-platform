@@ -1,3 +1,4 @@
+import { productImageSchema } from "./product-image.js";
 import type { Product, ProductStatus } from "./product.js";
 
 export interface ProductRow {
@@ -6,6 +7,7 @@ export interface ProductRow {
   name: string;
   description: string | null;
   category_id: string | null;
+  image_asset?: unknown;
   // pg returns bigint as strings to avoid silently losing precision.
   price_in_minor_units: string;
   stock: string;
@@ -29,6 +31,7 @@ export function toProduct(row: ProductRow): Product {
     stock,
     status: row.status,
     categoryId: row.category_id,
+    ...(row.image_asset == null ? {} : { image: productImageSchema.parse(row.image_asset) }),
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };

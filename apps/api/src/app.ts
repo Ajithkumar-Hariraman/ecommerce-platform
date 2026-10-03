@@ -1,3 +1,4 @@
+import type { ProductImageStore } from "./modules/products/product-image.js";
 import {
   razorpayCheckoutRouter,
   razorpayWebhookRouter,
@@ -28,6 +29,7 @@ export interface AppDependencies {
   razorpay?: RazorpayPaymentClient;
   accessPolicy?: AccessPolicy;
   productCache?: ProductCache;
+  productImages?: ProductImageStore;
   rateLimiter?: RequestHandler;
   // Optional only for existing isolated Product/Category test apps; runtime always supplies it.
   orderRepository?: OrderRepository;
@@ -91,6 +93,7 @@ export function createApp(dependencies: AppDependencies): Express {
       dependencies.productRepository,
       dependencies.categoryRepository,
       dependencies.productCache,
+      dependencies.productImages,
     ),
   );
   app.use("/api/v1/categories", createCategoryModule(dependencies.categoryRepository));

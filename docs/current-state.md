@@ -282,3 +282,11 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Pub/Sub uses ADC/runtime identity, bounded subscriber flow control, validation before persistence, and acknowledgement after durable processing/deduplication. Subscription retries/DLQ handle rejected events.
 - Sixteen focused Kafka/outbox/Pub/Sub checks passed; a real Google Pub/Sub + PostgreSQL ecommerce_test flow published the outbox event and persisted exactly one notification after duplicate delivery. Test-owned cloud resources/schema were removed. Backend typecheck/build passed.
 - Migration 009 identifies Pub/Sub publication failures separately. No cloud application deployment or browser verification is claimed. See [Pub/Sub transport](pubsub-events.md).
+
+## Product image checkpoint (2026-10-03)
+
+- Implemented signed Cloud Storage upload, bounded metadata/header validation, immutable asset references in both repositories, cache invalidation and a minimal React upload/preview flow.
+- Focused checks: 80 passed; all three real PostgreSQL/Mongo/GCS integration checks passed with no skips. Live signed PUT/GET, immutable generation and overwrite rejection were observed. Backend/frontend typecheck and builds passed.
+- Migration 010 applied to development and test PostgreSQL through the checksum-verified migration runner. This snapshot accompanies the product image commit. No browser verification or production deployment claimed.
+- The explicitly approved operator Token Creator grant was temporary, scoped to the runtime service account, removed immediately after the live test, and verified absent. No keys were created/downloaded. Runtime bucket permissions and self-signing permission remain configured.
+- Production Keycloak and Redis/VPC are not provisioned, so Cloud Run deployment is blocked. See [product images](product-images.md).

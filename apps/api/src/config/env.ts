@@ -360,3 +360,21 @@ export function loadEventTransportConfig() {
     throw new Error("Pub/Sub tests require test-owned resources");
   return { transport, projectId, region, topic, subscription } as const;
 }
+
+export function loadProductImageConfig() {
+  loadLocalEnv();
+  const bucket = process.env.PRODUCT_ASSET_BUCKET ?? "";
+  if (!bucket) return undefined;
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT ?? "";
+  const signerServiceAccount = process.env.PRODUCT_ASSET_SIGNER_SERVICE_ACCOUNT ?? "";
+  if (
+    !/^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/.test(bucket) ||
+    !/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(projectId) ||
+    !/^[a-zA-Z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com$/.test(signerServiceAccount)
+  )
+    throw new Error("Invalid product asset bucket/project/signer configuration");
+  const ttl = Number(process.env.PRODUCT_ASSET_URL_TTL_SECONDS ?? "300");
+  if (!Number.isSafeInteger(ttl) || ttl < 60 || ttl > 900)
+    throw new Error("Product asset URL TTL must be 60..900 seconds");
+  return { bucket, projectId, signerServiceAccount, ttlSeconds: ttl };
+}
