@@ -8,13 +8,21 @@ import type { ProductRepository } from "../../src/modules/products/product.repos
 export async function verifyListing(t: TestContext, repository: ProductRepository): Promise<void> {
   const baseline = await repository.findAll();
   const owned: Product[] = Array.from({ length: 6 }, (_, i) => ({
-    id: randomUUID(), sku: "PAGE-" + randomUUID(), name: "Page fixture " + i,
-    description: null, categoryId: null, priceInMinorUnits: 100, stock: 1,
+    id: randomUUID(),
+    sku: "PAGE-" + randomUUID(),
+    name: "Page fixture " + i,
+    description: null,
+    categoryId: null,
+    priceInMinorUnits: 100,
+    stock: 1,
     status: i % 3 === 0 ? "INACTIVE" : "ACTIVE",
-    createdAt: "2001-01-01T00:00:00.000Z", updatedAt: "2001-01-01T00:00:00.000Z",
+    createdAt: "2001-01-01T00:00:00.000Z",
+    updatedAt: "2001-01-01T00:00:00.000Z",
   }));
-  const expected = [...baseline, ...owned].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
-    || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const expected = [...baseline, ...owned].sort(
+    (a, b) =>
+      Date.parse(a.createdAt) - Date.parse(b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  );
   try {
     // Reverse insertion demonstrates that ID breaks equal-timestamp ties.
     for (const product of [...owned].reverse()) await repository.create(product);
@@ -25,14 +33,17 @@ export async function verifyListing(t: TestContext, repository: ProductRepositor
     });
     for (const status of ["ACTIVE", "INACTIVE"] as const) {
       await t.test(status + " filtering combines with pagination and matching total", async () => {
-        const matching = expected.filter(p => p.status === status);
+        const matching = expected.filter((p) => p.status === status);
         const result = await repository.list({ status, limit: 1, offset: 1 });
         assert.equal(result.total, matching.length);
         assert.deepEqual(result.products, matching.slice(1, 2));
       });
     }
     await t.test("beyond available rows is empty with real total", async () => {
-      assert.deepEqual(await repository.list({ limit: 2, offset: expected.length + 5 }), { products: [], total: expected.length });
+      assert.deepEqual(await repository.list({ limit: 2, offset: expected.length + 5 }), {
+        products: [],
+        total: expected.length,
+      });
     });
     await t.test("limit 100 is supported and listed products are independent copies", async () => {
       const result = await repository.list({ limit: 100, offset: 0 });

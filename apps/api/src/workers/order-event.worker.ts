@@ -41,15 +41,9 @@ async function main(): Promise<void> {
   try {
     await business.ready();
     await producer.connect();
-    worker = await startOrderConsumer(
-      kafka,
-      producer,
-      config,
-      business.notifications,
-      () => {
-        void shutdown(true);
-      },
-    );
+    worker = await startOrderConsumer(kafka, producer, config, business.notifications, () => {
+      void shutdown(true);
+    });
     if (closing) {
       await worker.close();
       return;

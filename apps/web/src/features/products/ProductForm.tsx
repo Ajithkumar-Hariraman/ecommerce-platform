@@ -19,14 +19,10 @@ export function ProductForm({
   const [sku, setSku] = useState(product?.sku ?? "");
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
-  const [price, setPrice] = useState(
-    product ? priceText(product.priceInMinorUnits) : "",
-  );
+  const [price, setPrice] = useState(product ? priceText(product.priceInMinorUnits) : "");
   const [stock, setStock] = useState(String(product?.stock ?? 0));
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? "");
-  const [status, setStatus] = useState<ProductStatus>(
-    product?.status ?? "ACTIVE",
-  );
+  const [status, setStatus] = useState<ProductStatus>(product?.status ?? "ACTIVE");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent) {
@@ -59,19 +55,11 @@ export function ProductForm({
           <div className="form-grid">
             <label>
               Product name
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <input required value={name} onChange={(e) => setName(e.target.value)} />
             </label>
             <label>
               SKU
-              <input
-                required
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-              />
+              <input required value={sku} onChange={(e) => setSku(e.target.value)} />
             </label>
             <label>
               Price (major units)
@@ -95,15 +83,10 @@ export function ProductForm({
             </label>
             <label>
               Category
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
+              <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                 <option value="">Uncategorized</option>
                 {categoryId && !categories.some((c) => c.id === categoryId) && (
-                  <option value={categoryId}>
-                    Unavailable category ({categoryId})
-                  </option>
+                  <option value={categoryId}>Unavailable category ({categoryId})</option>
                 )}
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -116,10 +99,7 @@ export function ProductForm({
             {product && (
               <label>
                 Product status
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as ProductStatus)}
-                >
+                <select value={status} onChange={(e) => setStatus(e.target.value as ProductStatus)}>
                   <option>ACTIVE</option>
                   <option>INACTIVE</option>
                 </select>

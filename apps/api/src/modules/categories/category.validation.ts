@@ -4,7 +4,8 @@ import { AppError } from "../../errors/app-error.js";
 import type { CreateCategoryInput } from "./category.js";
 
 export const createSchema = z.strictObject({
-  slug: z.string(), name: z.string(),
+  slug: z.string(),
+  name: z.string(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 const idSchema = z.uuid();

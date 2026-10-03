@@ -10,7 +10,12 @@ test("PostgreSQL CSV import persists statuses and isolates row failures", async 
   assert.equal(config.database, "ecommerce_test");
   const pool = createPool(config);
   try {
-    assert.equal((await pool.query("SELECT current_database() AS name")).rows[0].name, "ecommerce_test");
+    assert.equal(
+      (await pool.query("SELECT current_database() AS name")).rows[0].name,
+      "ecommerce_test",
+    );
     await verifyImport(new PostgresProductRepository(pool), new PostgresCategoryRepository(pool));
-  } finally { await pool.end(); }
+  } finally {
+    await pool.end();
+  }
 });

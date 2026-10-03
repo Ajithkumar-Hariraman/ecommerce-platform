@@ -1,12 +1,7 @@
 import type { ErrorRequestHandler } from "express";
 import { AppError } from "../errors/app-error.js";
 
-export const errorHandler: ErrorRequestHandler = (
-  error: unknown,
-  req,
-  res,
-  next,
-) => {
+export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, next) => {
   if (res.headersSent) {
     next(error);
     return;

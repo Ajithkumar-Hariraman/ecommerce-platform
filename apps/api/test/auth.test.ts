@@ -75,23 +75,20 @@ test("JWT signatures, claims, JWKS caching/rotation and route RBAC", async (t) =
       headers: authorization ? { Authorization: authorization } : {},
     });
   try {
-    await t.test(
-      "missing and malformed Bearer headers are safe 401",
-      async () => {
-        for (const header of [
-          undefined,
-          "Basic abc",
-          "Bearer abc",
-          "Bearer a.b.c extra",
-          "Bearer a.b.c",
-        ]) {
-          const res = await request("/api/v1/products", header);
-          assert.equal(res.status, 401);
-          assert.ok(res.headers.get("www-authenticate"));
-          assert.equal(typeof (await res.json()).error.message, "string");
-        }
-      },
-    );
+    await t.test("missing and malformed Bearer headers are safe 401", async () => {
+      for (const header of [
+        undefined,
+        "Basic abc",
+        "Bearer abc",
+        "Bearer a.b.c extra",
+        "Bearer a.b.c",
+      ]) {
+        const res = await request("/api/v1/products", header);
+        assert.equal(res.status, 401);
+        assert.ok(res.headers.get("www-authenticate"));
+        assert.equal(typeof (await res.json()).error.message, "string");
+      }
+    });
     await t.test(
       "expired, wrong issuer/audience, missing expiry, ID token and invalid signature rejected",
       async () => {
@@ -106,114 +103,67 @@ test("JWT signatures, claims, JWKS caching/rotation and route RBAC", async (t) =
           await token([], {}, second.privateKey),
         ];
         for (const value of invalid)
-          assert.equal(
-            (await request("/api/v1/products", "Bearer " + value)).status,
-            401,
-          );
+          assert.equal((await request("/api/v1/products", "Bearer " + value)).status, 401);
       },
     );
-    await t.test(
-      "roles are audience-scoped; valid unprivileged identity gets 403",
-      async () => {
-        assert.equal(
-          (await request("/api/v1/products", "Bearer " + (await token([]))))
-            .status,
-          403,
-        );
-        const other = await token([], {
-          realm_access: { roles: ["admin"] },
-          resource_access: { "another-api": { roles: ["admin"] } },
-        });
-        assert.equal(
-          (await request("/api/v1/products", "Bearer " + other)).status,
-          403,
-        );
-      },
-    );
-    await t.test(
-      "catalog readers can read but cannot mutate or import",
-      async () => {
-        const reader = "Bearer " + (await token(["catalog_reader"]));
-        for (const path of ["/api/v1/products", "/api/v1/categories"])
-          assert.equal((await request(path, reader)).status, 200);
-        for (const [path, method] of [
-          ["/api/v1/products", "POST"],
-          ["/api/v1/products/import", "POST"],
-          ["/api/v1/products/00000000-0000-4000-8000-000000000000", "DELETE"],
-        ])
-          assert.equal((await request(path!, reader, method!)).status, 403);
-        assert.equal(
-          (await request("/api/v1/orders/some-id", reader)).status,
-          403,
-        );
-      },
-    );
-    await t.test(
-      "catalog manager/admin permissions reach existing validation",
-      async () => {
-        for (const role of ["catalog_manager", "admin"]) {
-          const manager = "Bearer " + (await token([role]));
-          assert.equal(
-            (await request("/api/v1/products", manager)).status,
-            200,
-          );
-          assert.equal(
-            (await request("/api/v1/products", manager, "POST")).status,
-            400,
-          );
-        }
-      },
-    );
-    await t.test(
-      "Order role boundary distinguishes read from mutations",
-      async () => {
-        const reader = "Bearer " + (await token(["order_reader"]));
-        assert.equal((await request("/api/v1/orders/id", reader)).status, 404); // no Order module in this isolated app
-        assert.equal(
-          (await request("/api/v1/orders", reader, "POST")).status,
-          403,
-        );
-        assert.equal(
-          (await request("/api/v1/orders/id/payment", reader, "POST")).status,
-          403,
-        );
-        const manager = "Bearer " + (await token(["order_manager"]));
-        assert.equal(
-          (await request("/api/v1/orders", manager, "POST")).status,
-          404,
-        );
-        assert.equal((await request("/api/v1/products", manager)).status, 403);
-      },
-    );
-    await t.test(
-      "JWKS is cached and unknown kid triggers rotation fetch",
-      async () => {
-        const before = requests;
-        await verify(await token(["catalog_reader"]));
-        await verify(await token(["catalog_reader"]));
-        assert.equal(requests, before);
-        jwks = {
-          keys: [
-            ...jwks.keys,
-            {
-              ...(await exportJWK(second.publicKey)),
-              kid: "second",
-              alg: "RS256",
-              use: "sig",
-            },
-          ],
-        };
-        assert.equal(
-          (
-            await verify(
-              await token(["catalog_reader"], {}, second.privateKey, "second"),
-            )
-          ).subject,
-          "service-subject",
-        );
-        assert.equal(requests, before + 1);
-      },
-    );
+    await t.test("roles are audience-scoped; valid unprivileged identity gets 403", async () => {
+      assert.equal((await request("/api/v1/products", "Bearer " + (await token([])))).status, 403);
+      const other = await token([], {
+        realm_access: { roles: ["admin"] },
+        resource_access: { "another-api": { roles: ["admin"] } },
+      });
+      assert.equal((await request("/api/v1/products", "Bearer " + other)).status, 403);
+    });
+    await t.test("catalog readers can read but cannot mutate or import", async () => {
+      const reader = "Bearer " + (await token(["catalog_reader"]));
+      for (const path of ["/api/v1/products", "/api/v1/categories"])
+        assert.equal((await request(path, reader)).status, 200);
+      for (const [path, method] of [
+        ["/api/v1/products", "POST"],
+        ["/api/v1/products/import", "POST"],
+        ["/api/v1/products/00000000-0000-4000-8000-000000000000", "DELETE"],
+      ])
+        assert.equal((await request(path!, reader, method!)).status, 403);
+      assert.equal((await request("/api/v1/orders/some-id", reader)).status, 403);
+    });
+    await t.test("catalog manager/admin permissions reach existing validation", async () => {
+      for (const role of ["catalog_manager", "admin"]) {
+        const manager = "Bearer " + (await token([role]));
+        assert.equal((await request("/api/v1/products", manager)).status, 200);
+        assert.equal((await request("/api/v1/products", manager, "POST")).status, 400);
+      }
+    });
+    await t.test("Order role boundary distinguishes read from mutations", async () => {
+      const reader = "Bearer " + (await token(["order_reader"]));
+      assert.equal((await request("/api/v1/orders/id", reader)).status, 404); // no Order module in this isolated app
+      assert.equal((await request("/api/v1/orders", reader, "POST")).status, 403);
+      assert.equal((await request("/api/v1/orders/id/payment", reader, "POST")).status, 403);
+      const manager = "Bearer " + (await token(["order_manager"]));
+      assert.equal((await request("/api/v1/orders", manager, "POST")).status, 404);
+      assert.equal((await request("/api/v1/products", manager)).status, 403);
+    });
+    await t.test("JWKS is cached and unknown kid triggers rotation fetch", async () => {
+      const before = requests;
+      await verify(await token(["catalog_reader"]));
+      await verify(await token(["catalog_reader"]));
+      assert.equal(requests, before);
+      jwks = {
+        keys: [
+          ...jwks.keys,
+          {
+            ...(await exportJWK(second.publicKey)),
+            kid: "second",
+            alg: "RS256",
+            use: "sig",
+          },
+        ],
+      };
+      assert.equal(
+        (await verify(await token(["catalog_reader"], {}, second.privateKey, "second"))).subject,
+        "service-subject",
+      );
+      assert.equal(requests, before + 1);
+    });
     await t.test("health and readiness remain public", async () => {
       assert.equal((await request("/health")).status, 200);
       assert.equal((await request("/ready")).status, 200);
@@ -284,9 +234,7 @@ test("SPA API scope explicitly emits required subject into access tokens", async
       "utf8",
     ),
   );
-  const scope = realm.clientScopes.find(
-    (s: { name: string }) => s.name === "ecommerce-api-access",
-  );
+  const scope = realm.clientScopes.find((s: { name: string }) => s.name === "ecommerce-api-access");
   assert.ok(
     realm.clients
       .find((c: { clientId: string }) => c.clientId === "ecommerce-web")
@@ -295,8 +243,7 @@ test("SPA API scope explicitly emits required subject into access tokens", async
   assert.ok(
     scope.protocolMappers.some(
       (m: { protocolMapper: string; config: Record<string, string> }) =>
-        m.protocolMapper === "oidc-sub-mapper" &&
-        m.config["access.token.claim"] === "true",
+        m.protocolMapper === "oidc-sub-mapper" && m.config["access.token.claim"] === "true",
     ),
   );
 });

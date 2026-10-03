@@ -44,13 +44,10 @@ async function main(): Promise<void> {
             "100",
           ])) as [string, string[]];
           cursor = result[0];
-          if (result[1].length)
-            await redis.commands.command(["DEL", ...result[1]]);
+          if (result[1].length) await redis.commands.command(["DEL", ...result[1]]);
         } while (cursor !== "0");
       } catch {
-        console.warn(
-          "Test Redis cleanup unavailable; owned keys expire by TTL.",
-        );
+        console.warn("Test Redis cleanup unavailable; owned keys expire by TTL.");
       }
     }
     const results = await Promise.allSettled([
@@ -82,14 +79,10 @@ async function main(): Promise<void> {
       ? createAccessPolicy(await createOidcVerifier(authConfig))
       : disabledAccessPolicy();
     if (!authConfig.enabled)
-      console.info(
-        "Authentication explicitly disabled for non-production runtime.",
-      );
+      console.info("Authentication explicitly disabled for non-production runtime.");
     const provider = loadPaymentProvider();
-    const paymentConfig =
-      provider === "local" ? loadPaymentConfig() : undefined;
-    const razorpayConfig =
-      provider === "razorpay" ? loadRazorpayConfig() : undefined;
+    const paymentConfig = provider === "local" ? loadPaymentConfig() : undefined;
+    const razorpayConfig = provider === "razorpay" ? loadRazorpayConfig() : undefined;
     business = await createBusinessResources();
     const redisConfig = loadRedisConfig();
     redis = await createRedisResources(redisConfig.url);
@@ -129,9 +122,7 @@ async function main(): Promise<void> {
       orderRepository: business.orders,
       paymentClient: razorpay ?? new HttpPaymentClient(paymentConfig!.baseUrl),
       paymentWorkflow: business.payments,
-      ...(paymentConfig
-        ? { paymentWebhookSecret: paymentConfig.webhookSecret }
-        : {}),
+      ...(paymentConfig ? { paymentWebhookSecret: paymentConfig.webhookSecret } : {}),
       checkReady: business.ready,
     });
     await startServer(app, env, closeResources);
@@ -142,9 +133,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(
-    "API startup failed",
-    error instanceof Error ? error.message : "Unknown failure",
-  );
+  console.error("API startup failed", error instanceof Error ? error.message : "Unknown failure");
   process.exitCode = 1;
 });

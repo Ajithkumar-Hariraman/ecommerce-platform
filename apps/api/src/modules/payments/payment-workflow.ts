@@ -45,8 +45,7 @@ export function webhookAudit(
 ): OrderAudit | null {
   if (order.paymentId !== event.paymentId)
     throw new AppError(409, "Payment does not belong to this order");
-  const toStatus =
-    event.type === "payment.succeeded" ? "PAID" : "PAYMENT_FAILED";
+  const toStatus = event.type === "payment.succeeded" ? "PAID" : "PAYMENT_FAILED";
   if (event.provider === "razorpay") {
     // A failed attempt is not a terminal Razorpay Order; captured settlement wins.
     if (

@@ -12,10 +12,7 @@ const roles = new Set([
   "admin",
 ]);
 
-export function createJwtVerifier(
-  config: EnabledAuthConfig,
-  keys: JWTVerifyGetKey,
-): TokenVerifier {
+export function createJwtVerifier(config: EnabledAuthConfig, keys: JWTVerifyGetKey): TokenVerifier {
   return async (token) => {
     const { payload, protectedHeader } = await jwtVerify(token, keys, {
       issuer: config.issuer,
@@ -42,18 +39,12 @@ export function createJwtVerifier(
       typeof resource === "object" && resource !== null && "roles" in resource
         ? resource.roles
         : [];
-    if (
-      !Array.isArray(roleClaim) ||
-      !roleClaim.every((role) => typeof role === "string")
-    )
+    if (!Array.isArray(roleClaim) || !roleClaim.every((role) => typeof role === "string"))
       throw new Error("Invalid role claim");
     const principal: AuthenticatedPrincipal = {
       subject: payload.sub,
       roles: [...new Set(roleClaim.filter((role) => roles.has(role)))],
-      scopes:
-        typeof payload.scope === "string"
-          ? payload.scope.split(/\s+/).filter(Boolean)
-          : [],
+      scopes: typeof payload.scope === "string" ? payload.scope.split(/\s+/).filter(Boolean) : [],
     };
     if (typeof payload.preferred_username === "string")
       principal.username = payload.preferred_username;
@@ -61,23 +52,18 @@ export function createJwtVerifier(
   };
 }
 
-export async function createOidcVerifier(
-  config: EnabledAuthConfig,
-): Promise<TokenVerifier> {
+export async function createOidcVerifier(config: EnabledAuthConfig): Promise<TokenVerifier> {
   try {
-    const response = await fetch(
-      config.issuer + "/.well-known/openid-configuration",
-      { signal: AbortSignal.timeout(5000), redirect: "error" },
-    );
+    const response = await fetch(config.issuer + "/.well-known/openid-configuration", {
+      signal: AbortSignal.timeout(5000),
+      redirect: "error",
+    });
     if (!response.ok) throw new Error();
     const metadata = (await response.json()) as {
       issuer?: unknown;
       jwks_uri?: unknown;
     };
-    if (
-      metadata.issuer !== config.issuer ||
-      typeof metadata.jwks_uri !== "string"
-    )
+    if (metadata.issuer !== config.issuer || typeof metadata.jwks_uri !== "string")
       throw new Error();
     const jwksUrl = new URL(metadata.jwks_uri);
     if (
@@ -94,8 +80,6 @@ export async function createOidcVerifier(
     });
     return createJwtVerifier(config, keys);
   } catch {
-    throw new Error(
-      "OIDC discovery failed; verify identity provider configuration",
-    );
+    throw new Error("OIDC discovery failed; verify identity provider configuration");
   }
 }

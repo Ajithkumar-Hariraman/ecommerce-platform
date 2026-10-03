@@ -2,8 +2,20 @@ import type { RequestHandler } from "express";
 import type { OrderService } from "./order.service.js";
 import type { CreateOrderInput } from "./order.types.js";
 
-type CreateHandler = RequestHandler<Record<string, string>, unknown, unknown, Record<string, unknown>, {orderInput: CreateOrderInput}>;
-type IdHandler = RequestHandler<Record<string, string>, unknown, unknown, Record<string, unknown>, {orderId: string}>;
+type CreateHandler = RequestHandler<
+  Record<string, string>,
+  unknown,
+  unknown,
+  Record<string, unknown>,
+  { orderInput: CreateOrderInput }
+>;
+type IdHandler = RequestHandler<
+  Record<string, string>,
+  unknown,
+  unknown,
+  Record<string, unknown>,
+  { orderId: string }
+>;
 
 export class OrderController {
   constructor(private readonly service: OrderService) {}

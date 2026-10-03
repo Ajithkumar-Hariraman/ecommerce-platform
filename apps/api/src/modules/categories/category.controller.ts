@@ -2,12 +2,24 @@ import type { RequestHandler } from "express";
 import type { CategoryService } from "./category.service.js";
 import type { CreateCategoryInput } from "./category.js";
 
-type CreateHandler = RequestHandler<Record<string, string>, unknown, unknown, Record<string, unknown>, {
-  categoryInput: CreateCategoryInput;
-}>;
-type IdHandler = RequestHandler<Record<string, string>, unknown, unknown, Record<string, unknown>, {
-  categoryId: string;
-}>;
+type CreateHandler = RequestHandler<
+  Record<string, string>,
+  unknown,
+  unknown,
+  Record<string, unknown>,
+  {
+    categoryInput: CreateCategoryInput;
+  }
+>;
+type IdHandler = RequestHandler<
+  Record<string, string>,
+  unknown,
+  unknown,
+  Record<string, unknown>,
+  {
+    categoryId: string;
+  }
+>;
 
 export class CategoryController {
   constructor(private readonly service: CategoryService) {}

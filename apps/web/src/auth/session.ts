@@ -25,9 +25,7 @@ function publish(error = "") {
     ready: true,
     authenticated: !!keycloak.authenticated,
     username:
-      keycloak.idTokenParsed?.preferred_username ??
-      keycloak.tokenParsed?.sub ??
-      "Signed-in user",
+      keycloak.idTokenParsed?.preferred_username ?? keycloak.tokenParsed?.sub ?? "Signed-in user",
     error,
   };
   listeners.forEach((listener) => listener());
@@ -55,9 +53,7 @@ export function initializeSession(): Promise<void> {
     })
     .then(() => publish())
     .catch(() =>
-      publish(
-        "Login initialization failed. Check the Keycloak SPA client, then reload.",
-      ),
+      publish("Login initialization failed. Check the Keycloak SPA client, then reload."),
     ));
 }
 export function useSession() {
@@ -96,9 +92,7 @@ export async function accessToken(forceRefresh = false): Promise<string> {
 
     const tokenExpiredOrNearExpiry = typeof exp !== "number" || exp <= now + 30;
 
-    await keycloak.updateToken(
-      forceRefresh || tokenExpiredOrNearExpiry ? -1 : 30,
-    );
+    await keycloak.updateToken(forceRefresh || tokenExpiredOrNearExpiry ? -1 : 30);
 
     const refreshedExp = keycloak.tokenParsed?.exp;
 

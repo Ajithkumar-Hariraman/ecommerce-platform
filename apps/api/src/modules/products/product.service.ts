@@ -1,16 +1,15 @@
 import type { ProductCache } from "./product.cache.js";
-import type { ProductListInput, ProductListQuery, ProductListResponse } from "./product-list.types.js";
+import type {
+  ProductListInput,
+  ProductListQuery,
+  ProductListResponse,
+} from "./product-list.types.js";
 import type { CategoryRepository } from "../categories/category.repository.js";
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../errors/app-error.js";
 import { DuplicateSkuError } from "./product.repository.js";
 import type { ProductRepository } from "./product.repository.js";
-import type {
-  CreateProductInput,
-  Product,
-  ProductStatus,
-  UpdateProductInput,
-} from "./product.js";
+import type { CreateProductInput, Product, ProductStatus, UpdateProductInput } from "./product.js";
 
 export class ProductService {
   constructor(
@@ -32,14 +31,8 @@ export class ProductService {
     }
     if (input.description !== undefined) fields.description = input.description;
     if (input.priceInMinorUnits !== undefined) {
-      if (
-        !Number.isSafeInteger(input.priceInMinorUnits) ||
-        input.priceInMinorUnits <= 0
-      ) {
-        throw new AppError(
-          400,
-          "Price must be a positive safe integer in minor units",
-        );
+      if (!Number.isSafeInteger(input.priceInMinorUnits) || input.priceInMinorUnits <= 0) {
+        throw new AppError(400, "Price must be a positive safe integer in minor units");
       }
       fields.priceInMinorUnits = input.priceInMinorUnits;
     }
@@ -59,15 +52,12 @@ export class ProductService {
   }
 
   private async assertCategoryExists(categoryId: string | null | undefined): Promise<void> {
-    if (categoryId != null && !await this.categories.findById(categoryId)) {
+    if (categoryId != null && !(await this.categories.findById(categoryId))) {
       throw new AppError(400, "Referenced category does not exist");
     }
   }
 
-  private async assertUniqueSku(
-    sku: string,
-    excludingId?: string,
-  ): Promise<void> {
+  private async assertUniqueSku(sku: string, excludingId?: string): Promise<void> {
     const existing = await this.repository.findBySku(sku);
     if (existing && existing.id !== excludingId) {
       throw new AppError(409, "SKU already exists");
@@ -83,8 +73,7 @@ export class ProductService {
       if (!saved) throw new AppError(404, "Product not found");
       return saved;
     } catch (error: unknown) {
-      if (error instanceof DuplicateSkuError)
-        throw new AppError(409, "SKU already exists");
+      if (error instanceof DuplicateSkuError) throw new AppError(409, "SKU already exists");
       throw error;
     }
   }
@@ -97,10 +86,7 @@ export class ProductService {
       fields.priceInMinorUnits === undefined ||
       fields.stock === undefined
     ) {
-      throw new AppError(
-        400,
-        "SKU, name, priceInMinorUnits, and stock are required",
-      );
+      throw new AppError(400, "SKU, name, priceInMinorUnits, and stock are required");
     }
     await this.assertCategoryExists(fields.categoryId);
     await this.assertUniqueSku(fields.sku);
@@ -125,8 +111,17 @@ export class ProductService {
   async list(input: ProductListInput = {}): Promise<ProductListResponse> {
     const page = input.page ?? 1;
     const limit = input.limit ?? 20;
-    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-      throw new AppError(400, "Page must be a positive safe integer and limit must be between 1 and 100");
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    ) {
+      throw new AppError(
+        400,
+        "Page must be a positive safe integer and limit must be between 1 and 100",
+      );
     }
     if (input.status !== undefined && input.status !== "ACTIVE" && input.status !== "INACTIVE") {
       throw new AppError(400, "Status must be ACTIVE or INACTIVE");
@@ -139,11 +134,17 @@ export class ProductService {
     if (input.status !== undefined) query.status = input.status;
     const { products, total } = await this.repository.list(query);
     const totalPages = Math.ceil(total / limit);
-    return { products, pagination: {
-      page, limit, total, totalPages,
-      hasNextPage: page < totalPages,
-      hasPreviousPage: page > 1 && total > 0,
-    } };
+    return {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1 && total > 0,
+      },
+    };
   }
 
   async findAll(): Promise<Product[]> {
@@ -184,8 +185,7 @@ export class ProductService {
   }
 
   async deleteById(id: string): Promise<void> {
-    if (!(await this.repository.deleteById(id)))
-      throw new AppError(404, "Product not found");
+    if (!(await this.repository.deleteById(id))) throw new AppError(404, "Product not found");
     await this.cache?.delete(id);
   }
 }

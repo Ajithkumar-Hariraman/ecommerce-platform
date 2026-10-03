@@ -1,13 +1,8 @@
 import { accessToken, expireSession } from "../auth/session";
 export function errorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "Something went wrong. Please try again.";
+  return error instanceof Error ? error.message : "Something went wrong. Please try again.";
 }
-export async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const send = async (forceRefresh = false): Promise<Response> => {
     const token = await accessToken(forceRefresh);
 
@@ -36,11 +31,8 @@ export async function request<T>(
       response = await send(true);
     }
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError")
-      throw error;
-    throw new Error(
-      "Cannot reach the API. Check the connection and try again.",
-    );
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new Error("Cannot reach the API. Check the connection and try again.");
   }
   if (response.status === 401) expireSession();
   if (response.status === 204 && response.ok) return undefined as T;
@@ -53,7 +45,6 @@ export async function request<T>(
         : `Request failed (${response.status}). Please try again.`,
     );
   }
-  if (body === null)
-    throw new Error("The API returned an unexpected response.");
+  if (body === null) throw new Error("The API returned an unexpected response.");
   return body as T;
 }

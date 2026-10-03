@@ -17,22 +17,11 @@ export interface CheckoutSession {
   findOrder(orderId: string): Promise<CheckoutMapping | null>;
   startCreation(orderId: string): Promise<boolean>;
   setProviderOrder(orderId: string, providerId: string): Promise<void>;
-  recordAttempt(
-    paymentId: string,
-    orderId: string,
-    status: string,
-    update: boolean,
-  ): Promise<void>;
-  claimEvent(
-    eventId: string,
-    hash: string,
-  ): Promise<{ body_hash: string; processed: boolean }>;
+  recordAttempt(paymentId: string, orderId: string, status: string, update: boolean): Promise<void>;
+  claimEvent(eventId: string, hash: string): Promise<{ body_hash: string; processed: boolean }>;
   completeEvent(eventId: string): Promise<void>;
 }
 export interface CheckoutRepository extends CheckoutSession {
   findProviderOrder(providerId: string): Promise<CheckoutMapping | null>;
-  locked<T>(
-    orderId: string,
-    action: (session: CheckoutSession) => Promise<T>,
-  ): Promise<T>;
+  locked<T>(orderId: string, action: (session: CheckoutSession) => Promise<T>): Promise<T>;
 }

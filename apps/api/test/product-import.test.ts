@@ -74,10 +74,9 @@ test("limits concurrent product creation", async () => {
     (_, index) => `SKU-${index},Product ${index},,1000,1,ACTIVE,`,
   );
 
-  const csv = [
-    "sku,name,description,priceInMinorUnits,stock,status,categoryId",
-    ...rows,
-  ].join("\n");
+  const csv = ["sku,name,description,priceInMinorUnits,stock,status,categoryId", ...rows].join(
+    "\n",
+  );
 
   const result = await service.importCsv(Readable.from(csv));
 
@@ -87,49 +86,71 @@ test("limits concurrent product creation", async () => {
   assert.ok(maximumActive > 1);
 });
 
-
 test("rejects empty, missing, duplicate, unsupported headers and malformed CSV", async () => {
-  for (const csv of ["", "sku,name\nA,A", "sku,name,stock,priceInMinorUnits,sku", "sku,name,stock,priceInMinorUnits,unknown", 'sku,name,stock,priceInMinorUnits\n"unterminated']) {
-    const service = new ProductImportService(async () => { assert.fail("must not create"); });
+  for (const csv of [
+    "",
+    "sku,name\nA,A",
+    "sku,name,stock,priceInMinorUnits,sku",
+    "sku,name,stock,priceInMinorUnits,unknown",
+    'sku,name,stock,priceInMinorUnits\n"unterminated',
+  ]) {
+    const service = new ProductImportService(async () => {
+      assert.fail("must not create");
+    });
     await assert.rejects(service.importCsv(Readable.from(csv)), { statusCode: 400 });
   }
 });
 
 test("defaults status and bounds failure samples and error details", async () => {
   let status: string | undefined;
-  const service = new ProductImportService(async input => { status = input.status; });
+  const service = new ProductImportService(async (input) => {
+    status = input.status;
+  });
   await service.importCsv(Readable.from("sku,name,priceInMinorUnits,stock\nA,A,10,0"));
   assert.equal(status, "ACTIVE");
-  const csv = "sku,name,priceInMinorUnits,stock\n" + Array.from({length: 105}, () => `${"S".repeat(500)},A,bad,0`).join("\n");
+  const csv =
+    "sku,name,priceInMinorUnits,stock\n" +
+    Array.from({ length: 105 }, () => `${"S".repeat(500)},A,bad,0`).join("\n");
   const result = await service.importCsv(Readable.from(csv));
   assert.equal(result.failed, 105);
   assert.equal(result.failures.length, 100);
   assert.equal(result.failuresTruncated, true);
-  assert.ok(result.failures.every(f => (f.sku?.length ?? 0) <= 200 && f.message.length <= 300));
+  assert.ok(result.failures.every((f) => (f.sku?.length ?? 0) <= 200 && f.message.length <= 300));
 });
 
 test("file bytes, record size and row count are bounded", async () => {
   const service = new ProductImportService(async () => {});
-  await assert.rejects(service.importCsv(Readable.from(Buffer.alloc(25 * 1024 * 1024 + 1))), {statusCode: 413});
-  await assert.rejects(service.importCsv(Readable.from("sku,name,priceInMinorUnits,stock\n" + "x".repeat(65537))), {statusCode: 400});
+  await assert.rejects(service.importCsv(Readable.from(Buffer.alloc(25 * 1024 * 1024 + 1))), {
+    statusCode: 413,
+  });
+  await assert.rejects(
+    service.importCsv(Readable.from("sku,name,priceInMinorUnits,stock\n" + "x".repeat(65537))),
+    { statusCode: 400 },
+  );
   async function* rows() {
     yield "sku,name,priceInMinorUnits,stock\n";
     for (let i = 0; i < 100001; i++) yield "A,A,1,0\n";
   }
-  await assert.rejects(service.importCsv(Readable.from(rows())), {statusCode: 400});
+  await assert.rejects(service.importCsv(Readable.from(rows())), { statusCode: 400 });
 });
 
 test("provider internals are hidden and parser errors during work are handled", async () => {
-  const service = new ProductImportService(async () => { throw new Error("private SQL detail"); });
-  const result = await service.importCsv(Readable.from("sku,name,priceInMinorUnits,stock\nA,A,1,0"));
+  const service = new ProductImportService(async () => {
+    throw new Error("private SQL detail");
+  });
+  const result = await service.importCsv(
+    Readable.from("sku,name,priceInMinorUnits,stock\nA,A,1,0"),
+  );
   assert.equal(result.failures[0]?.message, "Product could not be imported");
-  const delayed = new ProductImportService(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+  const delayed = new ProductImportService(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
   async function* chunks() {
     yield "sku,name,priceInMinorUnits,stock\n" + "A,A,1,0\n".repeat(5);
-    await new Promise(resolve => setTimeout(resolve, 5));
+    await new Promise((resolve) => setTimeout(resolve, 5));
     yield '"unterminated';
   }
-  await assert.rejects(delayed.importCsv(Readable.from(chunks())), {statusCode: 400});
+  await assert.rejects(delayed.importCsv(Readable.from(chunks())), { statusCode: 400 });
 });
 
 import { verifyImport } from "./helpers/import-contract.js";

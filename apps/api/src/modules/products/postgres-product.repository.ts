@@ -28,11 +28,7 @@ export class PostgresProductRepository implements ProductRepository {
         if (error.code === "23505" && error.constraint === "products_sku_key") {
           throw new DuplicateSkuError();
         }
-        if (
-          error.code === "23514" ||
-          error.code === "23502" ||
-          error.code === "22003"
-        ) {
+        if (error.code === "23514" || error.code === "23502" || error.code === "22003") {
           throw new AppError(400, "Product violates storage constraints");
         }
         // Only metadata: never detail (which can contain submitted values).
@@ -67,10 +63,7 @@ export class PostgresProductRepository implements ProductRepository {
   }
 
   async findById(id: string): Promise<Product | null> {
-    const rows = await this.rows(
-      `SELECT ${columns} FROM public.products WHERE id = $1`,
-      [id],
-    );
+    const rows = await this.rows(`SELECT ${columns} FROM public.products WHERE id = $1`, [id]);
     return rows[0] ? toProduct(rows[0]) : null;
   }
 
@@ -87,10 +80,7 @@ export class PostgresProductRepository implements ProductRepository {
   }
 
   async findBySku(sku: string): Promise<Product | null> {
-    const rows = await this.rows(
-      `SELECT ${columns} FROM public.products WHERE sku = $1`,
-      [sku],
-    );
+    const rows = await this.rows(`SELECT ${columns} FROM public.products WHERE sku = $1`, [sku]);
     return rows[0] ? toProduct(rows[0]) : null;
   }
 
@@ -99,7 +89,8 @@ export class PostgresProductRepository implements ProductRepository {
     const where = query.status === undefined ? "" : " WHERE status = $1";
     // Separate reads deliberately allow the total/page to differ during concurrent writes.
     const counts = await this.rows<{ total: string }>(
-      `SELECT COUNT(*) AS total FROM public.products${where}`, values,
+      `SELECT COUNT(*) AS total FROM public.products${where}`,
+      values,
     );
     const total = Number(counts[0]?.total);
     if (!Number.isSafeInteger(total) || total < 0) throw new Error("Invalid product count");
@@ -112,11 +103,9 @@ export class PostgresProductRepository implements ProductRepository {
   }
 
   async findAll(): Promise<Product[]> {
-    return (
-      await this.rows(
-        `SELECT ${columns} FROM public.products ORDER BY created_at, id`,
-      )
-    ).map(toProduct);
+    return (await this.rows(`SELECT ${columns} FROM public.products ORDER BY created_at, id`)).map(
+      toProduct,
+    );
   }
 
   async update(product: Product): Promise<Product | null> {
@@ -141,12 +130,7 @@ export class PostgresProductRepository implements ProductRepository {
 
   async deleteById(id: string): Promise<boolean> {
     return (
-      (
-        await this.rows(
-          "DELETE FROM public.products WHERE id=$1 RETURNING id",
-          [id],
-        )
-      ).length > 0
+      (await this.rows("DELETE FROM public.products WHERE id=$1 RETURNING id", [id])).length > 0
     );
   }
 }

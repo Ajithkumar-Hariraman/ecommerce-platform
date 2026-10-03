@@ -6,11 +6,7 @@ import { ProductImportService } from "./product-import.service.js";
 export class ProductImportController {
   constructor(private readonly importService: ProductImportService) {}
 
-  importCsv = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
+  importCsv = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.is(["text/csv", "application/csv"])) {
         res.status(415).json({

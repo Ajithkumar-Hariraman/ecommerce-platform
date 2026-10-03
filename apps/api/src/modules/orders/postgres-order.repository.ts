@@ -68,8 +68,12 @@ export class PostgresOrderRepository implements OrderRepository {
 
       await client.query("COMMIT");
     } catch (error) {
-      try { await client.query("ROLLBACK"); }
-      catch { discard = true; throw new Error("Order transaction rollback failed"); }
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        discard = true;
+        throw new Error("Order transaction rollback failed");
+      }
       throw error;
     } finally {
       client.release(discard);
@@ -155,14 +159,7 @@ export class PostgresOrderRepository implements OrderRepository {
           WHERE id = $5
             AND version = $6
         `,
-      [
-        order.status,
-        order.paymentId,
-        order.version,
-        order.updatedAt,
-        order.id,
-        order.version - 1,
-      ],
+      [order.status, order.paymentId, order.version, order.updatedAt, order.id, order.version - 1],
     );
 
     if (result.rowCount !== 1) {
@@ -170,11 +167,7 @@ export class PostgresOrderRepository implements OrderRepository {
     }
   }
 
-  private async insertItem(
-    client: PoolClient,
-    orderId: string,
-    item: OrderItem,
-  ): Promise<void> {
+  private async insertItem(client: PoolClient, orderId: string, item: OrderItem): Promise<void> {
     await client.query(
       `
         INSERT INTO order_items (

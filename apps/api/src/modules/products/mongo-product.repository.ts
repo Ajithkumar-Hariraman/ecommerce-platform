@@ -1,14 +1,8 @@
 import { MongoServerError, type Db } from "mongodb";
 import { AppError } from "../../errors/app-error.js";
 import type { Product, ProductStatus } from "./product.js";
-import type {
-  ProductListQuery,
-  ProductListResult,
-} from "./product-list.types.js";
-import {
-  DuplicateSkuError,
-  type ProductRepository,
-} from "./product.repository.js";
+import type { ProductListQuery, ProductListResult } from "./product-list.types.js";
+import { DuplicateSkuError, type ProductRepository } from "./product.repository.js";
 type Document = Omit<Product, "id" | "createdAt" | "updatedAt"> & {
   _id: string;
   createdAt: Date;
@@ -47,11 +41,7 @@ export class MongoProductRepository implements ProductRepository {
       throw new AppError(400, "Referenced category does not exist");
   }
   private conflict(error: unknown): never {
-    if (
-      error instanceof MongoServerError &&
-      error.code === 11000 &&
-      error.keyPattern?.sku
-    )
+    if (error instanceof MongoServerError && error.code === 11000 && error.keyPattern?.sku)
       throw new DuplicateSkuError();
     throw new Error("Product storage operation failed");
   }
@@ -73,17 +63,12 @@ export class MongoProductRepository implements ProductRepository {
     return row ? domain(row) : null;
   }
   async findByStatus(status: ProductStatus): Promise<Product[]> {
-    return (
-      await this.collection
-        .find({ status })
-        .sort({ createdAt: 1, _id: 1 })
-        .toArray()
-    ).map(domain);
+    return (await this.collection.find({ status }).sort({ createdAt: 1, _id: 1 }).toArray()).map(
+      domain,
+    );
   }
   async findAll(): Promise<Product[]> {
-    return (
-      await this.collection.find().sort({ createdAt: 1, _id: 1 }).toArray()
-    ).map(domain);
+    return (await this.collection.find().sort({ createdAt: 1, _id: 1 }).toArray()).map(domain);
   }
   async list(query: ProductListQuery): Promise<ProductListResult> {
     const filter = query.status === undefined ? {} : { status: query.status };

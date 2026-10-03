@@ -1,10 +1,7 @@
 import type { ProductListInput } from "./product-list.types.js";
 import type { RequestHandler } from "express";
 import type { ProductService } from "./product.service.js";
-import type {
-  CreateProductInput,
-  UpdateProductInput,
-} from "./product.js";
+import type { CreateProductInput, UpdateProductInput } from "./product.js";
 
 type CreateHandler = RequestHandler<
   Record<string, string>,
@@ -62,14 +59,7 @@ export class ProductController {
   };
 
   update: UpdateHandler = async (_req, res) => {
-    res
-      .status(200)
-      .json(
-        await this.service.update(
-          res.locals.productId,
-          res.locals.productInput,
-        ),
-      );
+    res.status(200).json(await this.service.update(res.locals.productId, res.locals.productInput));
   };
 
   deleteById: IdHandler = async (_req, res) => {

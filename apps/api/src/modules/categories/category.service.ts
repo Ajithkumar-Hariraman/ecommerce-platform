@@ -12,13 +12,23 @@ export class CategoryService {
     const name = input.name.trim();
     const status = input.status ?? "ACTIVE";
     if (!slug || !name) throw new AppError(400, "Category slug and name must not be empty");
-    if (status !== "ACTIVE" && status !== "INACTIVE") throw new AppError(400, "Invalid category status");
-    if (await this.repository.findBySlug(slug)) throw new AppError(409, "Category slug already exists");
+    if (status !== "ACTIVE" && status !== "INACTIVE")
+      throw new AppError(400, "Invalid category status");
+    if (await this.repository.findBySlug(slug))
+      throw new AppError(409, "Category slug already exists");
     const now = new Date().toISOString();
     try {
-      return await this.repository.create({ id: randomUUID(), slug, name, status, createdAt: now, updatedAt: now });
+      return await this.repository.create({
+        id: randomUUID(),
+        slug,
+        name,
+        status,
+        createdAt: now,
+        updatedAt: now,
+      });
     } catch (error: unknown) {
-      if (error instanceof DuplicateCategorySlugError) throw new AppError(409, "Category slug already exists");
+      if (error instanceof DuplicateCategorySlugError)
+        throw new AppError(409, "Category slug already exists");
       throw error;
     }
   }

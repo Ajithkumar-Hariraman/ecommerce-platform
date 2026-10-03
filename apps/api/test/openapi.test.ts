@@ -10,20 +10,16 @@ import { InMemoryCategoryRepository } from "../src/modules/categories/in-memory-
 
 test("OpenAPI 3.1 validates and covers actual router methods and independent HMAC", async () => {
   await SwaggerParser.validate(JSON.parse(JSON.stringify(openApiDocument)));
-  assert.equal(
-    openApiDocument.components.securitySchemes.BearerAuth.scheme,
-    "bearer",
-  );
+  assert.equal(openApiDocument.components.securitySchemes.BearerAuth.scheme, "bearer");
   assert(
     !("409" in openApiDocument.paths["/api/v1/products/import"].post.responses),
     "CSV business conflicts are row failures, not HTTP 409",
   );
   assert(openApiDocument.components.schemas.Product);
   assert(openApiDocument.components.schemas.Order);
-  assert.deepEqual(
-    openApiDocument.paths["/api/v1/webhooks/payments"].post.security,
-    [{ PaymentHmac: [] }],
-  );
+  assert.deepEqual(openApiDocument.paths["/api/v1/webhooks/payments"].post.security, [
+    { PaymentHmac: [] },
+  ]);
   for (const [module, prefix] of [
     ["products/product", "products"],
     ["categories/category", "categories"],
@@ -33,14 +29,9 @@ test("OpenAPI 3.1 validates and covers actual router methods and independent HMA
       new URL(`../src/modules/${module}.routes.ts`, import.meta.url),
       "utf8",
     );
-    for (const match of source.matchAll(
-      /router\.(get|post|put|delete)\("([^"\n]+)"/g,
-    )) {
+    for (const match of source.matchAll(/router\.(get|post|put|delete)\("([^"\n]+)"/g)) {
       const path = `/api/v1/${prefix}${match[2] === "/" ? "" : match[2]?.replace(":id", "{id}")}`;
-      const paths = openApiDocument.paths as Record<
-        string,
-        Record<string, unknown>
-      >;
+      const paths = openApiDocument.paths as Record<string, Record<string, unknown>>;
       assert(paths[path]?.[match[1]!], `${match[1]} ${path} missing`);
     }
   }

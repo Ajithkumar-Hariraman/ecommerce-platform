@@ -30,10 +30,7 @@ export function razorpayWebhookRouter(
   return router;
 }
 // Mounted behind the existing Order authentication, rate limiter and manager RBAC.
-export function razorpayCheckoutRouter(
-  gateway: RazorpayPaymentClient,
-  orders: OrderRepository,
-) {
+export function razorpayCheckoutRouter(gateway: RazorpayPaymentClient, orders: OrderRepository) {
   const router = Router();
   router.post("/:id/checkout", async (req, res) => {
     const id = z.uuid().safeParse(req.params.id);
@@ -47,10 +44,8 @@ export function razorpayCheckoutRouter(
   router.post("/:id/checkout/verify", async (req, res) => {
     const id = z.uuid().safeParse(req.params.id);
     const input = checkoutVerification.safeParse(req.body);
-    if (!id.success || !input.success)
-      throw new AppError(400, "Invalid checkout confirmation");
-    if (!(await orders.findById(id.data)))
-      throw new AppError(404, "Order not found");
+    if (!id.success || !input.success) throw new AppError(400, "Invalid checkout confirmation");
+    if (!(await orders.findById(id.data))) throw new AppError(404, "Order not found");
     await gateway.verifyCheckout(id.data, input.data);
     res.json({ verified: true, paymentStatus: "AWAITING_WEBHOOK" });
   });

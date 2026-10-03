@@ -71,7 +71,9 @@ export class ProductImportService {
 
     // Keep the HTTP request outside pipeline so parse errors do not destroy
     // its socket before the controller can send a safe error response.
-    const onSourceError = (error: Error) => { byteLimiter.destroy(error); };
+    const onSourceError = (error: Error) => {
+      byteLimiter.destroy(error);
+    };
     source.on("error", onSourceError);
     const streamCompletion = pipeline(byteLimiter, parser);
     void streamCompletion.catch(() => {});
@@ -84,10 +86,7 @@ export class ProductImportService {
         result.totalRows += 1;
 
         if (result.totalRows > MAX_ROWS) {
-          throw new ProductImportError(
-            400,
-            `Product import cannot exceed ${MAX_ROWS} rows`,
-          );
+          throw new ProductImportError(400, `Product import cannot exceed ${MAX_ROWS} rows`);
         }
 
         try {
@@ -143,10 +142,7 @@ export class ProductImportService {
     }
   }
 
-  private async processBatch(
-    batch: PendingRow[],
-    result: ProductImportResult,
-  ): Promise<void> {
+  private async processBatch(batch: PendingRow[], result: ProductImportResult): Promise<void> {
     await Promise.all(
       batch.map(async ({ rowNumber, product }) => {
         try {
@@ -155,12 +151,7 @@ export class ProductImportService {
         } catch (error) {
           result.failed += 1;
 
-          this.recordFailure(
-            result,
-            rowNumber,
-            product.sku,
-            this.safeCreateFailureMessage(error),
-          );
+          this.recordFailure(result, rowNumber, product.sku, this.safeCreateFailureMessage(error));
         }
       }),
     );
@@ -176,21 +167,13 @@ export class ProductImportService {
     const unknown = normalized.filter((header) => !ALLOWED_COLUMNS.has(header));
 
     if (unknown.length > 0) {
-      throw new ProductImportError(
-        400,
-        "CSV contains unsupported columns",
-      );
+      throw new ProductImportError(400, "CSV contains unsupported columns");
     }
 
-    const missing = REQUIRED_COLUMNS.filter(
-      (column) => !normalized.includes(column),
-    );
+    const missing = REQUIRED_COLUMNS.filter((column) => !normalized.includes(column));
 
     if (missing.length > 0) {
-      throw new ProductImportError(
-        400,
-        `CSV is missing required columns: ${missing.join(", ")}`,
-      );
+      throw new ProductImportError(400, `CSV is missing required columns: ${missing.join(", ")}`);
     }
 
     return normalized;
@@ -237,18 +220,13 @@ export class ProductImportService {
       return "Invalid product row";
     }
 
-    const field =
-      firstIssue.path.length > 0 ? `${firstIssue.path.join(".")}: ` : "";
+    const field = firstIssue.path.length > 0 ? `${firstIssue.path.join(".")}: ` : "";
 
     return `${field}${firstIssue.message}`;
   }
 
   private safeCreateFailureMessage(error: unknown): string {
-    if (
-      error instanceof AppError &&
-      error.statusCode >= 400 &&
-      error.statusCode < 500
-    ) {
+    if (error instanceof AppError && error.statusCode >= 400 && error.statusCode < 500) {
       return error.message;
     }
 

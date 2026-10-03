@@ -41,9 +41,7 @@ function loadCheckout(): Promise<void> {
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.async = true;
       script.onload = () =>
-        window.Razorpay
-          ? resolve()
-          : reject(new Error("Checkout could not load"));
+        window.Razorpay ? resolve() : reject(new Error("Checkout could not load"));
       script.onerror = () => {
         script.remove();
         reject(new Error("Cannot load Razorpay Checkout"));
@@ -57,9 +55,7 @@ function loadCheckout(): Promise<void> {
 }
 export function CheckoutSection({ products }: { products: Product[] }) {
   const [productId, setProductId] = useState("");
-  const [customerId, setCustomerId] = useState<string>(() =>
-    crypto.randomUUID(),
-  );
+  const [customerId, setCustomerId] = useState<string>(() => crypto.randomUUID());
   const [quantity, setQuantity] = useState(1);
   const [existingId, setExistingId] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
@@ -105,21 +101,15 @@ export function CheckoutSection({ products }: { products: Product[] }) {
           try {
             await request(`/orders/${id}/checkout/verify`, {
               method: "POST",
-                      body: JSON.stringify(result),
+              body: JSON.stringify(result),
             });
-            setNotice(
-              "Payment signature verified. Waiting for the signed settlement webhook.",
-            );
+            setNotice("Payment signature verified. Waiting for the signed settlement webhook.");
             active.current?.abort();
             const controller = new AbortController();
             active.current = controller;
-            for (
-              let attempt = 0;
-              attempt < 12 && !controller.signal.aborted;
-              attempt++
-            ) {
+            for (let attempt = 0; attempt < 12 && !controller.signal.aborted; attempt++) {
               const current = await request<Order>(`/orders/${id}`, {
-                          signal: controller.signal,
+                signal: controller.signal,
               });
               setOrder(current);
               if (current.status === "PAID") {
@@ -156,10 +146,10 @@ export function CheckoutSection({ products }: { products: Product[] }) {
       const value = resume
         ? await request<Order>(`/orders/${existingId.trim()}/payment`, {
             method: "POST",
-                })
+          })
         : await request<Order>("/orders", {
             method: "POST",
-                  body: JSON.stringify({
+            body: JSON.stringify({
               customerId,
               items: [{ productId, quantity, unitPriceInMinorUnits: 0 }],
             }),
@@ -179,8 +169,16 @@ export function CheckoutSection({ products }: { products: Product[] }) {
   }
   return (
     <section className="panel checkout-panel" aria-label="Razorpay checkout">
-      <div className="page-heading"><div><h1>Checkout</h1><p>Create an order and continue to Razorpay.</p></div><span className="badge test-badge">Razorpay · Test Mode</span></div>
-      <p className="muted">Prices are confirmed by the server. No live money is charged in Test Mode.</p>
+      <div className="page-heading">
+        <div>
+          <h1>Checkout</h1>
+          <p>Create an order and continue to Razorpay.</p>
+        </div>
+        <span className="badge test-badge">Razorpay · Test Mode</span>
+      </div>
+      <p className="muted">
+        Prices are confirmed by the server. No live money is charged in Test Mode.
+      </p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -189,18 +187,30 @@ export function CheckoutSection({ products }: { products: Product[] }) {
       >
         <label>
           Customer reference
-          <input
-            required
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-          />
+          <input required value={customerId} onChange={(e) => setCustomerId(e.target.value)} />
         </label>
         <label>
           Product
-          {products.length ? <select required value={productId} onChange={(e) => setProductId(e.target.value)}>
-            <option value="">Select a product</option>
-            {products.map(product => <option key={product.id} value={product.id}>{product.name} — {product.sku} — {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(product.priceInMinorUnits / 100)}</option>)}
-          </select> : <input required value={productId} placeholder="Product reference (UUID)" onChange={(e) => setProductId(e.target.value)} />}
+          {products.length ? (
+            <select required value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <option value="">Select a product</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name} — {product.sku} —{" "}
+                  {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
+                    product.priceInMinorUnits / 100,
+                  )}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              required
+              value={productId}
+              placeholder="Product reference (UUID)"
+              onChange={(e) => setProductId(e.target.value)}
+            />
+          )}
           <small>Available products reflect the currently loaded Catalog page.</small>
         </label>
         <label>
@@ -218,37 +228,41 @@ export function CheckoutSection({ products }: { products: Product[] }) {
           Create order &amp; pay
         </button>
       </form>
-      <details className="disclosure"><summary>Resume existing order</summary>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void begin(true);
-        }}
-      >
-        <label>
-          Order reference
-          <input
-            required
-            value={existingId}
-            onChange={(e) => setExistingId(e.target.value)}
-          />
-        </label>
-        <button disabled={busy} type="submit">
-          Resume checkout
-        </button>
-      </form>
+      <details className="disclosure">
+        <summary>Resume existing order</summary>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void begin(true);
+          }}
+        >
+          <label>
+            Order reference
+            <input required value={existingId} onChange={(e) => setExistingId(e.target.value)} />
+          </label>
+          <button disabled={busy} type="submit">
+            Resume checkout
+          </button>
+        </form>
       </details>
       {order && (
         <p className="order-result">
-          Order {order.id} · {order.status} · INR{" "}
-          {(order.totalInMinorUnits / 100).toFixed(2)}{" "}
+          Order {order.id} · {order.status} · INR {(order.totalInMinorUnits / 100).toFixed(2)}{" "}
           <button type="button" onClick={() => void refresh()}>
             Refresh status
           </button>
         </p>
       )}
-      {notice && <p className="notice" role="status">{notice}</p>}
-      {error && <p className="error" role="alert">{error}</p>}
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
     </section>
   );
 }

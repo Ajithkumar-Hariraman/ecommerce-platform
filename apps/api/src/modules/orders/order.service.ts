@@ -14,8 +14,7 @@ export class OrderService {
   ) {}
 
   async create(input: CreateOrderInput): Promise<Order> {
-    if (!input.items.length)
-      throw new AppError(400, "Order must contain items");
+    if (!input.items.length) throw new AppError(400, "Order must contain items");
     if (this.products) {
       const items = [];
       for (const item of input.items) {
@@ -94,11 +93,7 @@ export class OrderService {
       await this.orderRepository.update(updated);
     } catch (error) {
       const current = await this.findById(id);
-      if (
-        current.paymentId === payment.paymentId &&
-        current.status !== "CREATED"
-      )
-        return current;
+      if (current.paymentId === payment.paymentId && current.status !== "CREATED") return current;
       if (error instanceof AppError) throw error;
       throw new AppError(
         503,

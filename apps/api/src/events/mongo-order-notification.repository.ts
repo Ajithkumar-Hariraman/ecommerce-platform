@@ -1,9 +1,4 @@
-import {
-  MongoServerError,
-  MongoNetworkError,
-  MongoServerSelectionError,
-  type Db,
-} from "mongodb";
+import { MongoServerError, MongoNetworkError, MongoServerSelectionError, type Db } from "mongodb";
 import type { OrderPaid } from "./order-paid.js";
 import {
   PermanentProcessingError,
@@ -32,8 +27,7 @@ export class MongoOrderNotificationRepository implements OrderNotificationReposi
         });
         return "processed";
       } catch (error) {
-        if (!(error instanceof MongoServerError && error.code === 11000))
-          throw error;
+        if (!(error instanceof MongoServerError && error.code === 11000)) throw error;
       }
       const row = await collection.findOne({ _id: event.eventId });
       if (

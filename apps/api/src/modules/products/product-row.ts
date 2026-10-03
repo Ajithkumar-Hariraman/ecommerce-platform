@@ -21,8 +21,15 @@ export function toProduct(row: ProductRow): Product {
     throw new Error("Stored product integer exceeds domain precision");
   }
   return {
-    id: row.id, sku: row.sku, name: row.name, description: row.description,
-    priceInMinorUnits: price, stock, status: row.status, categoryId: row.category_id,
-    createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString(),
+    id: row.id,
+    sku: row.sku,
+    name: row.name,
+    description: row.description,
+    priceInMinorUnits: price,
+    stock,
+    status: row.status,
+    categoryId: row.category_id,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
   };
 }

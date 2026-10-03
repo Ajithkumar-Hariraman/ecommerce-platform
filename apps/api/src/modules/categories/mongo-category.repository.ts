@@ -1,9 +1,6 @@
 import { MongoServerError, type Db } from "mongodb";
 import type { Category } from "./category.js";
-import {
-  DuplicateCategorySlugError,
-  type CategoryRepository,
-} from "./category.repository.js";
+import { DuplicateCategorySlugError, type CategoryRepository } from "./category.repository.js";
 type Document = Omit<Category, "id" | "createdAt" | "updatedAt"> & {
   _id: string;
   createdAt: Date;
@@ -33,11 +30,7 @@ export class MongoCategoryRepository implements CategoryRepository {
         updatedAt: new Date(updatedAt),
       });
     } catch (error) {
-      if (
-        error instanceof MongoServerError &&
-        error.code === 11000 &&
-        error.keyPattern?.slug
-      )
+      if (error instanceof MongoServerError && error.code === 11000 && error.keyPattern?.slug)
         throw new DuplicateCategorySlugError();
       throw new Error("Category storage operation failed");
     }
@@ -52,9 +45,7 @@ export class MongoCategoryRepository implements CategoryRepository {
     return row ? domain(row) : null;
   }
   async findAll(): Promise<Category[]> {
-    return (
-      await this.collection.find().sort({ createdAt: 1, _id: 1 }).toArray()
-    ).map(domain);
+    return (await this.collection.find().sort({ createdAt: 1, _id: 1 }).toArray()).map(domain);
   }
 }
 export async function ensureCategoryIndexes(db: Db): Promise<void> {

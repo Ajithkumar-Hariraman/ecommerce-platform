@@ -7,10 +7,7 @@ const positiveSafeIntegerString = z
   .trim()
   .regex(/^\d+$/)
   .transform(Number)
-  .refine(
-    (value) => Number.isSafeInteger(value) && value > 0,
-    "must be a positive safe integer",
-  );
+  .refine((value) => Number.isSafeInteger(value) && value > 0, "must be a positive safe integer");
 
 const nonNegativeSafeIntegerString = z
   .string()
@@ -50,21 +47,24 @@ const nullableUuid = z.preprocess((value) => {
   return trimmed === "" ? null : trimmed;
 }, z.string().uuid().nullable());
 
-const statusSchema = z.preprocess((value) => {
-  if (
-    value === undefined ||
-    value === null ||
-    (typeof value === "string" && value.trim() === "")
-  ) {
-    return "ACTIVE";
-  }
+const statusSchema = z.preprocess(
+  (value) => {
+    if (
+      value === undefined ||
+      value === null ||
+      (typeof value === "string" && value.trim() === "")
+    ) {
+      return "ACTIVE";
+    }
 
-  if (typeof value === "string") {
-    return value.trim().toUpperCase();
-  }
+    if (typeof value === "string") {
+      return value.trim().toUpperCase();
+    }
 
-  return value;
-}, z.enum(["ACTIVE", "INACTIVE"]));
+    return value;
+  },
+  z.enum(["ACTIVE", "INACTIVE"]),
+);
 
 const productImportRowSchema = z
   .object({
@@ -78,8 +78,6 @@ const productImportRowSchema = z
   })
   .strict();
 
-export function parseProductImportRow(
-  value: unknown,
-): ProductImportInput {
+export function parseProductImportRow(value: unknown): ProductImportInput {
   return productImportRowSchema.parse(value);
 }

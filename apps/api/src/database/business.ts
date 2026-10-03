@@ -1,9 +1,5 @@
 import { createHash } from "node:crypto";
-import {
-  loadBusinessStorageConfig,
-  loadDatabaseConfig,
-  loadEnv,
-} from "../config/env.js";
+import { loadBusinessStorageConfig, loadDatabaseConfig, loadEnv } from "../config/env.js";
 import { createPool, verifyDatabase } from "./pool.js";
 import { createMongoResources } from "./mongo.js";
 import { PostgresProductRepository } from "../modules/products/postgres-product.repository.js";
@@ -71,9 +67,7 @@ export async function createBusinessResources() {
       throw error;
     }
   }
-  const db = loadDatabaseConfig(
-    loadEnv().nodeEnv === "test" ? "test" : "application",
-  );
+  const db = loadDatabaseConfig(loadEnv().nodeEnv === "test" ? "test" : "application");
   const pool = createPool(db);
   try {
     await verifyDatabase(pool);
@@ -86,12 +80,8 @@ export async function createBusinessResources() {
     await pool.query("SELECT event_id FROM outbox_events LIMIT 0");
     await pool.query("SELECT event_id FROM order_notifications LIMIT 0");
     await pool.query("SELECT order_id FROM razorpay_checkouts LIMIT 0");
-    await pool.query(
-      "SELECT provider_payment_id FROM razorpay_payment_attempts LIMIT 0",
-    );
-    await pool.query(
-      "SELECT provider_event_id FROM razorpay_webhook_events LIMIT 0",
-    );
+    await pool.query("SELECT provider_payment_id FROM razorpay_payment_attempts LIMIT 0");
+    await pool.query("SELECT provider_event_id FROM razorpay_webhook_events LIMIT 0");
     return {
       storage: config.storage,
       cacheNamespace: `postgres:${createHash("sha256").update(`${db.host}:${db.port}/${db.database}`).digest("hex").slice(0, 16)}:`,

@@ -16,10 +16,7 @@ export const razorpayPayment = z.object({
   created_at: z.number().int().nonnegative().max(253402300799),
 });
 export interface RazorpayApi {
-  createOrder(
-    orderId: string,
-    amount: number,
-  ): Promise<z.infer<typeof razorpayOrder>>;
+  createOrder(orderId: string, amount: number): Promise<z.infer<typeof razorpayOrder>>;
   findOrder(orderId: string): Promise<z.infer<typeof razorpayOrder> | null>;
   payment(id: string): Promise<z.infer<typeof razorpayPayment>>;
 }
@@ -33,21 +30,17 @@ export class RazorpayHttpApi implements RazorpayApi {
   ) {}
   private async request(path: string, body?: object): Promise<unknown> {
     try {
-      const response = await this.transport(
-        "https://api.razorpay.com/v1/" + path,
-        {
-          method: body ? "POST" : "GET",
-          redirect: "error",
-          signal: AbortSignal.timeout(this.timeoutMs),
-          headers: {
-            Authorization:
-              "Basic " +
-              Buffer.from(this.keyId + ":" + this.keySecret).toString("base64"),
-            "Content-Type": "application/json",
-          },
-          ...(body ? { body: JSON.stringify(body) } : {}),
+      const response = await this.transport("https://api.razorpay.com/v1/" + path, {
+        method: body ? "POST" : "GET",
+        redirect: "error",
+        signal: AbortSignal.timeout(this.timeoutMs),
+        headers: {
+          Authorization:
+            "Basic " + Buffer.from(this.keyId + ":" + this.keySecret).toString("base64"),
+          "Content-Type": "application/json",
         },
-      );
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
       if (!response.ok || !response.body) {
         await response.body?.cancel();
         throw new Error();
@@ -61,10 +54,7 @@ export class RazorpayHttpApi implements RazorpayApi {
       }
       return JSON.parse(Buffer.concat(chunks).toString("utf8"));
     } catch {
-      throw new AppError(
-        502,
-        "Razorpay is unavailable or returned an invalid response",
-      );
+      throw new AppError(502, "Razorpay is unavailable or returned an invalid response");
     }
   }
   async createOrder(orderId: string, amount: number) {
@@ -82,23 +72,15 @@ export class RazorpayHttpApi implements RazorpayApi {
   async findOrder(orderId: string) {
     const data = this.parse(
       z.object({ items: z.array(razorpayOrder) }),
-      await this.request(
-        "orders?receipt=" + encodeURIComponent(orderId) + "&count=2",
-      ),
+      await this.request("orders?receipt=" + encodeURIComponent(orderId) + "&count=2"),
     );
     const matches = data.items.filter((item) => item.receipt === orderId);
     if (matches.length > 1)
-      throw new AppError(
-        409,
-        "Multiple provider Orders require reconciliation",
-      );
+      throw new AppError(409, "Multiple provider Orders require reconciliation");
     return matches[0] ?? null;
   }
   async payment(id: string) {
-    return this.parse(
-      razorpayPayment,
-      await this.request("payments/" + encodeURIComponent(id)),
-    );
+    return this.parse(razorpayPayment, await this.request("payments/" + encodeURIComponent(id)));
   }
   private parse<T>(schema: z.ZodType<T>, value: unknown): T {
     const result = schema.safeParse(value);

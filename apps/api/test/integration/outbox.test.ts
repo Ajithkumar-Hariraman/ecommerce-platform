@@ -61,10 +61,7 @@ async function claimContract(
     leaseMs: makeDue ? 300000 : 60,
     maxAttempts: 5,
   };
-  const concurrent = await Promise.all([
-    a.claimBatch(options),
-    b.claimBatch(options),
-  ]);
+  const concurrent = await Promise.all([a.claimBatch(options), b.claimBatch(options)]);
   const claims = concurrent.flat();
   assert.equal(claims.length, 1);
   const old = claims[0]!;
@@ -77,15 +74,7 @@ async function claimContract(
   assert.notEqual(recovered.leaseToken, old.leaseToken);
   assert.equal(await a.markPublished(old), false);
   assert.equal(await a.markFailed(old, "KAFKA_UNAVAILABLE", 0, 5), false);
-  assert.equal(
-    await b.markFailed(
-      recovered,
-      "KAFKA_UNAVAILABLE",
-      makeDue ? 300000 : 120,
-      5,
-    ),
-    true,
-  );
+  assert.equal(await b.markFailed(recovered, "KAFKA_UNAVAILABLE", makeDue ? 300000 : 120, 5), true);
   assert.deepEqual(await a.claimBatch(options), []);
   if (makeDue) await makeDue();
   else await delay(150);
@@ -124,110 +113,78 @@ test("PostgreSQL outbox atomic commit/rollback, SKIP LOCKED contention and crash
         for (const table of ["outbox_events", "processed_webhook_events"]) {
           assert.equal(
             (
-              await pool.query(
-                `SELECT count(*) FROM ${table} WHERE event_id=$1`,
-                [events[0]!.eventId],
-              )
+              await pool.query(`SELECT count(*) FROM ${table} WHERE event_id=$1`, [
+                events[0]!.eventId,
+              ])
             ).rows[0].count,
             "1",
           );
         }
         assert.equal(
           (
-            await pool.query(
-              "SELECT count(*) FROM order_status_history WHERE order_id=$1",
-              [rows[0]!.id],
-            )
+            await pool.query("SELECT count(*) FROM order_status_history WHERE order_id=$1", [
+              rows[0]!.id,
+            ])
           ).rows[0].count,
           "1",
         );
-        await claimContract(
-          repo,
-          new PostgresOutboxRepository(pool),
-          events[0]!.eventId,
-        );
+        await claimContract(repo, new PostgresOutboxRepository(pool), events[0]!.eventId);
         assert.equal(
           (
-            await pool.query(
-              "SELECT status FROM outbox_events WHERE event_id=$1",
-              [events[0]!.eventId],
-            )
+            await pool.query("SELECT status FROM outbox_events WHERE event_id=$1", [
+              events[0]!.eventId,
+            ])
           ).rows[0].status,
           "PUBLISHED",
         );
       },
     );
-    await t.test(
-      "outbox insert failure rolls back Order, audit and provider dedupe",
-      async () => {
-        const client = await pool.connect();
-        try {
-          await insertPostgresOutbox(client, orderPaid(events[1]!));
-        } finally {
-          client.release();
-        }
-        await assert.rejects(workflow.applyEvent(events[1]!));
-        assert.equal(
-          (await orders.findById(rows[1]!.id))!.status,
-          "PAYMENT_PENDING",
-        );
-        assert.equal(
-          (
-            await pool.query(
-              "SELECT count(*) FROM order_status_history WHERE order_id=$1",
-              [rows[1]!.id],
-            )
-          ).rows[0].count,
-          "0",
-        );
-        assert.equal(
-          (
-            await pool.query(
-              "SELECT count(*) FROM processed_webhook_events WHERE event_id=$1",
-              [events[1]!.eventId],
-            )
-          ).rows[0].count,
-          "0",
-        );
-        await pool.query("DELETE FROM outbox_events WHERE event_id=$1", [
-          events[1]!.eventId,
-        ]);
-      },
-    );
-    await t.test(
-      "exhausted lease becomes FAILED without deletion",
-      async () => {
-        await workflow.applyEvent(events[2]!);
-        const claim = (
-          await repo.claimBatch({ batchSize: 1, leaseMs: 50, maxAttempts: 1 })
-        )[0]!;
-        await delay(80);
-        assert.deepEqual(
-          await repo.claimBatch({ batchSize: 1, leaseMs: 50, maxAttempts: 1 }),
-          [],
-        );
-        assert.equal(
-          (
-            await pool.query("SELECT status FROM outbox_events WHERE id=$1", [
-              claim.id,
-            ])
-          ).rows[0].status,
-          "FAILED",
-        );
-      },
-    );
+    await t.test("outbox insert failure rolls back Order, audit and provider dedupe", async () => {
+      const client = await pool.connect();
+      try {
+        await insertPostgresOutbox(client, orderPaid(events[1]!));
+      } finally {
+        client.release();
+      }
+      await assert.rejects(workflow.applyEvent(events[1]!));
+      assert.equal((await orders.findById(rows[1]!.id))!.status, "PAYMENT_PENDING");
+      assert.equal(
+        (
+          await pool.query("SELECT count(*) FROM order_status_history WHERE order_id=$1", [
+            rows[1]!.id,
+          ])
+        ).rows[0].count,
+        "0",
+      );
+      assert.equal(
+        (
+          await pool.query("SELECT count(*) FROM processed_webhook_events WHERE event_id=$1", [
+            events[1]!.eventId,
+          ])
+        ).rows[0].count,
+        "0",
+      );
+      await pool.query("DELETE FROM outbox_events WHERE event_id=$1", [events[1]!.eventId]);
+    });
+    await t.test("exhausted lease becomes FAILED without deletion", async () => {
+      await workflow.applyEvent(events[2]!);
+      const claim = (await repo.claimBatch({ batchSize: 1, leaseMs: 50, maxAttempts: 1 }))[0]!;
+      await delay(80);
+      assert.deepEqual(await repo.claimBatch({ batchSize: 1, leaseMs: 50, maxAttempts: 1 }), []);
+      assert.equal(
+        (await pool.query("SELECT status FROM outbox_events WHERE id=$1", [claim.id])).rows[0]
+          .status,
+        "FAILED",
+      );
+    });
   } finally {
-    await pool.query(
-      "DELETE FROM outbox_events WHERE event_id=ANY($1::uuid[])",
-      [events.map((e) => e.eventId)],
-    );
-    await pool.query(
-      "DELETE FROM processed_webhook_events WHERE event_id=ANY($1::uuid[])",
-      [events.map((e) => e.eventId)],
-    );
-    await pool.query("DELETE FROM orders WHERE id=ANY($1::uuid[])", [
-      rows.map((o) => o.id),
+    await pool.query("DELETE FROM outbox_events WHERE event_id=ANY($1::uuid[])", [
+      events.map((e) => e.eventId),
     ]);
+    await pool.query("DELETE FROM processed_webhook_events WHERE event_id=ANY($1::uuid[])", [
+      events.map((e) => e.eventId),
+    ]);
+    await pool.query("DELETE FROM orders WHERE id=ANY($1::uuid[])", [rows.map((o) => o.id)]);
     await pool.end();
   }
 });
@@ -236,34 +193,25 @@ test(
   "Mongo standalone atomic embedded outbox, claims, retry and durable publication",
   { skip: !process.env.MONGODB_TEST_URI },
   async () => {
-    const mongo = await createMongoResources(
-      process.env.MONGODB_TEST_URI!,
-      "ecommerce_test",
-    );
+    const mongo = await createMongoResources(process.env.MONGODB_TEST_URI!, "ecommerce_test");
     const o = order();
     const e = payment(o);
     const orders = new MongoOrderRepository(mongo.db);
     const repo = new MongoOutboxRepository(mongo.db);
     try {
       assert.equal(
-        await mongo.db
-          .collection("orders")
-          .countDocuments({
-            "outbox.status": { $in: ["PENDING", "PROCESSING"] },
-          }),
+        await mongo.db.collection("orders").countDocuments({
+          "outbox.status": { $in: ["PENDING", "PROCESSING"] },
+        }),
         0,
         "Unrelated pending outbox work",
       );
       await ensurePaymentIndexes(mongo.db);
       await orders.save(o);
       const workflow = new MongoPaymentWorkflowRepository(mongo.db);
-      await assert.rejects(
-        workflow.applyEvent({ ...e, paymentId: randomUUID() }),
-      );
+      await assert.rejects(workflow.applyEvent({ ...e, paymentId: randomUUID() }));
       assert.equal(
-        (await mongo.db
-          .collection<{ _id: string }>("orders")
-          .findOne({ _id: o.id }))!.outbox,
+        (await mongo.db.collection<{ _id: string }>("orders").findOne({ _id: o.id }))!.outbox,
         undefined,
       );
       // The failed identity claim above deliberately uses a different eventId for the real transition.
@@ -281,24 +229,17 @@ test(
       assert.equal(document!.outbox.status, "PENDING");
       assert.equal(document!.outbox.event.eventId, e.eventId);
       assert.equal(document!.paymentReceipt.id, e.eventId);
-      await claimContract(
-        repo,
-        new MongoOutboxRepository(mongo.db),
-        e.eventId,
-        async () => {
-          // Advance only this fixture's persisted lease/retry deadline, never the global clock.
-          const result = await mongo.db
-            .collection<{ _id: string }>("orders")
-            .updateOne(
-              { _id: o.id, "outbox.event.eventId": e.eventId },
-              { $set: { "outbox.availableAt": new Date(0) } },
-            );
-          assert.equal(result.matchedCount, 1);
-        },
-      );
-      await mongo.db
-        .collection("order_status_history")
-        .deleteOne({ _id: e.eventId });
+      await claimContract(repo, new MongoOutboxRepository(mongo.db), e.eventId, async () => {
+        // Advance only this fixture's persisted lease/retry deadline, never the global clock.
+        const result = await mongo.db
+          .collection<{ _id: string }>("orders")
+          .updateOne(
+            { _id: o.id, "outbox.event.eventId": e.eventId },
+            { $set: { "outbox.availableAt": new Date(0) } },
+          );
+        assert.equal(result.matchedCount, 1);
+      });
+      await mongo.db.collection("order_status_history").deleteOne({ _id: e.eventId });
       await mongo.db
         .collection<{ _id: string }>("processed_webhook_events")
         .updateOne({ _id: e.eventId }, { $set: { processedAt: null } });
@@ -309,12 +250,8 @@ test(
       assert.equal(after!.outbox.status, "PUBLISHED");
       assert.equal(after!.outbox.attempts, 3);
     } finally {
-      await mongo.db
-        .collection<{ _id: string }>("orders")
-        .deleteOne({ _id: o.id });
-      await mongo.db
-        .collection("order_status_history")
-        .deleteMany({ orderId: o.id });
+      await mongo.db.collection<{ _id: string }>("orders").deleteOne({ _id: o.id });
+      await mongo.db.collection("order_status_history").deleteMany({ orderId: o.id });
       await mongo.db
         .collection("processed_webhook_events")
         .deleteMany({ identity: { $regex: o.id } });

@@ -32,14 +32,9 @@ for (const storage of ["postgres", "mongodb"] as const)
       const pool = createPool(loadDatabaseConfig("test"));
       const mongo =
         storage === "mongodb"
-          ? await createMongoResources(
-              process.env.MONGODB_TEST_URI!,
-              "ecommerce_test",
-            )
+          ? await createMongoResources(process.env.MONGODB_TEST_URI!, "ecommerce_test")
           : null;
-      const orders = mongo
-        ? new MongoOrderRepository(mongo.db)
-        : new PostgresOrderRepository(pool);
+      const orders = mongo ? new MongoOrderRepository(mongo.db) : new PostgresOrderRepository(pool);
       const workflow = mongo
         ? new MongoPaymentWorkflowRepository(mongo.db)
         : new PostgresPaymentWorkflowRepository(pool);
@@ -146,10 +141,9 @@ for (const storage of ["postgres", "mongodb"] as const)
         const payment = await gateway.createPayment(input);
         assert.deepEqual(await gateway.createPayment(input), payment);
         assert.equal(posts, 1);
-        await assert.rejects(
-          gateway.createPayment({ ...input, amountInMinorUnits: 1300 }),
-          { statusCode: 409 },
-        );
+        await assert.rejects(gateway.createPayment({ ...input, amountInMinorUnits: 1300 }), {
+          statusCode: 409,
+        });
         const now = new Date().toISOString();
         const order: Order = {
           id,
@@ -180,13 +174,7 @@ for (const storage of ["postgres", "mongodb"] as const)
             const body: any = await response.json();
             assert.deepEqual(
               Object.keys(body).sort(),
-              [
-                "amount",
-                "currency",
-                "keyId",
-                "orderId",
-                "providerOrderId",
-              ].sort(),
+              ["amount", "currency", "keyId", "orderId", "providerOrderId"].sort(),
             );
             const pay = "pay_" + id.replaceAll("-", "");
             const confirmation = {
@@ -206,10 +194,7 @@ for (const storage of ["postgres", "mongodb"] as const)
               ).status,
               200,
             );
-            assert.equal(
-              (await orders.findById(id))!.status,
-              "PAYMENT_PENDING",
-            );
+            assert.equal((await orders.findById(id))!.status, "PAYMENT_PENDING");
             await assert.rejects(
               gateway.verifyCheckout(id, {
                 ...confirmation,
@@ -219,32 +204,14 @@ for (const storage of ["postgres", "mongodb"] as const)
             );
           },
         );
-        await t.test(
-          "invalid signature and mismatched amount cannot change Order",
-          async () => {
-            assert.equal(
-              (
-                await delivery(
-                  "captured",
-                  "pay_invalid",
-                  randomUUID(),
-                  1200,
-                  false,
-                )
-              ).status,
-              401,
-            );
-            assert.equal(
-              (await delivery("captured", "pay_invalid", randomUUID(), 1201))
-                .status,
-              409,
-            );
-            assert.equal(
-              (await orders.findById(id))!.status,
-              "PAYMENT_PENDING",
-            );
-          },
-        );
+        await t.test("invalid signature and mismatched amount cannot change Order", async () => {
+          assert.equal(
+            (await delivery("captured", "pay_invalid", randomUUID(), 1200, false)).status,
+            401,
+          );
+          assert.equal((await delivery("captured", "pay_invalid", randomUUID(), 1201)).status, 409);
+          assert.equal((await orders.findById(id))!.status, "PAYMENT_PENDING");
+        });
         await t.test(
           "failed attempt then captured payment settles once; duplicate and late failure are acknowledged",
           async () => {
@@ -253,23 +220,15 @@ for (const storage of ["postgres", "mongodb"] as const)
             const eventId = randomUUID();
             assert.equal((await delivery("failed", failed)).status, 200);
             assert.equal((await orders.findById(id))!.status, "PAYMENT_FAILED");
-            assert.equal(
-              (await delivery("captured", paid, eventId)).status,
-              200,
-            );
-            assert.equal(
-              (await delivery("captured", paid, eventId)).status,
-              200,
-            );
+            assert.equal((await delivery("captured", paid, eventId)).status, 200);
+            assert.equal((await delivery("captured", paid, eventId)).status, 200);
             assert.equal((await delivery("captured", paid)).status, 200);
             assert.equal((await delivery("failed", failed)).status, 200);
             assert.equal((await orders.findById(id))!.status, "PAID");
             assert.equal((await orders.findById(id))!.version, 4);
             if (mongo) {
               assert.equal(
-                await mongo.db
-                  .collection("order_status_history")
-                  .countDocuments({ orderId: id }),
+                await mongo.db.collection("order_status_history").countDocuments({ orderId: id }),
                 2,
               );
               const row = await mongo.db
@@ -279,20 +238,15 @@ for (const storage of ["postgres", "mongodb"] as const)
             } else {
               assert.equal(
                 (
-                  await pool.query(
-                    "SELECT count(*) FROM order_status_history WHERE order_id=$1",
-                    [id],
-                  )
+                  await pool.query("SELECT count(*) FROM order_status_history WHERE order_id=$1", [
+                    id,
+                  ])
                 ).rows[0].count,
                 "2",
               );
               assert.equal(
-                (
-                  await pool.query(
-                    "SELECT count(*) FROM outbox_events WHERE aggregate_id=$1",
-                    [id],
-                  )
-                ).rows[0].count,
+                (await pool.query("SELECT count(*) FROM outbox_events WHERE aggregate_id=$1", [id]))
+                  .rows[0].count,
                 "1",
               );
             }
@@ -357,30 +311,22 @@ for (const storage of ["postgres", "mongodb"] as const)
             "DELETE FROM razorpay_webhook_events WHERE provider_event_id=ANY($1::text[])",
             [headerIds],
           );
-          await pool.query(
-            "DELETE FROM razorpay_payment_attempts WHERE order_id=ANY($1::uuid[])",
-            [[id, receiptId]],
-          );
-          await pool.query(
-            "DELETE FROM razorpay_checkouts WHERE order_id=ANY($1::uuid[])",
-            [[id, receiptId]],
-          );
+          await pool.query("DELETE FROM razorpay_payment_attempts WHERE order_id=ANY($1::uuid[])", [
+            [id, receiptId],
+          ]);
+          await pool.query("DELETE FROM razorpay_checkouts WHERE order_id=ANY($1::uuid[])", [
+            [id, receiptId],
+          ]);
         }
         if (mongo) {
-          await mongo.db
-            .collection<{ _id: string }>("orders")
-            .deleteOne({ _id: id });
-          await mongo.db
-            .collection("order_status_history")
-            .deleteMany({ orderId: id });
+          await mongo.db.collection<{ _id: string }>("orders").deleteOne({ _id: id });
+          await mongo.db.collection("order_status_history").deleteMany({ orderId: id });
           await mongo.db
             .collection("processed_webhook_events")
             .deleteMany({ identity: { $regex: id } });
           await mongo.client.close();
         } else {
-          await pool.query("DELETE FROM outbox_events WHERE aggregate_id=$1", [
-            id,
-          ]);
+          await pool.query("DELETE FROM outbox_events WHERE aggregate_id=$1", [id]);
           await pool.query(
             "DELETE FROM processed_webhook_events WHERE event_id IN (SELECT id FROM order_status_history WHERE order_id=$1)",
             [id],

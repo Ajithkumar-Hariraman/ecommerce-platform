@@ -1,15 +1,9 @@
 import assert from "node:assert/strict";
 import { createHmac, randomUUID } from "node:crypto";
 import test from "node:test";
-import {
-  RazorpayHttpApi,
-  razorpayPayment,
-} from "../src/modules/payments/razorpay.api.js";
+import { RazorpayHttpApi, razorpayPayment } from "../src/modules/payments/razorpay.api.js";
 import { verifyRazorpaySignature } from "../src/modules/payments/razorpay.gateway.js";
-import {
-  webhookAudit,
-  paymentEventSchema,
-} from "../src/modules/payments/payment-workflow.js";
+import { webhookAudit, paymentEventSchema } from "../src/modules/payments/payment-workflow.js";
 
 test("Razorpay signatures use exact raw bytes and reject malformed/tampered signatures", () => {
   const raw = Buffer.from('{ "event": "payment.captured" }');
@@ -21,12 +15,7 @@ test("Razorpay signatures use exact raw bytes and reject malformed/tampered sign
       statusCode: 401,
     });
   assert.throws(
-    () =>
-      verifyRazorpaySignature(
-        JSON.stringify(JSON.parse(raw.toString())),
-        signature,
-        secret,
-      ),
+    () => verifyRazorpaySignature(JSON.stringify(JSON.parse(raw.toString())), signature, secret),
     { statusCode: 401 },
   );
   assert.throws(() => verifyRazorpaySignature(raw, signature, randomUUID()), {
@@ -36,37 +25,32 @@ test("Razorpay signatures use exact raw bytes and reject malformed/tampered sign
 test("Razorpay HTTPS adapter uses Basic auth, receipt, INR and no undocumented idempotency header", async () => {
   const id = randomUUID();
   let calls = 0;
-  const api = new RazorpayHttpApi(
-    "test-key",
-    "test-secret",
-    100,
-    async (url, options) => {
-      calls++;
-      assert.equal(url, "https://api.razorpay.com/v1/orders");
-      assert.equal(options?.method, "POST");
-      const headers = new Headers(options?.headers);
-      assert.equal(
-        headers.get("Authorization"),
-        "Basic " + Buffer.from("test-key:test-secret").toString("base64"),
-      );
-      assert.equal(headers.has("Idempotency-Key"), false);
-      assert.ok(options?.signal);
-      assert.deepEqual(JSON.parse(options!.body as string), {
-        amount: 1200,
-        currency: "INR",
-        receipt: id,
-        partial_payment: false,
-        notes: { internal_order_id: id },
-      });
-      return Response.json({
-        id: "order_example",
-        amount: 1200,
-        currency: "INR",
-        receipt: id,
-        status: "created",
-      });
-    },
-  );
+  const api = new RazorpayHttpApi("test-key", "test-secret", 100, async (url, options) => {
+    calls++;
+    assert.equal(url, "https://api.razorpay.com/v1/orders");
+    assert.equal(options?.method, "POST");
+    const headers = new Headers(options?.headers);
+    assert.equal(
+      headers.get("Authorization"),
+      "Basic " + Buffer.from("test-key:test-secret").toString("base64"),
+    );
+    assert.equal(headers.has("Idempotency-Key"), false);
+    assert.ok(options?.signal);
+    assert.deepEqual(JSON.parse(options!.body as string), {
+      amount: 1200,
+      currency: "INR",
+      receipt: id,
+      partial_payment: false,
+      notes: { internal_order_id: id },
+    });
+    return Response.json({
+      id: "order_example",
+      amount: 1200,
+      currency: "INR",
+      receipt: id,
+      status: "created",
+    });
+  });
   assert.equal((await api.createOrder(id, 1200)).id, "order_example");
   assert.equal(calls, 1);
 });
@@ -107,10 +91,9 @@ test("Razorpay receipt reconciliation filters matches and rejects ambiguous prov
     });
   assert.equal(await api([]).findOrder(id), null);
   assert.deepEqual(await api([order]).findOrder(id), order);
-  await assert.rejects(
-    api([order, { ...order, id: "order_b" }]).findOrder(id),
-    { statusCode: 409 },
-  );
+  await assert.rejects(api([order, { ...order, id: "order_b" }]).findOrder(id), {
+    statusCode: 409,
+  });
 });
 test("Razorpay failed attempts may later settle; late failure never reverses PAID; local workflow unchanged", () => {
   const event = {
@@ -142,10 +125,7 @@ test("Razorpay failed attempts may later settle; late failure never reverses PAI
       }),
     { statusCode: 409 },
   );
-  assert.equal(
-    paymentEventSchema.safeParse({ ...event, provider: "razorpay" }).success,
-    false,
-  );
+  assert.equal(paymentEventSchema.safeParse({ ...event, provider: "razorpay" }).success, false);
   assert.equal(
     razorpayPayment.safeParse({
       id: "pay_a",
@@ -162,11 +142,7 @@ test("Razorpay failed attempts may later settle; late failure never reverses PAI
 import { OrderService } from "../src/modules/orders/order.service.js";
 import type { Order } from "../src/modules/orders/order.types.js";
 import { InMemoryProductRepository } from "../src/modules/products/in-memory-product.repository.js";
-import {
-  loadEnv,
-  loadRazorpayConfig,
-  loadPaymentProvider,
-} from "../src/config/env.js";
+import { loadEnv, loadRazorpayConfig, loadPaymentProvider } from "../src/config/env.js";
 test("Razorpay Order pricing comes from Product repository, never client-supplied amount", async () => {
   const products = new InMemoryProductRepository();
   const id = randomUUID();
@@ -215,9 +191,7 @@ test("Razorpay Order pricing comes from Product repository, never client-supplie
   await assert.rejects(
     service.create({
       customerId: randomUUID(),
-      items: [
-        { productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 1 },
-      ],
+      items: [{ productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 1 }],
     }),
     { statusCode: 400 },
   );
@@ -265,21 +239,14 @@ test("Razorpay configuration validates Test Mode, currency, bounded timeout and 
 });
 test("Razorpay HTTP timeout aborts the request without retry", async () => {
   let calls = 0;
-  const api = new RazorpayHttpApi(
-    "key",
-    "secret",
-    20,
-    async (_url, options) => {
-      calls++;
-      return new Promise((_resolve, reject) => {
-        options!.signal!.addEventListener(
-          "abort",
-          () => reject(new Error("timeout")),
-          { once: true },
-        );
+  const api = new RazorpayHttpApi("key", "secret", 20, async (_url, options) => {
+    calls++;
+    return new Promise((_resolve, reject) => {
+      options!.signal!.addEventListener("abort", () => reject(new Error("timeout")), {
+        once: true,
       });
-    },
-  );
+    });
+  });
   const keepAlive = setTimeout(() => {}, 1000);
   try {
     await assert.rejects(api.createOrder(randomUUID(), 100), {

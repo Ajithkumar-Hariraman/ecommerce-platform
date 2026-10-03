@@ -38,9 +38,7 @@ test("health, JSON 404, and parser failures", async () => {
     });
     assert.equal(large.status, 413);
   } finally {
-    await new Promise<void>((resolve, reject) =>
-      server.close((e) => (e ? reject(e) : resolve())),
-    );
+    await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
   }
 });
 
@@ -63,16 +61,12 @@ test("expected and rejected async errors use safe centralized responses", async 
     const expected = await fetch(`http://127.0.0.1:${address.port}/expected`);
     assert.equal(expected.status, 409);
     assert.deepEqual(await expected.json(), { error: { message: "Conflict" } });
-    const unexpected = await fetch(
-      `http://127.0.0.1:${address.port}/unexpected`,
-    );
+    const unexpected = await fetch(`http://127.0.0.1:${address.port}/unexpected`);
     assert.equal(unexpected.status, 500);
     assert.deepEqual(await unexpected.json(), {
       error: { message: "Internal server error" },
     });
   } finally {
-    await new Promise<void>((resolve, reject) =>
-      server.close((e) => (e ? reject(e) : resolve())),
-    );
+    await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
   }
 });

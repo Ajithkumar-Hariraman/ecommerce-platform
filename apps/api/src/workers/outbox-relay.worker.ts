@@ -2,11 +2,7 @@ import { installStructuredLogging } from "../logging.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { loadKafkaConfig, loadOutboxConfig } from "../config/env.js";
 import { createBusinessResources } from "../database/business.js";
-import {
-  kafkaClient,
-  kafkaProducer,
-  KafkaEventPublisher,
-} from "../events/kafka.js";
+import { kafkaClient, kafkaProducer, KafkaEventPublisher } from "../events/kafka.js";
 import { OutboxRelay } from "../outbox/outbox-relay.js";
 
 installStructuredLogging();

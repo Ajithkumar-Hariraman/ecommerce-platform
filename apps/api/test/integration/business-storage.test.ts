@@ -19,10 +19,7 @@ for (const storage of ["postgres", "mongodb"] as const)
     const saved = { ...process.env };
     const dbConfig = loadDatabaseConfig("test");
     const mongoUri = process.env.MONGODB_TEST_URI;
-    assert.ok(
-      mongoUri,
-      "MONGODB_TEST_URI is required for both-mode certification",
-    );
+    assert.ok(mongoUri, "MONGODB_TEST_URI is required for both-mode certification");
     Object.assign(process.env, {
       NODE_ENV: "test",
       BUSINESS_STORAGE: storage,
@@ -51,14 +48,9 @@ for (const storage of ["postgres", "mongodb"] as const)
         updatedAt: now,
       };
       assert.deepEqual(await business.categories.create(category), category);
-      assert.deepEqual(
-        await business.categories.findById(categoryId),
-        category,
-      );
+      assert.deepEqual(await business.categories.findById(categoryId), category);
       assert.deepEqual(await business.categories.findBySlug(sku), category);
-      assert.ok(
-        (await business.categories.findAll()).some((c) => c.id === categoryId),
-      );
+      assert.ok((await business.categories.findAll()).some((c) => c.id === categoryId));
       await assert.rejects(
         business.categories.create({ ...category, id: randomUUID() }),
         DuplicateCategorySlugError,
@@ -81,10 +73,7 @@ for (const storage of ["postgres", "mongodb"] as const)
         business.products.create({ ...products[0]!, id: randomUUID() }),
         DuplicateSkuError,
       );
-      assert.deepEqual(
-        await business.products.findBySku(products[0]!.sku),
-        products[0],
-      );
+      assert.deepEqual(await business.products.findBySku(products[0]!.sku), products[0]);
       assert.deepEqual(await business.products.findById(ids[0]!), products[0]);
       const all = await business.products.findAll();
       assert.deepEqual(
@@ -92,9 +81,7 @@ for (const storage of ["postgres", "mongodb"] as const)
         ids,
       );
       for (const status of [undefined, "ACTIVE", "INACTIVE"] as const) {
-        const matching = all.filter(
-          (p) => status === undefined || p.status === status,
-        );
+        const matching = all.filter((p) => status === undefined || p.status === status);
         const query = { limit: 2, offset: 2, ...(status ? { status } : {}) };
         const result = await business.products.list(query);
         assert.equal(result.total, matching.length);
@@ -105,11 +92,7 @@ for (const storage of ["postgres", "mongodb"] as const)
         });
         assert.deepEqual(beyond.products, []);
         assert.equal(beyond.total, matching.length);
-        if (status)
-          assert.deepEqual(
-            await business.products.findByStatus(status),
-            matching,
-          );
+        if (status) assert.deepEqual(await business.products.findByStatus(status), matching);
       }
       const changed = {
         ...products[0]!,
@@ -118,10 +101,9 @@ for (const storage of ["postgres", "mongodb"] as const)
         stock: 3,
       };
       assert.deepEqual(await business.products.update(changed), changed);
-      await assert.rejects(
-        business.products.update({ ...changed, categoryId: randomUUID() }),
-        { statusCode: 400 },
-      );
+      await assert.rejects(business.products.update({ ...changed, categoryId: randomUUID() }), {
+        statusCode: 400,
+      });
       const order: Order = {
         id: orderId,
         customerId: randomUUID(),
@@ -162,33 +144,15 @@ for (const storage of ["postgres", "mongodb"] as const)
         );
         assert.equal(await session.startCreation(orderId), true);
         assert.equal(await session.startCreation(orderId), false);
-        await session.setProviderOrder(
-          orderId,
-          "order_" + orderId.replaceAll("-", ""),
-        );
-        assert.equal(
-          (await session.findOrder(orderId))?.payment_id,
-          pending.paymentId,
-        );
-        assert.equal(
-          (await session.claimEvent(eventId, "hash"))?.processed,
-          false,
-        );
-        assert.equal(
-          (await session.claimEvent(eventId, "other"))?.body_hash,
-          "hash",
-        );
+        await session.setProviderOrder(orderId, "order_" + orderId.replaceAll("-", ""));
+        assert.equal((await session.findOrder(orderId))?.payment_id, pending.paymentId);
+        assert.equal((await session.claimEvent(eventId, "hash"))?.processed, false);
+        assert.equal((await session.claimEvent(eventId, "other"))?.body_hash, "hash");
         await session.completeEvent(eventId);
-        assert.equal(
-          (await session.claimEvent(eventId, "hash"))?.processed,
-          true,
-        );
+        assert.equal((await session.claimEvent(eventId, "hash"))?.processed, true);
       });
       await business.checkout.locked(orderId, async (session) =>
-        assert.equal(
-          (await session.findOrder(orderId))?.creation_started,
-          true,
-        ),
+        assert.equal((await session.findOrder(orderId))?.creation_started, true),
       );
       await assert.rejects(business.orders.update(pending), {
         statusCode: 409,
@@ -205,9 +169,7 @@ for (const storage of ["postgres", "mongodb"] as const)
       assert.equal((await business.orders.findById(orderId))!.status, "PAID");
       const notification = orderPaid(event);
       const attempts = await Promise.all(
-        Array.from({ length: 5 }, () =>
-          business.notifications.process(notification),
-        ),
+        Array.from({ length: 5 }, () => business.notifications.process(notification)),
       );
       assert.equal(attempts.filter((v) => v === "processed").length, 1);
       await assert.rejects(
@@ -223,52 +185,36 @@ for (const storage of ["postgres", "mongodb"] as const)
       assert.equal(await business.products.findById(ids[2]!), null);
     } finally {
       await business.close();
-      for (const key of Object.keys(process.env))
-        if (!(key in saved)) delete process.env[key];
+      for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
       Object.assign(process.env, saved);
       if (storage === "postgres") {
         const pool = createPool(dbConfig);
         try {
           const outbox = (
-            await pool.query(
-              "SELECT event_id,status FROM outbox_events WHERE aggregate_id=$1",
-              [orderId],
-            )
+            await pool.query("SELECT event_id,status FROM outbox_events WHERE aggregate_id=$1", [
+              orderId,
+            ])
           ).rows;
           assert.equal(outbox.length, 1);
           assert.equal(outbox[0].event_id, eventId);
           assert.equal(
             (
-              await pool.query(
-                "SELECT count(*) FROM order_status_history WHERE order_id=$1",
-                [orderId],
-              )
+              await pool.query("SELECT count(*) FROM order_status_history WHERE order_id=$1", [
+                orderId,
+              ])
             ).rows[0].count,
             "1",
           );
         } finally {
-          await pool.query(
-            "DELETE FROM razorpay_webhook_events WHERE provider_event_id=$1",
-            [eventId],
-          );
-          await pool.query("DELETE FROM razorpay_checkouts WHERE order_id=$1", [
-            orderId,
+          await pool.query("DELETE FROM razorpay_webhook_events WHERE provider_event_id=$1", [
+            eventId,
           ]);
-          await pool.query(
-            "DELETE FROM order_notifications WHERE event_id=$1",
-            [eventId],
-          );
-          await pool.query("DELETE FROM outbox_events WHERE aggregate_id=$1", [
-            orderId,
-          ]);
-          await pool.query(
-            "DELETE FROM processed_webhook_events WHERE event_id=$1",
-            [eventId],
-          );
+          await pool.query("DELETE FROM razorpay_checkouts WHERE order_id=$1", [orderId]);
+          await pool.query("DELETE FROM order_notifications WHERE event_id=$1", [eventId]);
+          await pool.query("DELETE FROM outbox_events WHERE aggregate_id=$1", [orderId]);
+          await pool.query("DELETE FROM processed_webhook_events WHERE event_id=$1", [eventId]);
           await pool.query("DELETE FROM orders WHERE id=$1", [orderId]);
-          await pool.query("DELETE FROM products WHERE id=ANY($1::uuid[])", [
-            ids,
-          ]);
+          await pool.query("DELETE FROM products WHERE id=ANY($1::uuid[])", [ids]);
           await pool.query("DELETE FROM categories WHERE id=$1", [categoryId]);
           await pool.end();
         }
@@ -283,9 +229,7 @@ for (const storage of ["postgres", "mongodb"] as const)
             .findOne({ _id: orderId });
           assert.equal(order?.outbox.event.eventId, eventId);
           assert.equal(
-            await mongo.db
-              .collection("order_status_history")
-              .countDocuments({ orderId }),
+            await mongo.db.collection("order_status_history").countDocuments({ orderId }),
             1,
           );
         } finally {
@@ -299,12 +243,8 @@ for (const storage of ["postgres", "mongodb"] as const)
             ["order_status_history", eventId],
             ["categories", categoryId],
           ] as const)
-            await mongo.db
-              .collection<{ _id: string }>(collection)
-              .deleteOne({ _id: id });
-          await mongo.db
-            .collection<{ _id: string }>("products")
-            .deleteMany({ _id: { $in: ids } });
+            await mongo.db.collection<{ _id: string }>(collection).deleteOne({ _id: id });
+          await mongo.db.collection<{ _id: string }>("products").deleteMany({ _id: { $in: ids } });
           await mongo.client.close();
         }
       }

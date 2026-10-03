@@ -1,20 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  loadEnv,
-  loadOrderStorageConfig,
-  loadBusinessStorageConfig,
-} from "../src/config/env.js";
+import { loadEnv, loadOrderStorageConfig, loadBusinessStorageConfig } from "../src/config/env.js";
 
 test("Order storage defaults to postgres and requires Mongo config only in Mongo mode", () => {
   loadEnv();
-  const keys = [
-    "BUSINESS_STORAGE",
-    "ORDER_STORAGE",
-    "MONGODB_URI",
-    "MONGODB_DB_NAME",
-    "NODE_ENV",
-  ];
+  const keys = ["BUSINESS_STORAGE", "ORDER_STORAGE", "MONGODB_URI", "MONGODB_DB_NAME", "NODE_ENV"];
   const saved = keys.map((key) => process.env[key]);
   try {
     process.env.NODE_ENV = "test";
@@ -24,10 +14,7 @@ test("Order storage defaults to postgres and requires Mongo config only in Mongo
     delete process.env.MONGODB_DB_NAME;
     assert.deepEqual(loadOrderStorageConfig(), { storage: "postgres" });
     process.env.ORDER_STORAGE = "other";
-    assert.throws(
-      loadOrderStorageConfig,
-      /Invalid BUSINESS_STORAGE \/ ORDER_STORAGE/,
-    );
+    assert.throws(loadOrderStorageConfig, /Invalid BUSINESS_STORAGE \/ ORDER_STORAGE/);
     process.env.ORDER_STORAGE = "mongodb";
     assert.throws(loadOrderStorageConfig, /MongoDB configuration/);
     process.env.MONGODB_URI = "mongodb://127.0.0.1:27018";

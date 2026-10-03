@@ -17,13 +17,9 @@ export function createProductModule(
   const service = new ProductService(repository, categories, cache);
   const controller = new ProductController(service);
 
-  const productImportService = new ProductImportService((input) =>
-    service.create(input),
-  );
+  const productImportService = new ProductImportService((input) => service.create(input));
 
-  const productImportController = new ProductImportController(
-    productImportService,
-  );
+  const productImportController = new ProductImportController(productImportService);
 
   return createProductRouter(controller, productImportController);
 }

@@ -54,9 +54,7 @@ const importSummary = z.strictObject({
   totalRows: integer,
   imported: integer,
   failed: integer,
-  failures: z.array(
-    z.object({ row: integer, sku: z.string().nullable(), message: z.string() }),
-  ),
+  failures: z.array(z.object({ row: integer, sku: z.string().nullable(), message: z.string() })),
   failuresTruncated: z.boolean(),
 });
 const schemas = {
@@ -128,8 +126,7 @@ const id = {
 };
 const read = [400, 401, 403, 404, 429, 500];
 const write = [400, 401, 403, 409, 413, 429, 500];
-const catalog =
-  "Read: catalog_reader, catalog_manager or admin. Mutate: catalog_manager or admin.";
+const catalog = "Read: catalog_reader, catalog_manager or admin. Mutate: catalog_manager or admin.";
 const orders =
   "Read: order_reader, order_manager or admin. Mutate: order_manager or admin. Prices are supplied by the existing Order contract.";
 export const openApiDocument = {
@@ -186,44 +183,38 @@ export const openApiDocument = {
       ),
     },
     "/api/v1/products": {
-      get: operation(
-        "List products",
-        200,
-        ref("ProductPage"),
-        [400, 401, 403, 429, 500],
-        {
-          description:
-            catalog +
-            " Defaults: page=1, limit=20. Safe-integer offset required; unknown query keys rejected.",
-          parameters: [
-            {
-              name: "status",
-              in: "query",
-              schema: { type: "string", enum: ["ACTIVE", "INACTIVE"] },
+      get: operation("List products", 200, ref("ProductPage"), [400, 401, 403, 429, 500], {
+        description:
+          catalog +
+          " Defaults: page=1, limit=20. Safe-integer offset required; unknown query keys rejected.",
+        parameters: [
+          {
+            name: "status",
+            in: "query",
+            schema: { type: "string", enum: ["ACTIVE", "INACTIVE"] },
+          },
+          {
+            name: "page",
+            in: "query",
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: Number.MAX_SAFE_INTEGER,
+              default: 1,
             },
-            {
-              name: "page",
-              in: "query",
-              schema: {
-                type: "integer",
-                minimum: 1,
-                maximum: Number.MAX_SAFE_INTEGER,
-                default: 1,
-              },
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 100,
+              default: 20,
             },
-            {
-              name: "limit",
-              in: "query",
-              schema: {
-                type: "integer",
-                minimum: 1,
-                maximum: 100,
-                default: 20,
-              },
-            },
-          ],
-        },
-      ),
+          },
+        ],
+      }),
       post: operation("Create product", 201, ref("Product"), write, {
         description:
           catalog +
@@ -236,18 +227,10 @@ export const openApiDocument = {
       get: operation("Read product", 200, ref("Product"), read, {
         description: catalog,
       }),
-      put: operation(
-        "Partially update product",
-        200,
-        ref("Product"),
-        [...write, 404],
-        {
-          description:
-            catalog +
-            " At least one field required. Null categoryId clears assignment.",
-          requestBody: body("ProductUpdate"),
-        },
-      ),
+      put: operation("Partially update product", 200, ref("Product"), [...write, 404], {
+        description: catalog + " At least one field required. Null categoryId clears assignment.",
+        requestBody: body("ProductUpdate"),
+      }),
       delete: operation("Delete product", 204, undefined, read, {
         description: catalog,
       }),

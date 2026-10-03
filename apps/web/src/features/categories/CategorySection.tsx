@@ -40,14 +40,15 @@ export function CategorySection({
                 <strong>{category.name}</strong>
                 <small>{category.slug}</small>
               </div>
-              <span className={`badge ${category.status.toLowerCase()}`}>
-                {category.status}
-              </span>
+              <span className={`badge ${category.status.toLowerCase()}`}>{category.status}</span>
             </li>
           ))}
         </ul>
       )}
-      <details className="disclosure"><summary>+ New category</summary><CategoryForm onCreated={onCreated} /></details>
+      <details className="disclosure">
+        <summary>+ New category</summary>
+        <CategoryForm onCreated={onCreated} />
+      </details>
     </section>
   );
 }

@@ -19,17 +19,11 @@ for (const storage of ["postgres", "mongodb"] as const)
     { timeout: 90000 },
     async () => {
       const dbConfig = loadDatabaseConfig("test");
-      assert.ok(
-        process.env.MONGODB_TEST_URI,
-        "Set MONGODB_TEST_URI for the real Mongo smoke",
-      );
+      assert.ok(process.env.MONGODB_TEST_URI, "Set MONGODB_TEST_URI for the real Mongo smoke");
       const pool = storage === "postgres" ? createPool(dbConfig) : null;
       const mongo =
         storage === "mongodb"
-          ? await createMongoResources(
-              process.env.MONGODB_TEST_URI,
-              "ecommerce_test",
-            )
+          ? await createMongoResources(process.env.MONGODB_TEST_URI, "ecommerce_test")
           : null;
       const prefix = "test-" + randomUUID();
       const c = {
@@ -59,10 +53,7 @@ for (const storage of ["postgres", "mongodb"] as const)
         NODE_ENV: "test",
         BUSINESS_STORAGE: storage,
         ORDER_STORAGE: storage,
-        MONGODB_URI:
-          storage === "mongodb"
-            ? process.env.MONGODB_TEST_URI
-            : "not-a-mongo-uri",
+        MONGODB_URI: storage === "mongodb" ? process.env.MONGODB_TEST_URI : "not-a-mongo-uri",
         MONGODB_DB_NAME: "ecommerce_test",
         DB_PASSWORD: storage === "postgres" ? dbConfig.password : "",
         DB_TEST_NAME: "ecommerce_test",
@@ -81,10 +72,7 @@ for (const storage of ["postgres", "mongodb"] as const)
       async function until(check: () => Promise<boolean>, label: string) {
         const deadline = Date.now() + 30000;
         while (!(await check())) {
-          if (
-            Date.now() > deadline ||
-            children.some((p) => p.child.exitCode !== null)
-          )
+          if (Date.now() > deadline || children.some((p) => p.child.exitCode !== null))
             throw new Error("Smoke failed: " + label);
           await delay(50);
         }
@@ -102,20 +90,17 @@ for (const storage of ["postgres", "mongodb"] as const)
               .countDocuments({ _id: event.eventId })
           : Number(
               (
-                await pool!.query(
-                  "SELECT count(*) FROM order_notifications WHERE event_id=$1",
-                  [event.eventId],
-                )
+                await pool!.query("SELECT count(*) FROM order_notifications WHERE event_id=$1", [
+                  event.eventId,
+                ])
               ).rows[0].count,
             );
       }
       try {
         const pending = mongo
-          ? await mongo.db
-              .collection("orders")
-              .countDocuments({
-                "outbox.status": { $in: ["PENDING", "PROCESSING"] },
-              })
+          ? await mongo.db.collection("orders").countDocuments({
+              "outbox.status": { $in: ["PENDING", "PROCESSING"] },
+            })
           : Number(
               (
                 await pool!.query(
@@ -123,21 +108,13 @@ for (const storage of ["postgres", "mongodb"] as const)
                 )
               ).rows[0].count,
             );
-        assert.equal(
-          pending,
-          0,
-          "Unrelated pending test outbox records; refuse to consume",
-        );
+        assert.equal(pending, 0, "Unrelated pending test outbox records; refuse to consume");
         await ensureOrderTopics(kafka, c);
-        for (const file of [
-          "order-event.worker.ts",
-          "outbox-relay.worker.ts",
-        ]) {
-          const child = spawn(
-            process.execPath,
-            ["--import", "tsx", "src/workers/" + file],
-            { env: common, stdio: ["ignore", "pipe", "pipe"] },
-          );
+        for (const file of ["order-event.worker.ts", "outbox-relay.worker.ts"]) {
+          const child = spawn(process.execPath, ["--import", "tsx", "src/workers/" + file], {
+            env: common,
+            stdio: ["ignore", "pipe", "pipe"],
+          });
           let output = "";
           child.stdout!.on("data", (d) => (output += d));
           child.stderr!.on("data", (d) => (output += d));
@@ -154,12 +131,10 @@ for (const storage of ["postgres", "mongodb"] as const)
           "worker startup",
         );
         if (mongo)
-          await mongo.db
-            .collection<{ _id: string }>("orders")
-            .insertOne({
-              _id: orderId,
-              outbox: pendingOutbox(event, new Date()),
-            });
+          await mongo.db.collection<{ _id: string }>("orders").insertOne({
+            _id: orderId,
+            outbox: pendingOutbox(event, new Date()),
+          });
         else {
           const client = await pool!.connect();
           try {
@@ -172,16 +147,12 @@ for (const storage of ["postgres", "mongodb"] as const)
         await until(
           async () =>
             mongo
-              ? (
-                  await mongo.db
-                    .collection<{ _id: string }>("orders")
-                    .findOne({ _id: orderId })
-                )?.outbox.status === "PUBLISHED"
+              ? (await mongo.db.collection<{ _id: string }>("orders").findOne({ _id: orderId }))
+                  ?.outbox.status === "PUBLISHED"
               : (
-                  await pool!.query(
-                    "SELECT status FROM outbox_events WHERE event_id=$1",
-                    [event.eventId],
-                  )
+                  await pool!.query("SELECT status FROM outbox_events WHERE event_id=$1", [
+                    event.eventId,
+                  ])
                 ).rows[0]?.status === "PUBLISHED",
           "published acknowledgement",
         );
@@ -200,21 +171,14 @@ for (const storage of ["postgres", "mongodb"] as const)
       } finally {
         await stop();
         if (mongo) {
-          await mongo.db
-            .collection<{ _id: string }>("orders")
-            .deleteOne({ _id: orderId });
+          await mongo.db.collection<{ _id: string }>("orders").deleteOne({ _id: orderId });
           await mongo.db
             .collection<{ _id: string }>("order_notifications")
             .deleteOne({ _id: event.eventId });
         }
         if (pool) {
-          await pool.query("DELETE FROM outbox_events WHERE event_id=$1", [
-            event.eventId,
-          ]);
-          await pool.query(
-            "DELETE FROM order_notifications WHERE event_id=$1",
-            [event.eventId],
-          );
+          await pool.query("DELETE FROM outbox_events WHERE event_id=$1", [event.eventId]);
+          await pool.query("DELETE FROM order_notifications WHERE event_id=$1", [event.eventId]);
         }
         await admin.deleteGroups([c.consumerGroup]);
         await admin.deleteTopics({

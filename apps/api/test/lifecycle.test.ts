@@ -14,14 +14,12 @@ async function freePort(): Promise<number> {
   return addr.port;
 }
 
-function launch(
-  port: number,
-  overrides: Record<string, string> = {},
-  dev = false,
-) {
+function launch(port: number, overrides: Record<string, string> = {}, dev = false) {
   const child = spawn(
     process.execPath,
-    dev ? ["node_modules/tsx/dist/cli.mjs", "watch", "test/fixtures/server.ts"] : ["--import", "tsx", "test/fixtures/server.ts"],
+    dev
+      ? ["node_modules/tsx/dist/cli.mjs", "watch", "test/fixtures/server.ts"]
+      : ["--import", "tsx", "test/fixtures/server.ts"],
     {
       env: {
         ...process.env,
@@ -88,11 +86,7 @@ test(
         await delay(100);
         proc.child.kill(signal);
         await delay(100);
-        assert.equal(
-          proc.child.exitCode,
-          null,
-          "must wait for the active request",
-        );
+        assert.equal(proc.child.exitCode, null, "must wait for the active request");
         req.end("}");
         assert.equal(await finished, 200);
         const [code] = await proc.exit;
@@ -105,58 +99,50 @@ test(
   },
 );
 
-test(
-  "invalid environment and occupied port fail startup",
-  { timeout: 15000 },
-  async () => {
-    for (const overrides of [
-      { PORT: "abc" },
-      { PORT: "0" },
-      { PORT: "65536" },
-      { HOST: "" },
-      { NODE_ENV: "staging" },
-    ]) {
-      const proc = launch(await freePort(), overrides);
-      const [code] = await proc.exit;
-      assert.equal(code, 1);
-      assert.match(proc.output(), /API startup failed/);
-      assert.doesNotMatch(proc.output(), /API listening/);
-    }
-    const blocker = createServer().listen(0, "127.0.0.1");
-    await once(blocker, "listening");
-    const addr = blocker.address();
-    assert(addr && typeof addr !== "string");
-    try {
-      const proc = launch(addr.port);
-      const [code] = await proc.exit;
-      assert.equal(code, 1);
-      assert.match(proc.output(), /EADDRINUSE/);
-    } finally {
-      await new Promise<void>((resolve) => blocker.close(() => resolve()));
-    }
-  },
-);
+test("invalid environment and occupied port fail startup", { timeout: 15000 }, async () => {
+  for (const overrides of [
+    { PORT: "abc" },
+    { PORT: "0" },
+    { PORT: "65536" },
+    { HOST: "" },
+    { NODE_ENV: "staging" },
+  ]) {
+    const proc = launch(await freePort(), overrides);
+    const [code] = await proc.exit;
+    assert.equal(code, 1);
+    assert.match(proc.output(), /API startup failed/);
+    assert.doesNotMatch(proc.output(), /API listening/);
+  }
+  const blocker = createServer().listen(0, "127.0.0.1");
+  await once(blocker, "listening");
+  const addr = blocker.address();
+  assert(addr && typeof addr !== "string");
+  try {
+    const proc = launch(addr.port);
+    const [code] = await proc.exit;
+    assert.equal(code, 1);
+    assert.match(proc.output(), /EADDRINUSE/);
+  } finally {
+    await new Promise<void>((resolve) => blocker.close(() => resolve()));
+  }
+});
 
-test(
-  "memory development watcher serves health and JSON 404",
-  { timeout: 15000 },
-  async () => {
-    const port = await freePort();
-    const proc = launch(port, {}, true);
-    try {
-      await ready(proc);
-      const health = await fetch(`http://127.0.0.1:${port}/health`);
-      assert.equal(health.status, 200);
-      assert.deepEqual(await health.json(), { status: "ok" });
-      const missing = await fetch(`http://127.0.0.1:${port}/unknown`);
-      assert.equal(missing.status, 404);
-      assert.deepEqual(await missing.json(), {
-        error: { message: "Route not found" },
-      });
-    } finally {
-      // WSL/POSIX: stop npm, the watcher, and its server as one process group.
-      if (proc.child.pid) process.kill(-proc.child.pid, "SIGTERM");
-      await proc.exit;
-    }
-  },
-);
+test("memory development watcher serves health and JSON 404", { timeout: 15000 }, async () => {
+  const port = await freePort();
+  const proc = launch(port, {}, true);
+  try {
+    await ready(proc);
+    const health = await fetch(`http://127.0.0.1:${port}/health`);
+    assert.equal(health.status, 200);
+    assert.deepEqual(await health.json(), { status: "ok" });
+    const missing = await fetch(`http://127.0.0.1:${port}/unknown`);
+    assert.equal(missing.status, 404);
+    assert.deepEqual(await missing.json(), {
+      error: { message: "Route not found" },
+    });
+  } finally {
+    // WSL/POSIX: stop npm, the watcher, and its server as one process group.
+    if (proc.child.pid) process.kill(-proc.child.pid, "SIGTERM");
+    await proc.exit;
+  }
+});

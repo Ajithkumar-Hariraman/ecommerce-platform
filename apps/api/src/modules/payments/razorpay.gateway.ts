@@ -1,9 +1,4 @@
-import {
-  createHash,
-  createHmac,
-  randomUUID,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { CheckoutRepository } from "./checkout.repository.js";
 import { z } from "zod";
 import { AppError } from "../../errors/app-error.js";
@@ -24,8 +19,7 @@ export function verifyRazorpaySignature(
   signature: string,
   secret: string,
 ): void {
-  if (!/^[a-fA-F0-9]{64}$/.test(signature))
-    throw new AppError(401, "Invalid Razorpay signature");
+  if (!/^[a-fA-F0-9]{64}$/.test(signature)) throw new AppError(401, "Invalid Razorpay signature");
   const expected = createHmac("sha256", secret).update(body).digest();
   if (!timingSafeEqual(expected, Buffer.from(signature, "hex")))
     throw new AppError(401, "Invalid Razorpay signature");
@@ -63,10 +57,7 @@ export class RazorpayPaymentClient implements PaymentClient {
       !Number.isSafeInteger(input.amountInMinorUnits) ||
       input.amountInMinorUnits < 100
     )
-      throw new AppError(
-        400,
-        "Razorpay requires at least INR 1 and a stable payment key",
-      );
+      throw new AppError(400, "Razorpay requires at least INR 1 and a stable payment key");
     return this.repository.locked(input.orderId, async (db) => {
       await db.initialize({
         orderId: input.orderId,
@@ -91,20 +82,14 @@ export class RazorpayPaymentClient implements PaymentClient {
               "Payment creation outcome is unknown; reconcile the receipt in Razorpay before retrying",
             );
         } else {
-          remote = await this.api.createOrder(
-            input.orderId,
-            input.amountInMinorUnits,
-          );
+          remote = await this.api.createOrder(input.orderId, input.amountInMinorUnits);
         }
         if (
           remote.receipt !== input.orderId ||
           remote.amount !== input.amountInMinorUnits ||
           remote.currency !== "INR"
         )
-          throw new AppError(
-            502,
-            "Razorpay Order does not match this checkout",
-          );
+          throw new AppError(502, "Razorpay Order does not match this checkout");
         await db.setProviderOrder(input.orderId, remote.id);
       }
       return { paymentId: row.payment_id, status: "PENDING" as const };
@@ -112,8 +97,7 @@ export class RazorpayPaymentClient implements PaymentClient {
   }
   async checkout(orderId: string): Promise<Checkout> {
     const row = await this.repository.findOrder(orderId);
-    if (!row?.provider_order_id)
-      throw new AppError(409, "Payment has not been initialized");
+    if (!row?.provider_order_id) throw new AppError(409, "Payment has not been initialized");
     return {
       keyId: this.keyId,
       providerOrderId: row.provider_order_id,
@@ -143,12 +127,7 @@ export class RazorpayPaymentClient implements PaymentClient {
       payment.status === "failed"
     )
       throw new AppError(409, "Payment does not match checkout");
-    await this.repository.recordAttempt(
-      payment.id,
-      orderId,
-      payment.status,
-      false,
-    );
+    await this.repository.recordAttempt(payment.id, orderId, payment.status, false);
     // Browser completion is not settlement. Only the captured webhook enters the workflow/outbox.
   }
   async webhook(
@@ -168,44 +147,30 @@ export class RazorpayPaymentClient implements PaymentClient {
       throw new AppError(400, "Invalid Razorpay webhook");
     }
     const result = webhook.safeParse(value);
-    if (!result.success)
-      throw new AppError(400, "Unsupported or invalid Razorpay webhook");
+    if (!result.success) throw new AppError(400, "Unsupported or invalid Razorpay webhook");
     const event = result.data;
     const payment = event.payload.payment.entity;
-    if (
-      payment.status !==
-      (event.event === "payment.captured" ? "captured" : "failed")
-    )
+    if (payment.status !== (event.event === "payment.captured" ? "captured" : "failed"))
       throw new AppError(400, "Razorpay status mismatch");
     const mapping = await this.repository.findProviderOrder(payment.order_id);
     if (!mapping) throw new AppError(404, "Unknown Razorpay Order");
-    if (
-      payment.amount !== Number(mapping.amount) ||
-      payment.currency !== mapping.currency
-    )
+    if (payment.amount !== Number(mapping.amount) || payment.currency !== mapping.currency)
       throw new AppError(409, "Payment amount or currency mismatch");
     await this.repository.locked(mapping.order_id, async (db) => {
       const hash = createHash("sha256").update(raw).digest("hex");
       const record = await db.claimEvent(eventId, hash);
-      if (record.body_hash !== hash)
-        throw new AppError(409, "Webhook identity conflict");
+      if (record.body_hash !== hash) throw new AppError(409, "Webhook identity conflict");
       if (record.processed) return;
       const order = await orders.findById(mapping.order_id);
       if (!order) throw new AppError(404, "Order not found");
       if (order.paymentId !== mapping.payment_id)
-        throw new AppError(
-          409,
-          "Payment initialization is not complete; retry delivery",
-        );
+        throw new AppError(409, "Payment initialization is not complete; retry delivery");
       await db.recordAttempt(payment.id, order.id, payment.status, true);
       await workflow.applyEvent({
         eventId: eventUuid(event.event + ":" + payment.id),
         orderId: order.id,
         paymentId: mapping.payment_id,
-        type:
-          payment.status === "captured"
-            ? "payment.succeeded"
-            : "payment.failed",
+        type: payment.status === "captured" ? "payment.succeeded" : "payment.failed",
         occurredAt: new Date(payment.created_at * 1000).toISOString(),
         provider: "razorpay",
       });

@@ -55,17 +55,10 @@ export function createApp(dependencies: AppDependencies): Express {
   if (dependencies.paymentWorkflow && dependencies.paymentWebhookSecret) {
     app.use(
       "/api/v1/webhooks",
-      createPaymentWebhookRouter(
-        dependencies.paymentWorkflow,
-        dependencies.paymentWebhookSecret,
-      ),
+      createPaymentWebhookRouter(dependencies.paymentWorkflow, dependencies.paymentWebhookSecret),
     );
   }
-  if (
-    dependencies.razorpay &&
-    dependencies.orderRepository &&
-    dependencies.paymentWorkflow
-  ) {
+  if (dependencies.razorpay && dependencies.orderRepository && dependencies.paymentWorkflow) {
     app.use(
       "/api/v1/webhooks",
       razorpayWebhookRouter(
@@ -76,8 +69,7 @@ export function createApp(dependencies: AppDependencies): Express {
     );
   }
   const access = dependencies.accessPolicy ?? denyAccessPolicy();
-  const limiter: RequestHandler =
-    dependencies.rateLimiter ?? ((_req, _res, next) => next());
+  const limiter: RequestHandler = dependencies.rateLimiter ?? ((_req, _res, next) => next());
   app.use("/api/v1/products", access.authenticate, limiter, access.catalog);
   app.use("/api/v1/categories", access.authenticate, limiter, access.catalog);
   app.use("/api/v1/orders", access.authenticate, limiter, access.orders);
@@ -101,13 +93,9 @@ export function createApp(dependencies: AppDependencies): Express {
       dependencies.productCache,
     ),
   );
-  app.use(
-    "/api/v1/categories",
-    createCategoryModule(dependencies.categoryRepository),
-  );
+  app.use("/api/v1/categories", createCategoryModule(dependencies.categoryRepository));
   if (dependencies.orderRepository) {
-    if (!dependencies.paymentClient)
-      throw new Error("Order module requires PaymentClient");
+    if (!dependencies.paymentClient) throw new Error("Order module requires PaymentClient");
     app.use(
       "/api/v1/orders",
       createOrderModule(
@@ -120,10 +108,7 @@ export function createApp(dependencies: AppDependencies): Express {
   if (dependencies.razorpay && dependencies.orderRepository)
     app.use(
       "/api/v1/orders",
-      razorpayCheckoutRouter(
-        dependencies.razorpay,
-        dependencies.orderRepository,
-      ),
+      razorpayCheckoutRouter(dependencies.razorpay, dependencies.orderRepository),
     );
   app.use((_req, _res, next) => {
     next(new AppError(404, "Route not found"));

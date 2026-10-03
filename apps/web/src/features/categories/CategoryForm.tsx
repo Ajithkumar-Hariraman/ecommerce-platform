@@ -48,10 +48,7 @@ export function CategoryForm({ onCreated }: { onCreated: () => void }) {
         </label>
         <label>
           Category status
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as typeof status)}
-          >
+          <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
             <option>ACTIVE</option>
             <option>INACTIVE</option>
           </select>

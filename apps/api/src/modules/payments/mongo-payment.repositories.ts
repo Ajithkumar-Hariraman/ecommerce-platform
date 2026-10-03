@@ -29,9 +29,7 @@ export class MongoOrderAuditRepository implements OrderAuditRepository {
   async append(audit: OrderAudit): Promise<void> {
     const { id, ...fields } = audit;
     await this.db
-      .collection<
-        Omit<OrderAudit, "id"> & { _id: string }
-      >("order_status_history")
+      .collection<Omit<OrderAudit, "id"> & { _id: string }>("order_status_history")
       .updateOne({ _id: id }, { $setOnInsert: fields }, { upsert: true });
   }
 }
@@ -39,9 +37,7 @@ export class MongoWebhookEventRepository implements WebhookEventRepository {
   constructor(private readonly db: Db) {}
   async claim(event: PaymentEvent): Promise<void> {
     const identity = JSON.stringify(event);
-    const collection = this.db.collection<EventDocument>(
-      "processed_webhook_events",
-    );
+    const collection = this.db.collection<EventDocument>("processed_webhook_events");
     try {
       await collection.updateOne(
         { _id: event.eventId },
@@ -49,19 +45,11 @@ export class MongoWebhookEventRepository implements WebhookEventRepository {
         { upsert: true },
       );
     } catch (error) {
-      if (
-        !(
-          typeof error === "object" &&
-          error &&
-          "code" in error &&
-          error.code === 11000
-        )
-      )
+      if (!(typeof error === "object" && error && "code" in error && error.code === 11000))
         throw error;
     }
     const record = await collection.findOne({ _id: event.eventId });
-    if (record?.identity !== identity)
-      throw new AppError(409, "Webhook event identity conflict");
+    if (record?.identity !== identity) throw new AppError(409, "Webhook event identity conflict");
   }
   async isProcessed(eventId: string): Promise<boolean> {
     return (
@@ -124,8 +112,7 @@ export class MongoPaymentWorkflowRepository implements PaymentWorkflowRepository
       else {
         order = await collection.findOne({ _id: event.orderId });
         receipt = order?.paymentReceipt;
-        if (receipt?.id !== event.eventId)
-          throw new AppError(409, "Order update conflict");
+        if (receipt?.id !== event.eventId) throw new AppError(409, "Order update conflict");
       }
     }
     if (!receipt || receipt.identity !== JSON.stringify(event))
@@ -142,25 +129,13 @@ export async function ensurePaymentIndexes(db: Db): Promise<void> {
   await ensureOutboxIndex(db);
   await db
     .collection("order_status_history")
-    .createIndex(
-      { orderId: 1, changedAt: 1 },
-      { name: "order_history_order_changed_idx" },
-    );
+    .createIndex({ orderId: 1, changedAt: 1 }, { name: "order_history_order_changed_idx" });
   // createCollection preserves the built-in unique _id index without speculative indexes.
-  if (
-    !(await db.listCollections({ name: "processed_webhook_events" }).hasNext())
-  ) {
+  if (!(await db.listCollections({ name: "processed_webhook_events" }).hasNext())) {
     try {
       await db.createCollection("processed_webhook_events");
     } catch (error) {
-      if (
-        !(
-          typeof error === "object" &&
-          error &&
-          "code" in error &&
-          error.code === 48
-        )
-      )
+      if (!(typeof error === "object" && error && "code" in error && error.code === 48))
         throw error;
     }
   }

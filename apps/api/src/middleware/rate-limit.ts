@@ -15,23 +15,45 @@ end
 return {count, ttl}
 `;
 export class RedisRateLimiter {
-  constructor(private readonly redis: RedisCommands, private readonly windowSeconds: number,
-    private readonly maxRequests: number, private readonly prefix = "") {}
+  constructor(
+    private readonly redis: RedisCommands,
+    private readonly windowSeconds: number,
+    private readonly maxRequests: number,
+    private readonly prefix = "",
+  ) {}
   async consume(subject: string): Promise<{ allowed: boolean; retryAfter: number }> {
     const identity = createHash("sha256").update(subject).digest("hex");
-    const result = await this.redis.command(["EVAL", increment, "1", `${this.prefix}rate:v1:${identity}:api`, String(this.windowSeconds)]);
-    if (!Array.isArray(result) || result.length !== 2 || !result.every(Number.isSafeInteger)) throw new Error("Invalid rate counter result");
+    const result = await this.redis.command([
+      "EVAL",
+      increment,
+      "1",
+      `${this.prefix}rate:v1:${identity}:api`,
+      String(this.windowSeconds),
+    ]);
+    if (!Array.isArray(result) || result.length !== 2 || !result.every(Number.isSafeInteger))
+      throw new Error("Invalid rate counter result");
     return { allowed: result[0] <= this.maxRequests, retryAfter: Math.max(1, result[1]) };
   }
 }
-export function rateLimit(limiter: Pick<RedisRateLimiter, "consume">, log: OperationalLog = console.warn): RequestHandler {
+export function rateLimit(
+  limiter: Pick<RedisRateLimiter, "consume">,
+  log: OperationalLog = console.warn,
+): RequestHandler {
   return async (_req, res, next) => {
     const principal = res.locals.principal as AuthenticatedPrincipal | undefined;
     // Explicit AUTH_ENABLED=false is only available in non-production environments.
-    if (!principal) { next(); return; }
+    if (!principal) {
+      next();
+      return;
+    }
     let decision;
-    try { decision = await limiter.consume(principal.subject); }
-    catch { log("Redis rate limiter unavailable; authenticated request allowed."); next(); return; }
+    try {
+      decision = await limiter.consume(principal.subject);
+    } catch {
+      log("Redis rate limiter unavailable; authenticated request allowed.");
+      next();
+      return;
+    }
     if (!decision.allowed) {
       res.setHeader("Retry-After", String(decision.retryAfter));
       next(new AppError(429, "Too many requests"));

@@ -28,6 +28,6 @@ export class InMemoryCategoryRepository implements CategoryRepository {
   }
 
   async findAll(): Promise<Category[]> {
-    return Array.from(this.categories.values(), category => ({ ...category }));
+    return Array.from(this.categories.values(), (category) => ({ ...category }));
   }
 }

@@ -3,7 +3,11 @@ import type { Express } from "express";
 import type { Env } from "./config/env.js";
 
 // Shared HTTP/process lifecycle; closeResources owns the injected external resources.
-export async function startServer(app: Express, env: Env, closeResources: () => Promise<void>): Promise<void> {
+export async function startServer(
+  app: Express,
+  env: Env,
+  closeResources: () => Promise<void>,
+): Promise<void> {
   const server = createServer(app);
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
@@ -16,25 +20,38 @@ export async function startServer(app: Express, env: Env, closeResources: () => 
       process.exit(1);
     }, 10000);
     try {
-      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
       console.info("HTTP server closed.");
     } catch {
       console.error("HTTP shutdown failed");
       process.exitCode = 1;
     } finally {
-      try { await closeResources(); }
-      catch { console.error("Resource shutdown failed"); process.exitCode = 1; }
+      try {
+        await closeResources();
+      } catch {
+        console.error("Resource shutdown failed");
+        process.exitCode = 1;
+      }
       clearTimeout(deadline);
       process.off("SIGINT", onInterrupt);
       process.off("SIGTERM", onTerminate);
     }
   };
-  const onInterrupt = () => { void shutdown("SIGINT"); };
-  const onTerminate = () => { void shutdown("SIGTERM"); };
+  const onInterrupt = () => {
+    void shutdown("SIGINT");
+  };
+  const onTerminate = () => {
+    void shutdown("SIGTERM");
+  };
   try {
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
-      server.listen(env.port, env.host, () => { server.off("error", reject); resolve(); });
+      server.listen(env.port, env.host, () => {
+        server.off("error", reject);
+        resolve();
+      });
     });
   } catch (error) {
     await closeResources();

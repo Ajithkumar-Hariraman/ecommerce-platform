@@ -17,12 +17,15 @@ export const updateSchema = createSchema.partial().extend({
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
-const positiveIntegerQuery = z.string().regex(/^[0-9]+$/).transform(Number)
-  .refine(value => Number.isSafeInteger(value) && value >= 1);
+const positiveIntegerQuery = z
+  .string()
+  .regex(/^[0-9]+$/)
+  .transform(Number)
+  .refine((value) => Number.isSafeInteger(value) && value >= 1);
 export const listQuerySchema = z.strictObject({
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   page: positiveIntegerQuery.optional(),
-  limit: positiveIntegerQuery.refine(value => value <= 100).optional(),
+  limit: positiveIntegerQuery.refine((value) => value <= 100).optional(),
 });
 
 const idSchema = z.uuid();
@@ -55,8 +58,7 @@ export const validateUpdate: RequestHandler = (req, res, next) => {
   if (data.name !== undefined) input.name = data.name;
   if (data.description !== undefined) input.description = data.description;
   if (data.categoryId !== undefined) input.categoryId = data.categoryId;
-  if (data.priceInMinorUnits !== undefined)
-    input.priceInMinorUnits = data.priceInMinorUnits;
+  if (data.priceInMinorUnits !== undefined) input.priceInMinorUnits = data.priceInMinorUnits;
   if (data.stock !== undefined) input.stock = data.stock;
   if (data.status !== undefined) input.status = data.status;
   if (Object.keys(input).length === 0)
@@ -71,11 +73,7 @@ export const validateId: RequestHandler = (req, res, next) => {
 };
 
 export const validateListQuery: RequestHandler = (req, res, next) => {
-  const query = parse(
-    listQuerySchema,
-    req.query,
-    "Invalid product listing query",
-  );
+  const query = parse(listQuerySchema, req.query, "Invalid product listing query");
 
   const input: ProductListInput = {};
   if (query.status !== undefined) input.status = query.status;
