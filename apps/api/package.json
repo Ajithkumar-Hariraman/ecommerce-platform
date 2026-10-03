@@ -17,7 +17,10 @@
     "test:integration": "npm run build && npm run db:migrate:test && node --import tsx --test --test-concurrency=1 test/integration/*.test.ts",
     "kafka:topics": "tsx src/events/setup-topics.ts",
     "worker:orders": "node --enable-source-maps dist/workers/order-event.worker.js",
-    "worker:outbox": "node --enable-source-maps dist/workers/outbox-relay.worker.js"
+    "worker:outbox": "node --enable-source-maps dist/workers/outbox-relay.worker.js",
+    "worker:outbox:dev": "tsx src/workers/outbox-relay.worker.ts",
+    "worker:orders:dev": "tsx src/workers/order-event.worker.ts",
+    "postinstall": "node scripts/patch-kafkajs-timer.cjs"
   },
   "dependencies": {
     "csv-parse": "^7.0.3",

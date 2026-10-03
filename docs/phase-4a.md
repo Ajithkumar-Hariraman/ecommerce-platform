@@ -3,6 +3,7 @@
 Verified 2026-09-11. Phase 4A is complete; Phase 4B is not implemented.
 
 ## Scope and choices
+
 - Category has UUID identity, slug, name, ACTIVE/INACTIVE status and ISO timestamps.
 - Slug/name are trimmed and nonblank. Slug uniqueness is case-sensitive after trimming.
 - Create accepts optional status (defaults ACTIVE), allowing an intentionally inactive
@@ -16,6 +17,7 @@ Verified 2026-09-11. Phase 4A is complete; Phase 4B is not implemented.
 - Existing Product status filtering and partial PUT semantics remain intact.
 
 ## Schema evolution
+
 [migration 002](../apps/api/migrations/002_create_categories.sql) creates categories
 and adds nullable products.category_id. Applied migration 001 is unchanged.
 No fabricated uncategorized category and no data backfill/deletion.
@@ -35,6 +37,7 @@ A foreign key does not automatically index the referencing column.
 [PostgreSQL constraint documentation](https://www.postgresql.org/docs/16/ddl-constraints.html)
 
 ## Architecture and failure handling
+
 Category follows the existing types -> repository contract -> memory/PostgreSQL
 adapter -> service -> validation -> controller -> routes/module structure.
 The runtime uses one shared pg Pool for both adapters.
@@ -50,6 +53,7 @@ Explicit row mappers translate category_id/categoryId and Category timestamps.
 Readiness/startup verification now checks both tables and the category_id column.
 
 ## Verification evidence
+
 - npm run db:migrate and db:migrate:test: migration 002 applied; reruns already-applied.
 - npm run typecheck and npm run build: passed.
 - npm test: 88 passed, 0 failed.
@@ -69,6 +73,7 @@ Readiness/startup verification now checks both tables and the category_id column
 - No production/test failures were encountered; existing intentional error logs remain expected.
 
 ## Learning checkpoint
+
 1. One-to-many: one Category can be referenced by many Products; each Product has at
    most one Category in this model.
 2. Foreign key: a non-null Product category_id must refer to an existing categories.id.

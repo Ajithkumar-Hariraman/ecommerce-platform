@@ -112,7 +112,7 @@ WHAT CAN FAIL: Manifest mismatch or registry/network failures. Update through np
 FILE: apps/api/tsconfig.json
 WHY: Strict ESM compilation with src as input and dist as output.
 WHO CALLS IT: tsc.
-INPUT: src/**/*.ts.
+INPUT: src/\*_/_.ts.
 OUTPUT: JavaScript and source maps, or diagnostics.
 WHAT CAN FAIL: Type errors and invalid imports. NodeNext models Node ESM; imports use .js even in source.
 ES2022 supplies a conservative modern target. strict enables core correctness checks.
@@ -191,6 +191,7 @@ WSL/POSIX process groups clean up npm and the development watcher.
 ## Verification record
 
 Verified in WSL with Node v24.18.0:
+
 - npm install express@5; npm install -D typescript@5 tsx @types/node@20 @types/express@5 (initial installed Node 20 checks).
 - npm install -D @types/node@24 after selecting the installed Node 24 runtime.
 - npm run typecheck: passed.

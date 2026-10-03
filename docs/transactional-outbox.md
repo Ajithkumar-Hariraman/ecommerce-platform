@@ -38,12 +38,12 @@ ORDER_STORAGE=postgres npm run worker:outbox
 # Or set the existing private Mongo URI/database and select mongodb.
 ```
 
-| Setting | Default | Bounds |
-| --- | --- | --- |
-| OUTBOX_POLL_INTERVAL_MS | 1000 | 100..60000 |
-| OUTBOX_BATCH_SIZE | 20 | 1..100 |
-| OUTBOX_LEASE_MS | 30000 | 5000..300000 |
-| OUTBOX_MAX_ATTEMPTS | 10 | 1..100 |
+| Setting                 | Default | Bounds       |
+| ----------------------- | ------- | ------------ |
+| OUTBOX_POLL_INTERVAL_MS | 1000    | 100..60000   |
+| OUTBOX_BATCH_SIZE       | 20      | 1..100       |
+| OUTBOX_LEASE_MS         | 30000   | 5000..300000 |
+| OUTBOX_MAX_ATTEMPTS     | 10      | 1..100       |
 
 OutboxRelay uses OutboxRepository, selected as PostgresOutboxRepository or
 MongoOutboxRepository. It reuses KafkaEventPublisher and one producer connection.

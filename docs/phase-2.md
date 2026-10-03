@@ -23,6 +23,7 @@ Generated dist output remains ignored.
 ## Run
 
 From the repository root in WSL:
+
 ```sh
 source ~/.nvm/nvm.sh
 nvm use
@@ -33,6 +34,7 @@ npm run dev
 
 Defaults: http://127.0.0.1:3000. Stop with Ctrl+C. The repository is empty at each app creation/restart, including watcher restarts.
 Creation body:
+
 ```json
 {
   "sku": "COFFEE-001",
@@ -76,25 +78,25 @@ Only one dependency was added: zod@4 (exact installed version is recorded in pac
 CLIENT
 
 POST /api/v1/products
-        ↓
+↓
 Express
-        ↓
+↓
 Product route
-        ↓
+↓
 runtime validation
-        ↓
+↓
 ProductController
-        ↓
+↓
 ProductService
-        ↓
+↓
 ProductRepository interface
-        ↓
+↓
 InMemoryProductRepository
-        ↓
+↓
 Product returned
-        ↓
+↓
 Controller
-        ↓
+↓
 HTTP 201 JSON response
 
 Express parses JSON before product routing. validateCreate validates unknown req.body and places a typed, allowlisted input in res.locals.productInput. The controller passes it to the service. The service trims/validates values, checks uniqueness, generates identity/timestamps, then writes through its injected repository.
@@ -104,15 +106,15 @@ The interface is a compile-time contract, not a runtime object or extra function
 DUPLICATE SKU
 
 POST request
-        ↓
+↓
 Service checks repository
-        ↓
+↓
 SKU already exists
-        ↓
+↓
 AppError 409
-        ↓
+↓
 central error handler
-        ↓
+↓
 HTTP 409 response
 
 If two requests both pass the read check, the repository's atomic write check raises DuplicateSkuError. The service converts this to the same AppError 409. Unexpected errors are rethrown to the existing generic-500 path.
@@ -195,18 +197,18 @@ WHAT CAN FAIL: Documentation drift; update with behavior changes.
 
 ## Interview concepts in the actual code
 
-| Concept | Actual location and meaning |
-|---|---|
-| interface | ProductRepository declares six Promise-based persistence methods; ProductService accepts that contract. |
-| implements | InMemoryProductRepository implements ProductRepository; TypeScript checks method compatibility. |
-| dependency injection | product.module.ts constructs the repository and passes it to new ProductService(repository), then passes service to controller. |
-| abstraction | ProductService calls repository.findBySku without knowing Map or SQL. |
-| async/await | Controller awaits service; service awaits repository. Express 5 forwards rejections to centralized error handling. |
-| union/literal type | ProductStatus is "ACTIVE" \| "INACTIVE"; description is string \| null. |
-| utility types | UpdateProductInput uses Partial<CreateProductInput> and adds optional status. Controller uses Record for Express generic parameter shapes. |
-| runtime validation | product.validation.ts calls Zod safeParse on real unknown req.body/params and rejects failures with AppError. |
-| centralized error handling | Service and validation throw AppError; unchanged middleware/error-handler.ts formats the safe JSON response. |
-| HTTP status codes | Controller chooses successful 201/200/204; AppError carries expected 400/404/409 to the existing handler. |
+| Concept                    | Actual location and meaning                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| interface                  | ProductRepository declares six Promise-based persistence methods; ProductService accepts that contract.                                    |
+| implements                 | InMemoryProductRepository implements ProductRepository; TypeScript checks method compatibility.                                            |
+| dependency injection       | product.module.ts constructs the repository and passes it to new ProductService(repository), then passes service to controller.            |
+| abstraction                | ProductService calls repository.findBySku without knowing Map or SQL.                                                                      |
+| async/await                | Controller awaits service; service awaits repository. Express 5 forwards rejections to centralized error handling.                         |
+| union/literal type         | ProductStatus is "ACTIVE" \| "INACTIVE"; description is string \| null.                                                                    |
+| utility types              | UpdateProductInput uses Partial<CreateProductInput> and adds optional status. Controller uses Record for Express generic parameter shapes. |
+| runtime validation         | product.validation.ts calls Zod safeParse on real unknown req.body/params and rejects failures with AppError.                              |
+| centralized error handling | Service and validation throw AppError; unchanged middleware/error-handler.ts formats the safe JSON response.                               |
+| HTTP status codes          | Controller chooses successful 201/200/204; AppError carries expected 400/404/409 to the existing handler.                                  |
 
 ## Exactly what to edit for an interviewer
 
@@ -220,6 +222,7 @@ WHAT CAN FAIL: Documentation drift; update with behavior changes.
 ## Verification
 
 Executed under Node v24.18.0:
+
 ```sh
 npm install zod@4
 npm run typecheck
@@ -232,6 +235,7 @@ npm test rebuilds before running the existing Node test runner. All **57 tests p
 Coverage includes all requested create/read/update/delete behaviors, forbidden identity/timestamp fields, default status, supplied-only updates, negative/fractional/unsafe numbers, duplicate SKU on create/update, malformed route IDs, empty updates, failed-write preservation, repository copies, and concurrent SKU conflicts.
 
 Separate developer HTTP verification used Python urllib against an actual npm run dev process on an ephemeral loopback port:
+
 - health 200; POST 201 with trimmed values and server-generated UUID/ISO timestamps.
 - list 200; by-ID 200; PUT 200 with changed stock/status and preserved creation time.
 - duplicate POST 409; invalid negative-stock update 400.

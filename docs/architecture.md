@@ -1,6 +1,7 @@
 # Architecture
 
 ## Request flow
+
 Client -> Express -> route -> runtime validation -> controller -> service
 -> repository interface -> repository adapter -> PostgreSQL.
 
@@ -12,6 +13,7 @@ PostgreSQL uses separate parameterized count/page queries without a shared snaps
 Existing findAll/findByStatus repository methods retain their array contracts.
 
 ## Composition / dependency injection
+
 Outer wiring (src/server.ts) creates Product and Category PostgreSQL adapters with one Pool.
 ProductService receives ProductRepository and CategoryRepository; CategoryService receives
 CategoryRepository. Each controller receives its service.
@@ -20,6 +22,7 @@ controller and router. ProductService depends on repository contracts, not pg or
 The interface defines WHAT; adapters define HOW; outer composition supplies WIRING.
 
 ## Runtime lifecycle
+
 Central env validation -> one DB pool -> DB/table verification -> app -> listen.
 Startup does not silently create tables; explicit migration commands own schema changes.
 
@@ -28,6 +31,7 @@ A bounded shutdown deadline covers HTTP and resource cleanup.
 /health checks liveness; /ready probes the required database/table.
 
 ## Test split
+
 Fast HTTP/service tests -> InMemoryProductRepository where appropriate.
 Shared lifecycle fixture -> same lifecycle code without a database.
 Integration tests -> real PostgreSQL in ecommerce_test, including actual runtime checks.
@@ -35,6 +39,7 @@ Status collection assertions are shared between both adapters.
 The explicit developer smoke script targets ecommerce_dev; it is not part of automated tests.
 
 ## Boundaries
+
 One backend application with Product and Category modules: a modular monolith.
 Many Products may reference one Category; nullable category_id preserves existing data.
 The database FK uses ON DELETE RESTRICT; service lookup provides friendly input errors.

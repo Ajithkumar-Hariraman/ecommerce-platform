@@ -6,6 +6,7 @@ Start with [current state](docs/current-state.md), then read
 Coding-agent rules live in [AGENTS.md](AGENTS.md).
 
 ## Local setup (Ubuntu WSL)
+
 Prerequisites: Node 24 via nvm, PostgreSQL running, ecommerce_app role and
 ecommerce_dev/ecommerce_test databases already provisioned.
 
@@ -32,6 +33,7 @@ Default address: http://127.0.0.1:3000. Stop with Ctrl+C.
 For compiled execution: npm run build, then npm start.
 
 ## Verify
+
 ```sh
 npm run typecheck
 npm run build
@@ -45,6 +47,7 @@ Expected diagnostic logs appear in intentional error/failure tests.
 See [current state](docs/current-state.md) for the latest verified counts.
 
 ## API surface
+
 - GET /health: liveness.
 - GET /ready: required database readiness.
 - POST/GET /api/v1/products.
@@ -54,6 +57,7 @@ See [current state](docs/current-state.md) for the latest verified counts.
 - Product categoryId is optional/nullable; assigned Categories must exist.
 
 ## Historical learning reports
+
 [Phase 1 archive](docs/phase-1.md) · [Phase 2](docs/phase-2.md) · [Phase 3](docs/phase-3.md) · [Phase 4A](docs/phase-4a.md).
 These explain earlier stages; current setup and state supersede historical commands.
 

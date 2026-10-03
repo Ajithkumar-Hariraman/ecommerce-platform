@@ -9,8 +9,7 @@ No infrastructure tests are silently omitted; failures block the job.
 
 CI credentials are generated on the ephemeral runner, never stored in source or printed.
 The setup script refuses to overwrite existing local infra/.env. Do not run it over a
-working local environment. The integration runner uses ecommerce_test on Compose port
-5433. Do not run it concurrently with the application relay against that same test DB.
+working local environment. The integration runner uses ecommerce_test on Compose port 5433. Do not run it concurrently with the application relay against that same test DB.
 
 Workflow permissions are read-only; checkout credentials are not persisted. Pull requests
 receive no deployment credentials. CI currently does not publish images or deploy.

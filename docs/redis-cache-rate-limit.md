@@ -28,12 +28,12 @@ Redis 8.2.9 Alpine maps loopback 6381 to container 6379 with AOF and a named vol
 The old Redis on 6379 remains separate. A future Node container would use
 redis-cache:6379; Node running in WSL uses redis://127.0.0.1:6381.
 
-| Setting | Default | Bounds |
-| --- | --- | --- |
-| REDIS_URL | redis://127.0.0.1:6381 | redis/rediss URL |
-| PRODUCT_CACHE_TTL_SECONDS | 60 | 1..86400 |
-| RATE_LIMIT_WINDOW_SECONDS | 60 | 1..3600 |
-| RATE_LIMIT_MAX_REQUESTS | 100 | 1..1000000 |
+| Setting                   | Default                | Bounds           |
+| ------------------------- | ---------------------- | ---------------- |
+| REDIS_URL                 | redis://127.0.0.1:6381 | redis/rediss URL |
+| PRODUCT_CACHE_TTL_SECONDS | 60                     | 1..86400         |
+| RATE_LIMIT_WINDOW_SECONDS | 60                     | 1..3600          |
+| RATE_LIMIT_MAX_REQUESTS   | 100                    | 1..1000000       |
 
 Central env validation supplies server.ts, which creates one shared Node Redis
 client. Startup connect/PING is bounded to 1500 ms; failure permits startup while

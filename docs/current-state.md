@@ -4,6 +4,7 @@ Operational snapshot; update after a verified milestone. Historical reports may
 describe superseded behavior. See [architecture](architecture.md) for stable boundaries.
 
 ## Completed
+
 - Phase 1: HTTP foundation, environment validation, centralized errors and shutdown.
 - Phase 2: Product domain, CRUD, repository contract and explicit dependency injection.
 - Phase 3: PostgreSQL persistence with pg, migrations, constraints, readiness and pool cleanup.
@@ -12,6 +13,7 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
   Repository findByStatus returns Product[]; HTTP listing now wraps products in the pagination envelope.
 
 ## Frontend checkpoint
+
 - React + TypeScript + Vite frontend exists in apps/web.
 - Category list/create UI and Product CRUD UI are implemented.
 - Backend status filtering and Product/Category assignment, change and clearing are available in the UI.
@@ -22,6 +24,7 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - User reports visually observing the pagination UI running; no broader manual scenario coverage is claimed.
 
 ## Runtime
+
 - API: apps/api; Node 24, Express 5, strict TypeScript/ESM; no ORM.
 - server.ts wires Product/Category PostgreSQL adapters using one pool.
 - ProductService receives ProductRepository and CategoryRepository.
@@ -39,6 +42,7 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - Development: ecommerce_dev. Automated PostgreSQL tests: ecommerce_test only.
 
 ## Phase 4B.1 checkpoint (reviewed 2026-09-29)
+
 - Backend typecheck and frontend typecheck/build passed.
 - Focused fast tests: 117 passed; relevant PostgreSQL tests: 31 passed, ecommerce_test only.
 - Pagination tests share adapter assertions and clean only their own records.
@@ -50,7 +54,9 @@ describe superseded behavior. See [architecture](architecture.md) for stable bou
 - No category filter, search, new sort controls, indexes, migrations or listing transaction added.
 
 ## Previous full-suite verification
+
 Latest backend integration verification: 2026-09-11, Phase 4A milestone.
+
 - Typecheck passed; npm test and test:integration rebuild successfully.
 - Fast tests: 88 passed, 0 failed.
 - PostgreSQL integration tests: 31 passed, 0 failed.
@@ -62,6 +68,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Expected error logs occur in intentional failure/recovery tests.
 
 ## Product CSV import checkpoint (2026-09-30)
+
 - POST /api/v1/products/import accepts streamed text/csv; bounded parsing and batches
   reuse ProductService.create and existing repositories. Imported status is preserved;
   omitted status defaults to ACTIVE. Existing JSON create validation is unchanged.
@@ -75,6 +82,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - This snapshot accompanies the streamed CSV import commit; pagination is unchanged.
 
 ## Order runtime checkpoint (2026-09-30)
+
 - POST /api/v1/orders and GET /api/v1/orders/:id use one OrderService and repository contract.
 - ORDER_STORAGE defaults to postgres; mongodb selects MongoOrderRepository only.
 - PostgreSQL remains required for Products. Mongo URI/database are required only in Mongo mode.
@@ -92,6 +100,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
   from Git because it contains development credentials.
 
 ## Payment integration checkpoint (2026-09-30)
+
 - Order POST now persists CREATED, calls a separate payment provider over HTTP,
   then returns PAYMENT_PENDING with paymentId and version 2. POST /orders/:id/payment
   retries a retained CREATED order using the stable payment:<orderId> key.
@@ -114,6 +123,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - See [payment integration](payment-integration.md) for commands and distributed failure boundaries.
 
 ## OIDC authentication checkpoint (2026-09-30)
+
 - AUTH_ENABLED defaults true; production forbids opt-out and requires HTTPS issuer.
 - Real Keycloak 26.7.4 realm ecommerce provides access tokens for ecommerce-api.
 - jose verifies RS256 signatures, issuer/audience, expiry and access-token claims with
@@ -132,6 +142,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Setup, commands and security limits: [authentication](authentication.md).
 
 ## Redis cache/rate-limit checkpoint (2026-09-30)
+
 - Dedicated ecommerce-redis on loopback 6381; existing Redis6379 remains unchanged.
 - One Node Redis client serves validated Product ID cache-aside (default TTL 60s)
   and atomic fixed-window counters keyed by verified principal. No collection caching.
@@ -147,6 +158,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
   no merge or push. See [Redis behavior and boundaries](redis-cache-rate-limit.md).
 
 ## Kafka Order event checkpoint (2026-10-01)
+
 - Apache Kafka 4.1.2 KRaft runs as ecommerce-kafka; WSL 9093 maps container 9092,
   with separate internal kafka:19092 listener. Three Order topics have three partitions each.
 - Durable PAID webhook transitions publish version 1 OrderPaid keyed by Order UUID.
@@ -163,6 +175,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
   See [Kafka contracts and operating boundaries](kafka-order-events.md).
 
 ## Transactional outbox checkpoint (2026-10-01)
+
 - API direct Kafka publication removed; webhook commits durable publication intent.
 - PostgreSQL PAID/audit/provider receipt/outbox share one transaction (migration 006).
 - Mongo standalone atomically embeds one outbox record with status/canonical receipt;
@@ -184,6 +197,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Personal understanding remains unassessed; this snapshot accompanies the outbox commit.
 
 ## Current limits / next boundary
+
 - Offset pagination has safe-integer bounds; deep offsets can be expensive. Same-product updates are last-write-wins.
 - Remaining Phase 4B: category filtering, search and sorting, only after explicit authorization.
 - Not implemented: microservices, Kubernetes or AWS deployment.
@@ -191,24 +205,28 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - No next-phase feature is authorized by this snapshot.
 
 ## Details on demand
+
 [Phase 1 archive](phase-1.md) · [Phase 2 report](phase-2.md) ·
 [Phase 3 report](phase-3.md) · [Phase 4A report](phase-4a.md) · [Learning map](learning-map.md) ·
 [PostgreSQL decision](decisions/001-postgresql-raw-sql.md) ·
 [Module-boundary decision](decisions/002-modular-monolith.md)
 
 ## Platform readiness — checkpoint A (2026-10-01)
+
 - Status integration fixtures now compare a stable baseline plus uniquely owned rows.
 - No table-empty prerequisite, table lock, exclusions, or unrelated cleanup.
 - Full unfiltered verification: 168 fast tests and 61 integration tests passed; typecheck/build passed.
 - Automated persistence checks used ecommerce_test only.
 
 ## Platform readiness — checkpoint B
+
 - OpenAPI 3.1 and locally served Swagger UI document existing routes, roles, HMAC, and response envelopes.
 - Runtime Zod input schemas are reused; router inventory and OpenAPI validation are tested.
 - Full verification: 170 fast tests, 61 integration tests, typecheck/build passed.
 - Documentation defaults off in production; see [API contract](api-contract.md).
 
 ## Platform readiness — checkpoint C
+
 - Non-root API/web/provider images and full Compose service runtime added.
 - Real container HTTP/OIDC/HMAC/cache/outbox/Kafka notification flow passed using ecommerce_test.
 - Host and Compose PostgreSQL are separate; existing infrastructure volumes preserved.
@@ -216,6 +234,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Local HTTP OIDC opt-in is forbidden in production. See [container runtime](container-runtime.md).
 
 ## Platform readiness — checkpoint D
+
 - GitHub Actions fast and real-service integration jobs added; no automatic deployment.
 - actionlint, private CI configuration generation, frontend CI commands and all 61
   integration checks against Compose PostgreSQL passed. Container smoke passed after API recreation.
@@ -223,6 +242,7 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - No Git remote exists; remote workflow execution is unverified and no push occurred.
 
 ## Platform readiness — checkpoint E
+
 - Project-locked GCP deployment script and operating guide added; no cloud resources changed.
 - Live deployment blocked: gcloud is absent from WSL/Windows PATH and no standard login configuration was found.
 - Account/project, billing/IAM, managed resources and cloud health remain unverified.
@@ -231,9 +251,19 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - See [GCP deployment](gcp-deployment.md) for plan, apply prerequisites and exact next actions.
 
 ## Platform readiness — final checkpoint F (2026-10-02)
+
 - Full unfiltered backend verification: 172 fast and 61 integration tests passed; no exclusions/skips.
 - Backend/frontend typecheck/build, Docker images, container E2E and workflow lint passed.
 - CSV import spec correction and idle Kafka request-timeout fix verified; no unrelated feature changes.
 - GCP foundation committed; live cloud deployment and remote GitHub execution remain unverified.
 - This supersedes the historical status-fixture exclusion above. No personal-understanding claim.
 - Detailed evidence and operational boundaries: [platform readiness](platform-readiness.md).
+
+## Razorpay integration — pending live verification
+
+- Implemented Test Mode HTTPS adapter behind PaymentClient, provider-ID mapping, hosted React checkout and separately signed raw-body webhook. See [setup and failure boundaries](razorpay.md).
+- Existing local provider remains selectable. Order UUIDs, durable paid outbox and Kafka contracts are retained.
+- Automated verification: 46 focused payment/Razorpay/auth/outbox tests passed, including real PostgreSQL and MongoDB ecommerce_test runs; backend/frontend typecheck and build passed.
+- Migration 007 applied to test and development PostgreSQL. Test cleanup targets only owned records.
+- Live Razorpay transaction is not verified. Private webhook-secret configuration must meet validation and match Dashboard before API restart and hosted checkout verification.
+- Changes remain uncommitted pending live verification. Personal understanding is not assessed by automated tests.

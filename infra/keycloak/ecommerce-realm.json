@@ -79,6 +79,31 @@
       "defaultClientScopes": [
         "ecommerce-api-access"
       ]
+    },
+    {
+      "clientId": "ecommerce-web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://127.0.0.1:5173/*"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:5173"
+      ],
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "profile",
+        "ecommerce-api-access"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://127.0.0.1:5173/*"
+      }
     }
   ],
   "users": [
@@ -139,6 +164,15 @@
             "multivalued": "true",
             "access.token.claim": "true",
             "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "Subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
           }
         }
       ]

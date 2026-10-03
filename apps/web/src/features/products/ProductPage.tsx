@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Product, ProductStatus, ProductListResponse } from "./product.types";
 import type { Category } from "../categories/category.types";
 import { productsApi } from "../../api/products";
 import { errorMessage } from "../../api/http";
 import { ProductForm } from "./ProductForm";
 import { ProductList } from "./ProductList";
-export function ProductPage({ categories }: { categories: Category[] }) {
+export function ProductPage({ categories, children, onProductsLoaded }: { categories: Category[]; children: ReactNode; onProductsLoaded: (products: Product[]) => void }) {
   const [status, setStatus] = useState<ProductStatus | "ALL">("ALL");
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
@@ -26,6 +26,7 @@ export function ProductPage({ categories }: { categories: Category[] }) {
         const data = await productsApi.list(status, page, controller.signal);
         if (!controller.signal.aborted) {
           setProducts(data.products);
+          onProductsLoaded(data.products);
           setPagination(data.pagination);
         }
       } catch (error) {
@@ -36,7 +37,7 @@ export function ProductPage({ categories }: { categories: Category[] }) {
     }
     void load();
     return () => controller.abort();
-  }, [status, page, revision]);
+  }, [status, page, revision, onProductsLoaded]);
   async function edit(id: string) {
     setBusy(true);
     setError("");
@@ -67,24 +68,20 @@ export function ProductPage({ categories }: { categories: Category[] }) {
     }
   }
   return (
-    <div className="products">
+    <>
+      <div className="page-heading">
+        <div><h1>Catalog</h1><p>Manage products, inventory and categories.</p></div>
+        <button disabled={busy} onClick={() => { setEditor(null); setDeleting(null); setNotice(""); }}>+ Add product</button>
+      </div>
+      <div className="summary-grid" aria-label="Catalog summary">
+        <div className="stat-card"><span>Total Products</span><strong>{loading || error ? "—" : pagination?.total ?? "—"}</strong><small>Matching current status</small></div>
+        <div className="stat-card"><span>Active Products</span><strong>{loading || error ? "—" : products.filter(p => p.status === "ACTIVE").length}</strong><small>On this page</small></div>
+        <div className="stat-card"><span>Low Stock</span><strong>{loading || error ? "—" : products.filter(p => p.stock < 10).length}</strong><small>Below 10 · on this page</small></div>
+        <div className="stat-card"><span>Categories</span><strong>{categories.length}</strong><small>Loaded categories</small></div>
+      </div>
+      <div className="workspace"><div className="products">
       <section className="panel">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">YOUR INVENTORY</p>
-            <h2>Products</h2>
-          </div>
-          <button
-            disabled={busy}
-            onClick={() => {
-              setEditor(null);
-              setDeleting(null);
-              setNotice("");
-            }}
-          >
-            + New product
-          </button>
-        </div>
+        <div className="section-heading"><h2>Products</h2><span className="muted">Inventory overview</span></div>
         <div className="toolbar">
           <label>
             Show status
@@ -102,7 +99,7 @@ export function ProductPage({ categories }: { categories: Category[] }) {
             disabled={loading}
             onClick={() => setRevision((n) => n + 1)}
           >
-            Refresh products
+            Refresh
           </button>
         </div>
         {notice && (
@@ -134,7 +131,7 @@ export function ProductPage({ categories }: { categories: Category[] }) {
           )
         )}
         {pagination && (
-          <nav className="toolbar" aria-label="Product pagination">
+          <nav className="toolbar pagination" aria-label="Product pagination">
             <button className="subtle"
               disabled={loading || busy || !!error || !pagination.hasPreviousPage || pagination.page !== page}
               onClick={() => setPage(current => Math.max(1, current - 1))}>Previous</button>
@@ -181,6 +178,7 @@ export function ProductPage({ categories }: { categories: Category[] }) {
           }}
         />
       )}
-    </div>
+    </div>{children}</div>
+    </>
   );
 }

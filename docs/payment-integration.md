@@ -18,6 +18,7 @@ No real secrets belong in Git. Existing local .env is not changed by this featur
 ## Separate provider process
 
 From services/payment-provider-simulator run `npm start` with Node 24 and:
+
 - PAYMENT_WEBHOOK_URL=http://127.0.0.1:3000/api/v1/webhooks/payments
 - PAYMENT_WEBHOOK_SECRET set to the same local secret as the API
 - PORT=4100 (default), HOST=127.0.0.1 (default)

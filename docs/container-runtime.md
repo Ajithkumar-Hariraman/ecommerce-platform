@@ -17,16 +17,16 @@ volume listens on host 5433; it does not replace the host PostgreSQL database.
 Initialization creates a non-superuser application role and separate dev/test databases.
 Credentials changed later in an env file do not rotate already-created database users.
 
-| Component | Host endpoint | Internal endpoint |
-|---|---|---|
-| API | 127.0.0.1:3001 | api:3000 |
-| Web | 127.0.0.1:8088 | web:8080 |
-| PostgreSQL | 127.0.0.1:5433 | postgres:5432 |
-| Mongo | 127.0.0.1:27018 | mongodb:27017 |
-| Redis | 127.0.0.1:6381 | redis-cache:6379 |
-| Kafka | 127.0.0.1:9093 | kafka:19092 |
-| Keycloak | 127.0.0.1:8180 | keycloak:8080 |
-| Provider | 127.0.0.1:4101 | payment-provider:4100 |
+| Component  | Host endpoint   | Internal endpoint     |
+| ---------- | --------------- | --------------------- |
+| API        | 127.0.0.1:3001  | api:3000              |
+| Web        | 127.0.0.1:8088  | web:8080              |
+| PostgreSQL | 127.0.0.1:5433  | postgres:5432         |
+| Mongo      | 127.0.0.1:27018 | mongodb:27017         |
+| Redis      | 127.0.0.1:6381  | redis-cache:6379      |
+| Kafka      | 127.0.0.1:9093  | kafka:19092           |
+| Keycloak   | 127.0.0.1:8180  | keycloak:8080         |
+| Provider   | 127.0.0.1:4101  | payment-provider:4100 |
 
 The API image uses a Node 24 build stage and production-only dependencies in a non-root
 runtime. The same image runs the outbox relay, event worker, migration and topic setup.

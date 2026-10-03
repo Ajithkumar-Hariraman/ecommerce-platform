@@ -32,14 +32,14 @@ these endpoints authorize on roles. Duplicate/malformed Bearer headers are rejec
 
 ## Endpoint permissions
 
-| Endpoint | Allowed client roles |
-| --- | --- |
-| Product and Category GET/HEAD | catalog_reader, catalog_manager, admin |
-| Product create/update/delete/import and Category create | catalog_manager, admin |
-| Order GET/HEAD | order_reader, order_manager, admin |
-| Order POST and payment retry POST | order_manager, admin |
-| /health and /ready | Public |
-| POST /api/v1/webhooks/payments | Existing provider HMAC, never human Bearer auth |
+| Endpoint                                                | Allowed client roles                            |
+| ------------------------------------------------------- | ----------------------------------------------- |
+| Product and Category GET/HEAD                           | catalog_reader, catalog_manager, admin          |
+| Product create/update/delete/import and Category create | catalog_manager, admin                          |
+| Order GET/HEAD                                          | order_reader, order_manager, admin              |
+| Order POST and payment retry POST                       | order_manager, admin                            |
+| /health and /ready                                      | Public                                          |
+| POST /api/v1/webhooks/payments                          | Existing provider HMAC, never human Bearer auth |
 
 Authentication runs before protected request parsing and module dispatch. Missing,
 invalid or expired tokens return 401 with WWW-Authenticate. Verified identities without
@@ -58,6 +58,7 @@ No existing Docker volumes, Mongo containers or Redis resources are recreated.
 The ecommerce realm has a bearer-only ecommerce-api resource client and five client roles:
 catalog_reader, catalog_manager, order_reader, order_manager, admin. No service account
 is assigned admin by default. Three confidential CLI service clients use client credentials:
+
 - ecommerce-cli-reader: catalog_reader and order_reader.
 - ecommerce-cli-manager: catalog_manager and order_manager.
 - ecommerce-cli-unprivileged: no API roles, for checking denied access.
@@ -152,10 +153,10 @@ Never paste tokens into issue reports or commit shell output containing credenti
 ## Verification and security limits
 
 The real Keycloak integration test obtains client-credentials tokens, starts the actual
-API with AUTH_ENABLED=true, and checks missing/invalid=401, unprivileged=403, reader=200,
+API with AUTH*ENABLED=true, and checks missing/invalid=401, unprivileged=403, reader=200,
 manager Product/Order creation=201 and HMAC-only provider callback=200. It uses
 ecommerce_test and removes only its own database records. Enable with OIDC_TEST_ISSUER
-and the three ECOMMERCE_*_CLIENT_SECRET environment variables. Mongo/payment regressions
+and the three ECOMMERCE*\*\_CLIENT_SECRET environment variables. Mongo/payment regressions
 use MONGODB_TEST_URI privately. Local JWKS tests verify expiry, issuer/audience,
 signature rejection, role boundaries, caching and a rotated key; live realm signing
 keys were not changed during verification.

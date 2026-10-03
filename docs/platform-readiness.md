@@ -2,13 +2,13 @@
 
 Final local verification: 2026-10-02. Branch: release/platform-readiness.
 
-| Checkpoint | Commit | Result |
-|---|---|---|
-| Isolated fixtures | 64cfe75 | Full integration suite includes status fixture; unrelated rows preserved |
-| OpenAPI | 4cdc776 | OpenAPI 3.1; /openapi.json and /docs; Bearer JWT and independent HMAC |
-| Container platform | 83b7827 | API/web/provider images, PostgreSQL and separate event workers |
-| CI | 8f92446 | actionlint and local workflow commands passed; no remote execution |
-| GCP foundation | 9b949db | Project-locked script committed; live provisioning blocked |
+| Checkpoint         | Commit  | Result                                                                   |
+| ------------------ | ------- | ------------------------------------------------------------------------ |
+| Isolated fixtures  | 64cfe75 | Full integration suite includes status fixture; unrelated rows preserved |
+| OpenAPI            | 4cdc776 | OpenAPI 3.1; /openapi.json and /docs; Bearer JWT and independent HMAC    |
+| Container platform | 83b7827 | API/web/provider images, PostgreSQL and separate event workers           |
+| CI                 | 8f92446 | actionlint and local workflow commands passed; no remote execution       |
+| GCP foundation     | 9b949db | Project-locked script committed; live provisioning blocked               |
 
 ## Final verification
 

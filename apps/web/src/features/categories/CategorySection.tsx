@@ -47,7 +47,7 @@ export function CategorySection({
           ))}
         </ul>
       )}
-      <CategoryForm onCreated={onCreated} />
+      <details className="disclosure"><summary>+ New category</summary><CategoryForm onCreated={onCreated} /></details>
     </section>
   );
 }
