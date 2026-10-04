@@ -1,3 +1,4 @@
+import type { OrderListInput, OrderListResponse } from "./order-list.js";
 import type { ProductRepository } from "../products/product.repository.js";
 import type { PaymentClient } from "../payments/payment.client.js";
 import { assertTransition } from "../payments/payment-workflow.js";
@@ -13,6 +14,35 @@ export class OrderService {
     private readonly products?: ProductRepository,
   ) {}
 
+  async list(ownerSubject: string | null, input: OrderListInput = {}): Promise<OrderListResponse> {
+    const page = input.page ?? 1,
+      limit = input.limit ?? 20,
+      offset = (page - 1) * limit;
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > 100 ||
+      !Number.isSafeInteger(offset + limit)
+    )
+      throw new AppError(400, "Invalid order pagination");
+    if (ownerSubject !== null && !ownerSubject.trim())
+      throw new AppError(401, "Authentication required");
+    const { orders, total } = await this.orderRepository.list({ ownerSubject, limit, offset });
+    const totalPages = Math.ceil(total / limit);
+    return {
+      orders,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1 && total > 0,
+      },
+    };
+  }
   async create(input: CreateOrderInput, ownerSubject: string): Promise<Order> {
     if (typeof ownerSubject !== "string" || !ownerSubject.trim())
       throw new AppError(401, "Authentication required");

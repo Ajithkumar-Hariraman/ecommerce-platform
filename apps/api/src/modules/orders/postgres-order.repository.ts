@@ -1,3 +1,4 @@
+import type { OrderListQuery, OrderListResult } from "./order-list.js";
 import { AppError } from "../../errors/app-error.js";
 import type { Pool, PoolClient } from "pg";
 
@@ -83,6 +84,37 @@ export class PostgresOrderRepository implements OrderRepository {
     }
   }
 
+  async list(query: OrderListQuery): Promise<OrderListResult> {
+    const values: unknown[] = query.ownerSubject === null ? [] : [query.ownerSubject];
+    const where = query.ownerSubject === null ? "" : " WHERE owner_subject=$1";
+    const total = Number(
+      (await this.pool.query(`SELECT COUNT(*) AS total FROM orders${where}`, values)).rows[0].total,
+    );
+    const rows = (
+      await this.pool.query<OrderRow>(
+        `SELECT id,customer_id,owner_subject,status,total_in_minor_units,payment_id,version,created_at,updated_at FROM orders${where} ORDER BY created_at DESC,id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+        [...values, query.limit, query.offset],
+      )
+    ).rows;
+    const items = rows.length
+      ? (
+          await this.pool.query<OrderItemRow & { order_id: string }>(
+            "SELECT order_id,product_id,quantity,unit_price_in_minor_units,line_total_in_minor_units FROM order_items WHERE order_id=ANY($1::uuid[]) ORDER BY id",
+            [rows.map((row) => row.id)],
+          )
+        ).rows
+      : [];
+    if (!Number.isSafeInteger(total) || total < 0) throw new Error("Invalid order count");
+    return {
+      orders: rows.map((row) =>
+        toOrder(
+          row,
+          items.filter((item) => item.order_id === row.id),
+        ),
+      ),
+      total,
+    };
+  }
   async findById(id: string): Promise<Order | null> {
     const orderResult = await this.pool.query<OrderRow>(
       `
@@ -122,34 +154,7 @@ export class PostgresOrderRepository implements OrderRepository {
       [id],
     );
 
-    return {
-      id: row.id,
-
-      customerId: row.customer_id,
-      ...(row.owner_subject !== null ? { ownerSubject: row.owner_subject } : {}),
-
-      items: itemResult.rows.map((item) => ({
-        productId: item.product_id,
-
-        quantity: item.quantity,
-
-        unitPriceInMinorUnits: safeMoney(item.unit_price_in_minor_units),
-
-        lineTotalInMinorUnits: safeMoney(item.line_total_in_minor_units),
-      })),
-
-      status: row.status,
-
-      totalInMinorUnits: safeMoney(row.total_in_minor_units),
-
-      paymentId: row.payment_id,
-
-      version: row.version,
-
-      createdAt: row.created_at.toISOString(),
-
-      updatedAt: row.updated_at.toISOString(),
-    };
+    return toOrder(row, itemResult.rows);
   }
 
   async update(order: Order): Promise<void> {
@@ -204,4 +209,35 @@ function safeMoney(value: string): number {
     throw new Error("Stored order money exceeds safe integer bounds");
   }
   return Number(value);
+}
+
+function toOrder(row: OrderRow, items: OrderItemRow[]): Order {
+  return {
+    id: row.id,
+
+    customerId: row.customer_id,
+    ...(row.owner_subject !== null ? { ownerSubject: row.owner_subject } : {}),
+
+    items: items.map((item) => ({
+      productId: item.product_id,
+
+      quantity: item.quantity,
+
+      unitPriceInMinorUnits: safeMoney(item.unit_price_in_minor_units),
+
+      lineTotalInMinorUnits: safeMoney(item.line_total_in_minor_units),
+    })),
+
+    status: row.status,
+
+    totalInMinorUnits: safeMoney(row.total_in_minor_units),
+
+    paymentId: row.payment_id,
+
+    version: row.version,
+
+    createdAt: row.created_at.toISOString(),
+
+    updatedAt: row.updated_at.toISOString(),
+  };
 }

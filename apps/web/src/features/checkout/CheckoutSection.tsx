@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, request } from "../../api/http";
-import type { Product } from "../products/product.types";
-type Order = { id: string; status: string; totalInMinorUnits: number };
+import { Link, useSearchParams } from "react-router-dom";
+import { ordersApi, type Order } from "../../api/orders";
+import { ApiError, errorMessage, request } from "../../api/http";
+import { useCart } from "../../commerce/CartProvider";
+import { cartSubtotal, money, retainedOrderId, statusLabel } from "../../commerce/cart";
 type Checkout = {
   keyId: string;
   providerOrderId: string;
@@ -53,46 +55,85 @@ function loadCheckout(): Promise<void> {
     });
   return checkoutScript;
 }
-export function CheckoutSection({ products }: { products: Product[] }) {
-  const [productId, setProductId] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [existingId, setExistingId] = useState("");
-  const [order, setOrder] = useState<Order | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
-  const active = useRef<AbortController | null>(null);
-  const widget = useRef<{ close(): void } | null>(null);
-  useEffect(
-    () => () => {
+export function CheckoutSection() {
+  const cart = useCart();
+  const [query, setQuery] = useSearchParams();
+  const resumeId = query.get("order");
+  const [order, setOrder] = useState<Order | null>(null),
+    [busy, setBusy] = useState(false),
+    [loading, setLoading] = useState(!!resumeId),
+    [notice, setNotice] = useState(""),
+    [error, setError] = useState("");
+  const active = useRef<AbortController | null>(null),
+    widget = useRef<{ close(): void } | null>(null),
+    mounted = useRef(true),
+    settled = useRef<string | null>(null),
+    pending = useRef<string | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       active.current?.abort();
       widget.current?.close();
-    },
-    [],
-  );
+    };
+  }, []);
+  useEffect(() => {
+    if (!resumeId) { setOrder(null); setLoading(false); return; }
+    setOrder(null);
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    void ordersApi
+      .get(resumeId, controller.signal)
+      .then((value) => {
+        if (!controller.signal.aborted) {
+          setOrder(value);
+          setNotice(value.status === "PAID" ? "Your payment is confirmed." : "");
+        }
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(errorMessage(e));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [resumeId]);
+  useEffect(() => {
+    if (order && order.status !== "PAID") pending.current = order.id;
+    if (order?.status === "PAID" && pending.current === order.id && settled.current !== order.id) {
+      settled.current = order.id;
+      cart.purchased(order.items);
+    }
+  }, [order, cart]);
+  const currentItems = order?.items ?? cart.items;
+  const total = order?.totalInMinorUnits ?? cartSubtotal(cart.items);
   async function refresh(id = order?.id) {
     if (!id) return;
+    setError("");
     try {
-      setOrder(await request<Order>("/orders/" + id));
+      const value = await ordersApi.get(id);
+      if (mounted.current) setOrder(value);
     } catch (e) {
-      setError(errorMessage(e));
+      if (mounted.current) setError(errorMessage(e));
     }
   }
   async function pay(id: string) {
-    const details = await request<Checkout>(`/orders/${id}/checkout`, {
-      method: "POST",
-    });
+    const details = await request<Checkout>(`/orders/${id}/checkout`, { method: "POST" });
     await loadCheckout();
+    if (!mounted.current) return;
     const popup = new window.Razorpay!({
       key: details.keyId,
       order_id: details.providerOrderId,
       amount: details.amount,
       currency: details.currency,
-      name: "Commerce Test Checkout",
+      name: "Commerce",
       modal: {
         ondismiss: () => {
-          setBusy(false);
-          setNotice("Checkout closed. You can resume the same Order.");
+          if (mounted.current) {
+            setBusy(false);
+            setNotice("Payment window closed. Your order is saved and you can continue later.");
+          }
         },
       },
       handler: (result) => {
@@ -102,151 +143,164 @@ export function CheckoutSection({ products }: { products: Product[] }) {
               method: "POST",
               body: JSON.stringify(result),
             });
-            setNotice("Payment signature verified. Waiting for the signed settlement webhook.");
+            if (!mounted.current) return;
+            setNotice("Payment received. We’re waiting for confirmation—please don’t pay again.");
             active.current?.abort();
             const controller = new AbortController();
             active.current = controller;
             for (let attempt = 0; attempt < 12 && !controller.signal.aborted; attempt++) {
-              const current = await request<Order>(`/orders/${id}`, {
-                signal: controller.signal,
-              });
-              setOrder(current);
-              if (current.status === "PAID") {
-                setNotice("Payment confirmed by the server.");
+              const value = await ordersApi.get(id, controller.signal);
+              if (controller.signal.aborted) return;
+              setOrder(value);
+              if (value.status === "PAID") {
+                setNotice("Thank you. Your payment is confirmed.");
+                return;
+              }
+              if (value.status === "PAYMENT_FAILED") {
+                setNotice("This payment wasn’t completed. You can retry the same order.");
                 return;
               }
               await new Promise((resolve) => setTimeout(resolve, 1500));
             }
             if (!controller.signal.aborted)
               setNotice(
-                "Settlement is not confirmed yet. Use Refresh status; do not create a new Order.",
+                "Your payment is still processing. Refresh status or return to My Orders later.",
               );
           } catch (e) {
-            if (!active.current?.signal.aborted) setError(errorMessage(e));
+            if (mounted.current && !active.current?.signal.aborted)
+              setError(
+                "We couldn’t confirm payment yet. Refresh your order status before trying again.",
+              );
           } finally {
-            setBusy(false);
+            if (mounted.current) setBusy(false);
           }
         })();
       },
     });
     popup.on("payment.failed", () => {
-      setBusy(false);
-      setNotice("Payment attempt failed. Resume this Order to retry.");
-      void refresh(id);
+      if (mounted.current) {
+        setBusy(false);
+        setNotice("Payment was unsuccessful. Your order is saved for another attempt.");
+        void refresh(id);
+      }
     });
     widget.current = popup;
     popup.open();
   }
-  async function begin(resume: boolean) {
+  async function begin() {
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const value = resume
-        ? await request<Order>(`/orders/${existingId.trim()}/payment`, {
-            method: "POST",
-          })
-        : await request<Order>("/orders", {
-            method: "POST",
-            body: JSON.stringify({
-              items: [{ productId, quantity, unitPriceInMinorUnits: 0 }],
-            }),
-          });
+      const value = order
+        ? await ordersApi.resume(order.id)
+        : await ordersApi.create(
+            cart.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+          );
+      if (!mounted.current) return;
       setOrder(value);
-      setExistingId(value.id);
+      setQuery({ order: value.id }, { replace: true });
       if (value.status === "PAID") {
-        setNotice("This Order is already paid.");
+        setNotice("Your payment is already confirmed.");
         setBusy(false);
         return;
       }
       await pay(value.id);
     } catch (e) {
-      setError(errorMessage(e));
+      if (!mounted.current) return;
+      const retained = e instanceof Error ? retainedOrderId(e.message) : undefined;
+      if (retained) setQuery({ order: retained }, { replace: true });
+      setError(
+        e instanceof ApiError && (e.status === 502 || e.status === 503)
+          ? "Payment is temporarily unavailable. Your order is saved in My Orders; continue it there instead of placing another order."
+          : errorMessage(e),
+      );
       setBusy(false);
     }
   }
-  return (
-    <section className="panel checkout-panel" aria-label="Razorpay checkout">
-      <div className="page-heading">
-        <div>
-          <h1>Checkout</h1>
-          <p>Create an order and continue to Razorpay.</p>
-        </div>
-        <span className="badge test-badge">Razorpay · Test Mode</span>
-      </div>
-      <p className="muted">
-        Prices are confirmed by the server. No live money is charged in Test Mode.
+  if (loading)
+    return (
+      <p className="panel empty-state" role="status">
+        Loading your checkout…
       </p>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void begin(false);
-        }}
-      >
-        <label>
-          Product
-          {products.length ? (
-            <select required value={productId} onChange={(e) => setProductId(e.target.value)}>
-              <option value="">Select a product</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name} — {product.sku} —{" "}
-                  {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
-                    product.priceInMinorUnits / 100,
-                  )}
-                </option>
-              ))}
-            </select>
+    );
+  if (resumeId && !order)
+    return (
+      <section className="panel empty-state">
+        <h1>Checkout unavailable</h1>
+        <p role="alert">{error || "We couldn’t load this order."}</p>
+        <Link to="/orders">Go to My Orders</Link>
+      </section>
+    );
+  if (!order && !cart.items.length)
+    return (
+      <section className="panel empty-state">
+        <h1>Your cart is empty</h1>
+        <p>Add a product to begin checkout.</p>
+        <Link className="button-link" to="/products">
+          Browse products
+        </Link>
+      </section>
+    );
+  return (
+    <>
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">ALMOST YOURS</span>
+          <h1>{order?.status === "PAID" ? "Thank you for your order" : "Checkout"}</h1>
+          <p className="muted">
+            {order
+              ? `Order #${order.id.slice(0, 8).toUpperCase()}`
+              : "Review your items before continuing to secure payment."}
+          </p>
+        </div>
+        <Link to="/orders">My orders</Link>
+      </div>
+      <div className="checkout-grid">
+        <section className="panel">
+          <h2>Your items</h2>
+          <ul className="cart-lines">
+            {currentItems.map((item, index) => {
+              const name =
+                cart.items.find((line) => line.productId === item.productId)?.name ??
+                "Purchased product";
+              return (
+                <li key={index}>
+                  <Link to={"/products/" + item.productId}>{name}</Link>
+                  <span>Quantity {item.quantity}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="muted">
+            You’ll complete payment securely with Razorpay. Final prices are confirmed by the
+            server.
+          </p>
+          <small className="muted">Sandbox checkout: no live money is charged.</small>
+        </section>
+        <aside className="panel order-summary">
+          <h2>{order?.status === "PAID" ? "Payment confirmed" : "Order summary"}</h2>
+          <div className="summary-total">
+            <span>{order ? "Total" : "Estimated subtotal"}</span>
+            <strong>{total === null ? "Confirmed at checkout" : money(total)}</strong>
+          </div>
+          {order && <p role="status">{statusLabel(order.status)}</p>}
+          {order?.status === "PAID" ? (
+            <Link className="button-link" to={"/orders/" + order.id}>
+              View your order
+            </Link>
           ) : (
-            <input
-              required
-              value={productId}
-              placeholder="Product reference (UUID)"
-              onChange={(e) => setProductId(e.target.value)}
-            />
+            <button disabled={busy} onClick={() => void begin()}>
+              {busy ? "Processing…" : order ? "Continue payment" : "Place order & pay"}
+            </button>
           )}
-          <small>Available products reflect the currently loaded Catalog page.</small>
-        </label>
-        <label>
-          Quantity
-          <input
-            required
-            type="number"
-            min="1"
-            step="1"
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-          />
-        </label>
-        <button disabled={busy} type="submit">
-          Create order &amp; pay
-        </button>
-      </form>
-      <details className="disclosure">
-        <summary>Resume existing order</summary>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void begin(true);
-          }}
-        >
-          <label>
-            Order reference
-            <input required value={existingId} onChange={(e) => setExistingId(e.target.value)} />
-          </label>
-          <button disabled={busy} type="submit">
-            Resume checkout
-          </button>
-        </form>
-      </details>
-      {order && (
-        <p className="order-result">
-          Order {order.id} · {order.status} · INR {(order.totalInMinorUnits / 100).toFixed(2)}{" "}
-          <button type="button" onClick={() => void refresh()}>
-            Refresh status
-          </button>
-        </p>
-      )}
+          {order && (
+            <button className="subtle" disabled={busy} onClick={() => void refresh()}>
+              Refresh status
+            </button>
+          )}
+        </aside>
+      </div>
       {notice && (
         <p className="notice" role="status">
           {notice}
@@ -257,6 +311,6 @@ export function CheckoutSection({ products }: { products: Product[] }) {
           {error}
         </p>
       )}
-    </section>
+    </>
   );
 }

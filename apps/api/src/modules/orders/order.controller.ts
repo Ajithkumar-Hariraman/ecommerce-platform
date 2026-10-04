@@ -1,3 +1,4 @@
+import { AppError } from "../../errors/app-error.js";
 import { assertOrderAccess, orderPrincipal } from "./order-access.js";
 import type { AuthenticatedPrincipal } from "../../auth/principal.js";
 import type { RequestHandler } from "express";
@@ -21,8 +22,21 @@ type IdHandler = RequestHandler<
 
 export class OrderController {
   constructor(private readonly service: OrderService) {}
+  list: RequestHandler = async (_req, res) => {
+    const actor = orderPrincipal(res.locals.principal);
+    const input = res.locals.orderListInput;
+    if (
+      input.scope === "all" &&
+      !actor.roles.some((role) => role === "admin" || role === "order_manager")
+    )
+      throw new AppError(403, "Order management permission required");
+    res.json(await this.service.list(input.scope === "all" ? null : actor.subject, input));
+  };
   create: CreateHandler = async (_req, res) => {
-    const order = await this.service.create(res.locals.orderInput, orderPrincipal(res.locals.principal).subject);
+    const order = await this.service.create(
+      res.locals.orderInput,
+      orderPrincipal(res.locals.principal).subject,
+    );
     res.location(`/api/v1/orders/${order.id}`).status(201).json(order);
   };
   initiatePayment: IdHandler = async (_req, res) => {

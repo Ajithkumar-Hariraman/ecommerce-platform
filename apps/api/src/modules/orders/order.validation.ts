@@ -1,3 +1,4 @@
+import { orderListSchema } from "./order-list.js";
 import { z } from "zod";
 
 export const createOrderSchema = z.strictObject({
@@ -26,5 +27,12 @@ export const validateOrderId: RequestHandler = (req, res, next) => {
   const parsed = z.uuid().safeParse(req.params.id);
   if (!parsed.success) throw new AppError(400, "Invalid order ID");
   res.locals.orderId = parsed.data;
+  next();
+};
+
+export const validateOrderList: RequestHandler = (req, res, next) => {
+  const parsed = orderListSchema.safeParse(req.query);
+  if (!parsed.success) throw new AppError(400, "Invalid order query");
+  res.locals.orderListInput = parsed.data;
   next();
 };

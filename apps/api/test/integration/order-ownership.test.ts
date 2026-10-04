@@ -183,6 +183,28 @@ for (const storage of ["postgres", "mongodb"] as const)
         updatedAt: now,
       };
       await business.orders.save(legacy);
+      await t.test("owner-scoped listing, pagination and elevated all scope", async () => {
+        const extra: Order = {...legacy, id:randomUUID(), customerId:null, ownerSubject:alice,
+          createdAt:new Date(Date.now()+1000).toISOString()};
+        owned.push(extra.id); await business.orders.save(extra);
+        const mine=await request("?page=1&limit=1",alice); assert.equal(mine.status,200);
+        const first=await mine.json(); assert.equal(first.pagination.total,2);
+        assert.equal(first.pagination.totalPages,2); assert.equal(first.pagination.hasNextPage,true);
+        assert.equal(first.orders[0].id,extra.id); assert.equal(first.orders[0].ownerSubject,alice);
+        const second=await (await request("?page=2&limit=1",alice)).json();
+        assert.equal(second.orders[0].id,order.id); assert.equal(second.orders[0].items.length,1);
+        const beyond=await (await request("?page=3&limit=1",alice)).json();
+        assert.deepEqual(beyond.orders,[]); assert.equal(beyond.pagination.total,2);
+        const other=await (await request("",bob)).json(); assert.deepEqual(other.orders,[]);
+        const staffMine=await (await request("",bob,["order_manager"])).json();
+        assert.deepEqual(staffMine.orders,[]);
+        assert.equal((await request("?scope=all",alice)).status,403);
+        for(const role of ["order_manager","admin"])
+          assert.equal((await request("?scope=all",bob,[role])).status,200);
+        for(const query of ["ownerSubject="+alice,"customerId="+alice,"page=0","page=1.5","limit=101","page=9007199254740991&limit=100"])
+          assert.equal((await request("?"+query,alice)).status,400);
+        assert.equal((await fetch(base)).status,401);
+      });
       await t.test("historical orders have no implicit owner", async () => {
         assert.equal((await request("/" + legacyId, legacy.customerId!)).status, 404);
         assert.equal((await request("/" + legacyId, alice)).status, 404);

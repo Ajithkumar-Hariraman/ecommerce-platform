@@ -1,3 +1,5 @@
+import { createStorefrontRouter } from "./modules/products/storefront.routes.js";
+import { ProductService } from "./modules/products/product.service.js";
 import type { ProductImageStore } from "./modules/products/product-image.js";
 import {
   razorpayCheckoutRouter,
@@ -87,6 +89,17 @@ export function createApp(dependencies: AppDependencies): Express {
     }
     res.status(200).json({ status: "ready" });
   });
+  app.use(
+    "/api/v1/storefront",
+    createStorefrontRouter(
+      new ProductService(
+        dependencies.productRepository,
+        dependencies.categoryRepository,
+        dependencies.productCache,
+      ),
+      dependencies.productImages,
+    ),
+  );
   app.use(
     "/api/v1/products",
     createProductModule(

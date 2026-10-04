@@ -1,136 +1,17 @@
-import { initializeSession, login, logout, useSession } from "./auth/session";
-import { CheckoutSection } from "./features/checkout/CheckoutSection";
-import { useEffect, useState } from "react";
-import { categoriesApi } from "./api/categories";
-import { errorMessage } from "./api/http";
-import type { Category } from "./features/categories/category.types";
-import { CategorySection } from "./features/categories/CategorySection";
-import { ProductPage } from "./features/products/ProductPage";
-function Workspace({ view }: { view: "catalog" | "checkout" }) {
-  const [checkoutProducts, setCheckoutProducts] = useState<
-    import("./features/products/product.types").Product[]
-  >([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [revision, setRevision] = useState(0);
-  const [notice, setNotice] = useState("");
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError("");
-    async function load() {
-      try {
-        const data = await categoriesApi.list(controller.signal);
-        if (!controller.signal.aborted) setCategories(data);
-      } catch (error) {
-        if (!controller.signal.aborted) setError(errorMessage(error));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-    void load();
-    return () => controller.abort();
-  }, [revision]);
-  return (
-    <>
-      <main>
-        <div hidden={view !== "catalog"}>
-          {notice && (
-            <p role="status" className="notice">
-              {notice}
-            </p>
-          )}
-          <ProductPage categories={categories} onProductsLoaded={setCheckoutProducts}>
-            <CategorySection
-              categories={categories}
-              loading={loading}
-              error={error}
-              onRefresh={() => setRevision((n) => n + 1)}
-              onCreated={() => {
-                setNotice("Category created.");
-                setRevision((n) => n + 1);
-              }}
-            />
-          </ProductPage>
-        </div>
-        <div hidden={view !== "checkout"}>
-          <CheckoutSection products={checkoutProducts} />
-        </div>
-      </main>
-    </>
-  );
+import {useEffect,useRef,useState,type ReactNode} from "react";
+import {Link,NavLink,Outlet,Route,Routes,useLocation} from "react-router-dom";
+import {initializeSession,logout,useSession} from "./auth/session";
+import {canManageCatalog,canManageOrders} from "./auth/access";
+import {CartProvider,useCart} from "./commerce/CartProvider";
+import {Home,ProductCatalog,ProductDetails} from "./commerce/Storefront";
+import {CartPage} from "./commerce/CartPage";
+import {Orders,OrderDetails} from "./commerce/Orders";
+import {Account,SignIn} from "./commerce/Account";
+import {AdminCatalog,AdminDashboard,AdminLayout} from "./commerce/Admin";
+import {CheckoutSection} from "./features/checkout/CheckoutSection";
+function Gate({children,permission}:{children:ReactNode;permission?:"catalog"|"orders"|"admin"}){const session=useSession(),location=useLocation();if(!session.ready)return <p role="status" className="panel empty-state">Checking your session…</p>;if(!session.authenticated)return <section className="panel empty-state"><h1>Sign in to continue</h1><p>Your account keeps checkout and orders together.</p><Link className="button-link" to={"/login?returnTo="+encodeURIComponent(location.pathname+location.search)}>Sign in</Link><p>New here? <Link to="/register">Create an account</Link></p></section>;const allowed=!permission||(permission==="catalog"?canManageCatalog(session.roles):permission==="orders"?canManageOrders(session.roles):canManageCatalog(session.roles)||canManageOrders(session.roles));return allowed?children:<section className="panel empty-state"><h1>Access restricted</h1><p>This area is available to authorised staff.</p><Link to="/">Return to the store</Link></section>;}
+function Layout(){const session=useSession(),cart=useCart(),location=useLocation();const [menu,setMenu]=useState(false);const main=useRef<HTMLElement>(null);const admin=canManageCatalog(session.roles)||canManageOrders(session.roles);
+ useEffect(()=>{setMenu(false);const title=location.pathname.startsWith("/admin")?"Operations":location.pathname.startsWith("/products/")?"Product details":({"/":"Home","/products":"Products","/cart":"Cart","/checkout":"Checkout","/orders":"My orders","/account":"My account","/login":"Sign in","/register":"Create account"} as Record<string,string>)[location.pathname]??"Order details";document.title=title+" · Commerce";main.current?.focus();window.scrollTo(0,0);},[location.pathname]);
+ return <><a className="skip-link" href="#main">Skip to content</a><header className="store-header"><Link className="brand" to="/" aria-label="Commerce home"><span className="brand-mark">C</span>Commerce<span className="brand-dot">.</span></Link><button className="mobile-menu subtle" aria-expanded={menu} aria-controls="store-navigation" onClick={()=>setMenu(open=>!open)}>Menu</button><nav id="store-navigation" className={"store-nav"+(menu?" is-open":"")} aria-label="Main navigation"><NavLink end to="/">Home</NavLink><NavLink to="/products">Shop</NavLink><NavLink to="/cart">Cart <span className="cart-count">{cart.items.reduce((sum,item)=>sum+item.quantity,0)}</span></NavLink>{session.authenticated?<><NavLink to="/orders">My orders</NavLink><NavLink to="/account">My account</NavLink>{admin&&<NavLink to="/admin">Operations</NavLink>}<button className="subtle" onClick={()=>void logout()}>Sign out</button></>:<><NavLink to="/login">Sign in</NavLink><Link className="button-link small" to="/register">Create account</Link></>}</nav></header>{session.error&&<p role="alert" className="error session-error">{session.error}</p>}<main id="main" ref={main} tabIndex={-1} className={location.pathname.startsWith("/admin")?"page-container admin-page-container":"page-container"}><Outlet/></main><footer className="store-footer"><Link className="brand" to="/">Commerce.</Link><p>Find your next everyday favourite.</p><nav aria-label="Footer navigation"><Link to="/products">Shop</Link><Link to="/orders">My orders</Link><Link to="/account">My account</Link></nav><small>Payments handled securely by Razorpay.</small></footer></>;
 }
-
-export default function App() {
-  const session = useSession();
-  const [view, setView] = useState<"catalog" | "checkout">("catalog");
-  useEffect(() => {
-    void initializeSession();
-  }, []);
-  const account =
-    session.username && !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.username)
-      ? session.username
-      : "Account";
-  return (
-    <>
-      <header className="app-header">
-        <a className="brand" href="/" aria-label="Commerce home">
-          <span className="brand-mark">C</span>Commerce
-        </a>
-        {session.authenticated && (
-          <nav className="main-nav" aria-label="Main navigation">
-            <button
-              className={view === "catalog" ? "selected" : ""}
-              aria-current={view === "catalog" ? "page" : undefined}
-              onClick={() => setView("catalog")}
-            >
-              Catalog
-            </button>
-            <button
-              className={view === "checkout" ? "selected" : ""}
-              aria-current={view === "checkout" ? "page" : undefined}
-              onClick={() => setView("checkout")}
-            >
-              Checkout
-            </button>
-          </nav>
-        )}
-        <div className="account-menu">
-          <span className="badge test-badge">TEST MODE</span>
-          {session.authenticated && (
-            <>
-              <span className="account-name">{account}</span>
-              <button className="subtle" onClick={() => void logout()}>
-                Logout
-              </button>
-            </>
-          )}
-        </div>
-      </header>
-      {session.error && (
-        <p className="error session-error" role="alert">
-          {session.error}
-        </p>
-      )}
-      {!session.ready ? (
-        <main>
-          <p className="empty" role="status">
-            Checking login…
-          </p>
-        </main>
-      ) : session.authenticated ? (
-        <Workspace view={view} />
-      ) : (
-        <main>
-          <section className="panel signed-out">
-            <span className="eyebrow">COMMERCE CONSOLE</span>
-            <h1>Your workspace awaits.</h1>
-            <p>Sign in to manage your catalog and orders.</p>
-            <button onClick={() => void login()}>Login</button>
-          </section>
-        </main>
-      )}
-    </>
-  );
-}
+export default function App(){useEffect(()=>{void initializeSession();},[]);return <CartProvider><Routes><Route element={<Layout/>}><Route index element={<Home/>}/><Route path="products" element={<ProductCatalog/>}/><Route path="products/:id" element={<ProductDetails/>}/><Route path="cart" element={<CartPage/>}/><Route path="login" element={<SignIn/>}/><Route path="register" element={<SignIn registration/>}/><Route path="checkout" element={<Gate><CheckoutSection/></Gate>}/><Route path="orders" element={<Gate><Orders/></Gate>}/><Route path="orders/:id" element={<Gate><OrderDetails/></Gate>}/><Route path="account" element={<Gate><Account/></Gate>}/><Route path="admin" element={<Gate permission="admin"><AdminLayout/></Gate>}><Route index element={<AdminDashboard/>}/><Route path="products" element={<Gate permission="catalog"><AdminCatalog/></Gate>}/><Route path="categories" element={<Gate permission="catalog"><AdminCatalog categoriesOnly/></Gate>}/><Route path="orders" element={<Gate permission="orders"><Orders admin/></Gate>}/><Route path="orders/:id" element={<Gate permission="orders"><OrderDetails admin/></Gate>}/></Route><Route path="*" element={<section className="panel empty-state"><h1>Page not found</h1><Link to="/">Return home</Link></section>}/></Route></Routes></CartProvider>;}

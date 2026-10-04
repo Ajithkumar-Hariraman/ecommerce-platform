@@ -78,6 +78,7 @@ const schemas = {
   OrderCreate: createOrderSchema,
   PaymentEvent: paymentEventSchema,
   Pagination: pagination,
+  OrderPage: z.object({ orders: z.array(order), pagination }),
   ProductPage: z.object({ products: z.array(cachedProduct), pagination }),
   Error: z.object({ error: z.object({ message: z.string() }) }),
   ImportSummary: importSummary,
@@ -310,7 +311,31 @@ export const openApiDocument = {
         description: catalog,
       }),
     },
+    "/api/v1/storefront/products": {
+      get: operation("Public ACTIVE product collection", 200, ref("ProductPage"), [400, 500], {
+        security: [], description: "Only ACTIVE products; defaults page=1, limit=20. Status cannot expose inactive products.",
+        parameters: [
+          {name:"page",in:"query",schema:{type:"integer",minimum:1,default:1}},
+          {name:"limit",in:"query",schema:{type:"integer",minimum:1,maximum:100,default:20}},
+          {name:"status",in:"query",schema:{type:"string",enum:["ACTIVE","INACTIVE"]},description:"ACTIVE is always enforced."},
+        ],
+      }),
+    },
+    "/api/v1/storefront/products/{id}": {
+      parameters:[id], get:operation("Public ACTIVE product details",200,ref("Product"),[400,404,500],{security:[]}),
+    },
+    "/api/v1/storefront/products/{id}/image-url": {
+      parameters:[id], get:operation("Public ACTIVE product image URL",200,ref("ProductImageUrl"),[400,404,500,503],{security:[]}),
+    },
     "/api/v1/orders": {
+      get:operation("List owned Orders",200,ref("OrderPage"),[400,401,403,429,500],{
+        description:"Defaults to verified JWT subject, including staff. scope=all requires order_manager or admin. Historical ownerless Orders appear only in elevated all scope.",
+        parameters:[
+          {name:"page",in:"query",schema:{type:"integer",minimum:1,default:1}},
+          {name:"limit",in:"query",schema:{type:"integer",minimum:1,maximum:100,default:20}},
+          {name:"scope",in:"query",schema:{type:"string",enum:["mine","all"],default:"mine"}},
+        ],
+      }),
       post: operation(
         "Create Order and initiate payment",
         201,

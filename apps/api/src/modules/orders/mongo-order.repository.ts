@@ -1,3 +1,4 @@
+import type { OrderListQuery, OrderListResult } from "./order-list.js";
 import { AppError } from "../../errors/app-error.js";
 import type { Collection, Db } from "mongodb";
 
@@ -39,6 +40,17 @@ export class MongoOrderRepository implements OrderRepository {
     });
   }
 
+  async list(query: OrderListQuery): Promise<OrderListResult> {
+    const filter = query.ownerSubject === null ? {} : { ownerSubject: query.ownerSubject };
+    const total = await this.collection.countDocuments(filter);
+    const rows = await this.collection
+      .find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(query.offset)
+      .limit(query.limit)
+      .toArray();
+    return { orders: rows.map(toOrder), total };
+  }
   async findById(id: string): Promise<Order | null> {
     const document = await this.collection.findOne({
       _id: id,
@@ -48,28 +60,7 @@ export class MongoOrderRepository implements OrderRepository {
       return null;
     }
 
-    return {
-      id: document._id,
-
-      customerId: document.customerId,
-      ...(document.ownerSubject != null ? { ownerSubject: document.ownerSubject } : {}),
-
-      items: document.items.map((item) => ({
-        ...item,
-      })),
-
-      status: document.status,
-
-      totalInMinorUnits: document.totalInMinorUnits,
-
-      paymentId: document.paymentId,
-
-      version: document.version,
-
-      createdAt: document.createdAt.toISOString(),
-
-      updatedAt: document.updatedAt.toISOString(),
-    };
+    return toOrder(document);
   }
 
   async update(order: Order): Promise<void> {
@@ -97,4 +88,29 @@ export class MongoOrderRepository implements OrderRepository {
       throw new AppError(409, "Order update conflict");
     }
   }
+}
+
+function toOrder(document: MongoOrderDocument): Order {
+  return {
+    id: document._id,
+
+    customerId: document.customerId,
+    ...(document.ownerSubject != null ? { ownerSubject: document.ownerSubject } : {}),
+
+    items: document.items.map((item) => ({
+      ...item,
+    })),
+
+    status: document.status,
+
+    totalInMinorUnits: document.totalInMinorUnits,
+
+    paymentId: document.paymentId,
+
+    version: document.version,
+
+    createdAt: document.createdAt.toISOString(),
+
+    updatedAt: document.updatedAt.toISOString(),
+  };
 }

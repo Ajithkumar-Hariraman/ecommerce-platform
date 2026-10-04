@@ -2,8 +2,8 @@
   "realm": "ecommerce",
   "enabled": true,
   "sslRequired": "none",
-  "registrationAllowed": false,
-  "resetPasswordAllowed": false,
+  "registrationAllowed": true,
+  "resetPasswordAllowed": true,
   "accessTokenLifespan": 300,
   "roles": {
     "client": {
@@ -98,7 +98,8 @@
       "fullScopeAllowed": true,
       "defaultClientScopes": [
         "profile",
-        "ecommerce-api-access"
+        "ecommerce-api-access",
+        "email"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
@@ -176,6 +177,17 @@
           }
         }
       ]
+    }
+  ],
+  "requiredActions": [
+    {
+      "alias": "VERIFY_EMAIL",
+      "name": "Verify Email",
+      "providerId": "VERIFY_EMAIL",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 50,
+      "config": {}
     }
   ]
 }

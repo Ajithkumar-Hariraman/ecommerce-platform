@@ -163,6 +163,9 @@ test("Razorpay Order pricing comes from Product repository, never client-supplie
   let charged = 0;
   const service = new OrderService(
     {
+      async list() {
+        return { orders: saved ? [saved] : [], total: saved ? 1 : 0 };
+      },
       async save(o) {
         saved = o;
       },
@@ -181,18 +184,18 @@ test("Razorpay Order pricing comes from Product repository, never client-supplie
     },
     products,
   );
+  const ownerSubject = "pricing-test-owner";
   const order = await service.create({
-    customerId: randomUUID(),
     items: [{ productId: id, quantity: 2, unitPriceInMinorUnits: 0 }],
-  });
+  }, ownerSubject);
+  assert.equal(order.ownerSubject, ownerSubject);
   assert.equal(charged, 2400);
   assert.equal(order.totalInMinorUnits, 2400);
   assert.equal(order.status, "PAYMENT_PENDING");
   await assert.rejects(
     service.create({
-      customerId: randomUUID(),
       items: [{ productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 1 }],
-    }),
+    }, ownerSubject),
     { statusCode: 400 },
   );
 });
