@@ -290,3 +290,11 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Migration 010 applied to development and test PostgreSQL through the checksum-verified migration runner. This snapshot accompanies the product image commit. No browser verification or production deployment claimed.
 - The explicitly approved operator Token Creator grant was temporary, scoped to the runtime service account, removed immediately after the live test, and verified absent. No keys were created/downloaded. Runtime bucket permissions and self-signing permission remain configured.
 - Production Keycloak and Redis/VPC are not provisioned, so Cloud Run deployment is blocked. See [product images](product-images.md).
+
+## Customer storefront and admin checkpoint (2026-10-04)
+
+- Committed as 73230ac (`feat: add customer storefront and admin experience`): customer storefront, product details, persistent cart, checkout, owned Orders, account and role-scoped operations routes; public ACTIVE-only catalog reads and owner-scoped Order listing in PostgreSQL/MongoDB.
+- Backend/frontend typecheck and builds passed; five frontend tests passed. The broad fast suite ran once: 197 passed and one stale Razorpay pricing fixture failed. After supplying its required owner subject, all eight focused Razorpay tests passed; the broad suite was not repeated.
+- Prior focused real PostgreSQL/MongoDB ownership, listing, payment and image-reference checks: 28 passed, with one opt-in live GCS check skipped. Automated database checks used ecommerce_test and test-owned cleanup.
+- Browser verification remains pending because browser-control sandbox startup failed before opening a tab. Live routes, Keycloak flows, role visibility, mobile layout and keyboard/focus behavior are not certified. Source-controlled realm registration/reset/email settings do not automatically update an existing live realm; SMTP is required for email verification and password-reset delivery.
+- Personal understanding is not assessed. No GCP deployment or push was performed for this checkpoint.
