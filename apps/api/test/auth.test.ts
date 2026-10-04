@@ -247,3 +247,26 @@ test("SPA API scope explicitly emits required subject into access tokens", async
     ),
   );
 });
+
+
+test("local realm supports registration/recovery and safe profile claims without mandatory email", async () => {
+  const realm = JSON.parse(await (await import("node:fs/promises")).readFile(
+    new URL("../../../infra/keycloak/ecommerce-realm.json", import.meta.url), "utf8"));
+  assert.equal(realm.registrationAllowed, true);
+  assert.equal(realm.resetPasswordAllowed, true);
+  assert.equal(realm.verifyEmail, false);
+  assert.equal(realm.requiredActions.find((action: {alias: string}) => action.alias === "VERIFY_EMAIL").defaultAction, false);
+  const spa = realm.clients.find((client: {clientId: string}) => client.clientId === "ecommerce-web");
+  assert.equal(spa.publicClient, true);
+  assert.equal(spa.directAccessGrantsEnabled, false);
+  assert.equal(spa.attributes["pkce.code.challenge.method"], "S256");
+  for (const scopeName of ["profile", "email"]) {
+    assert(spa.defaultClientScopes.includes(scopeName));
+    const scope = realm.clientScopes.find((scope: {name: string}) => scope.name === scopeName);
+    assert(scope?.protocolMappers.length > 0, scopeName + " must resolve to actual mappers");
+  }
+  const email = realm.clientScopes.find((scope: {name: string}) => scope.name === "email");
+  const verified = email.protocolMappers.find((mapper: {name: string}) => mapper.name === "email_verified");
+  assert.equal(verified.config["user.attribute"], "emailVerified");
+  assert.equal(verified.config["jsonType.label"], "boolean");
+});
