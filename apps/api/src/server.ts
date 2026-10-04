@@ -1,3 +1,4 @@
+import { createOrderDocuments } from "./post-purchase/runtime.js";
 import {
   createImageStorage,
   GcsProductImageStore,
@@ -114,6 +115,8 @@ async function main(): Promise<void> {
         )
       : undefined;
     const app = createApp({
+      postPurchase: business.postPurchase,
+      orderDocuments: createOrderDocuments(business.orders, business.postPurchase),
       ...(productImages ? { productImages } : {}),
       ...(razorpay ? { razorpay } : {}),
       docsEnabled: loadDocsConfig(),

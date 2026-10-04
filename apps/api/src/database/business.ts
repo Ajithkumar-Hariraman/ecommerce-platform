@@ -1,3 +1,7 @@
+import {
+  PostgresPostPurchaseRepository,
+  MongoPostPurchaseRepository,
+} from "../post-purchase/repository.js";
 import { createHash } from "node:crypto";
 import { loadBusinessStorageConfig, loadDatabaseConfig, loadEnv } from "../config/env.js";
 import { createPool, verifyDatabase } from "./pool.js";
@@ -57,6 +61,7 @@ export async function createBusinessResources() {
         checkout: new MongoCheckoutRepository(mongo.db),
         outbox: new MongoOutboxRepository(mongo.db),
         notifications: new MongoOrderNotificationRepository(mongo.db),
+        postPurchase: new MongoPostPurchaseRepository(mongo.db),
         ready: async () => {
           await mongo.db.command({ ping: 1 });
         },
@@ -92,6 +97,7 @@ export async function createBusinessResources() {
       checkout: new PostgresCheckoutRepository(pool),
       outbox: new PostgresOutboxRepository(pool),
       notifications: new PostgresOrderNotificationRepository(pool),
+      postPurchase: new PostgresPostPurchaseRepository(pool),
       ready: () => verifyDatabase(pool),
       close: () => pool.end(),
     };

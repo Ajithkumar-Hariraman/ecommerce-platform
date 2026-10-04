@@ -10,6 +10,7 @@ interface OrderRow {
   id: string;
   customer_id: string | null;
   owner_subject: string | null;
+  customer_details: Order["customer"] | null;
   status: Order["status"];
   total_in_minor_units: string;
   payment_id: string | null;
@@ -20,6 +21,7 @@ interface OrderRow {
 
 interface OrderItemRow {
   product_id: string;
+  product_name: string | null;
   quantity: number;
   unit_price_in_minor_units: string;
   line_total_in_minor_units: string;
@@ -46,11 +48,12 @@ export class PostgresOrderRepository implements OrderRepository {
             payment_id,
             version,
             created_at,
-            updated_at
+            updated_at,
+            customer_details
           )
           VALUES (
             $1, $2, $3, $4,
-            $5, $6, $7, $8, $9
+            $5, $6, $7, $8, $9, $10
           )
         `,
         [
@@ -63,6 +66,7 @@ export class PostgresOrderRepository implements OrderRepository {
           order.version,
           order.createdAt,
           order.updatedAt,
+          order.customer ?? null,
         ],
       );
 
@@ -92,14 +96,14 @@ export class PostgresOrderRepository implements OrderRepository {
     );
     const rows = (
       await this.pool.query<OrderRow>(
-        `SELECT id,customer_id,owner_subject,status,total_in_minor_units,payment_id,version,created_at,updated_at FROM orders${where} ORDER BY created_at DESC,id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+        `SELECT id,customer_id,owner_subject,customer_details,status,total_in_minor_units,payment_id,version,created_at,updated_at FROM orders${where} ORDER BY created_at DESC,id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
         [...values, query.limit, query.offset],
       )
     ).rows;
     const items = rows.length
       ? (
           await this.pool.query<OrderItemRow & { order_id: string }>(
-            "SELECT order_id,product_id,quantity,unit_price_in_minor_units,line_total_in_minor_units FROM order_items WHERE order_id=ANY($1::uuid[]) ORDER BY id",
+            "SELECT order_id,product_id,product_name,quantity,unit_price_in_minor_units,line_total_in_minor_units FROM order_items WHERE order_id=ANY($1::uuid[]) ORDER BY id",
             [rows.map((row) => row.id)],
           )
         ).rows
@@ -122,6 +126,7 @@ export class PostgresOrderRepository implements OrderRepository {
             id,
             customer_id,
             owner_subject,
+        customer_details,
             status,
             total_in_minor_units,
             payment_id,
@@ -146,7 +151,8 @@ export class PostgresOrderRepository implements OrderRepository {
             product_id,
             quantity,
             unit_price_in_minor_units,
-            line_total_in_minor_units
+            line_total_in_minor_units,
+          product_name
           FROM order_items
           WHERE order_id = $1
           ORDER BY id ASC
@@ -186,11 +192,12 @@ export class PostgresOrderRepository implements OrderRepository {
           product_id,
           quantity,
           unit_price_in_minor_units,
-          line_total_in_minor_units
+          line_total_in_minor_units,
+          product_name
         )
         VALUES (
           gen_random_uuid(),
-          $1, $2, $3, $4, $5
+          $1, $2, $3, $4, $5, $6
         )
       `,
       [
@@ -199,6 +206,7 @@ export class PostgresOrderRepository implements OrderRepository {
         item.quantity,
         item.unitPriceInMinorUnits,
         item.lineTotalInMinorUnits,
+        item.name ?? null,
       ],
     );
   }
@@ -216,10 +224,12 @@ function toOrder(row: OrderRow, items: OrderItemRow[]): Order {
     id: row.id,
 
     customerId: row.customer_id,
+    ...(row.customer_details ? { customer: row.customer_details } : {}),
     ...(row.owner_subject !== null ? { ownerSubject: row.owner_subject } : {}),
 
     items: items.map((item) => ({
       productId: item.product_id,
+      ...(item.product_name ? { name: item.product_name } : {}),
 
       quantity: item.quantity,
 

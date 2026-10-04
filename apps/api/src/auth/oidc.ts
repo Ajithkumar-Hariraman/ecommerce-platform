@@ -48,6 +48,19 @@ export function createJwtVerifier(config: EnabledAuthConfig, keys: JWTVerifyGetK
     };
     if (typeof payload.preferred_username === "string")
       principal.username = payload.preferred_username;
+    const name = [payload.given_name, payload.family_name]
+      .filter((v): v is string => typeof v === "string")
+      .join(" ")
+      .trim()
+      .slice(0, 200);
+    const email =
+      typeof payload.email === "string" &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email) &&
+      payload.email.length <= 254
+        ? payload.email
+        : undefined;
+    if (name || email)
+      principal.customer = { ...(name ? { name } : {}), ...(email ? { email } : {}) };
     return principal;
   };
 }

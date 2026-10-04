@@ -6,6 +6,7 @@ export interface MongoOrderDocument {
   customerId: string | null;
 
   ownerSubject?: string | null;
+  customer?: { name?: string; email?: string };
 
   items: OrderItem[];
 

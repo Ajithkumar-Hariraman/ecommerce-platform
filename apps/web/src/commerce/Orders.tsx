@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ordersApi, type Order, type OrderList } from "../api/orders";
-import { errorMessage } from "../api/http";
+import { downloadOrderDocument, errorMessage } from "../api/http";
 import { money, statusLabel } from "./cart";
 export function Orders({ admin = false }: { admin?: boolean }) {
   const [query, setQuery] = useSearchParams();
@@ -111,6 +111,19 @@ export function OrderDetails({ admin = false }: { admin?: boolean }) {
   const [order, setOrder] = useState<Order>();
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const [downloading, setDownloading] = useState(false),
+    [documentError, setDocumentError] = useState("");
+  async function download(kind: "invoice" | "receipt") {
+    setDownloading(true);
+    setDocumentError("");
+    try {
+      await downloadOrderDocument(id!, kind);
+    } catch (e) {
+      setDocumentError(errorMessage(e));
+    } finally {
+      setDownloading(false);
+    }
+  }
   useEffect(() => {
     const controller = new AbortController();
     setError("");
@@ -160,7 +173,9 @@ export function OrderDetails({ admin = false }: { admin?: boolean }) {
         <ul className="cart-lines">
           {order.items.map((item, index) => (
             <li key={index}>
-              <Link to={"/products/" + item.productId}>View purchased product</Link>
+              <Link to={"/products/" + item.productId}>
+                {item.name ?? "View purchased product"}
+              </Link>
               <span>Quantity {item.quantity}</span>
               <strong>{money(item.lineTotalInMinorUnits)}</strong>
             </li>
@@ -170,6 +185,29 @@ export function OrderDetails({ admin = false }: { admin?: boolean }) {
           <span>Order total</span>
           <strong>{money(order.totalInMinorUnits)}</strong>
         </div>
+        <div className="actions">
+          <button
+            className="subtle"
+            disabled={downloading}
+            onClick={() => void download("invoice")}
+          >
+            {downloading ? "Preparing document…" : "Download invoice"}
+          </button>
+          {order.status === "PAID" && (
+            <button
+              className="subtle"
+              disabled={downloading}
+              onClick={() => void download("receipt")}
+            >
+              Download receipt
+            </button>
+          )}
+        </div>
+        {documentError && (
+          <p className="error" role="alert">
+            {documentError}
+          </p>
+        )}
         {!admin && ["CREATED", "PAYMENT_PENDING", "PAYMENT_FAILED"].includes(order.status) && (
           <Link className="button-link" to={"/checkout?order=" + order.id}>
             Continue payment

@@ -36,6 +36,7 @@ export class OrderController {
     const order = await this.service.create(
       res.locals.orderInput,
       orderPrincipal(res.locals.principal).subject,
+      orderPrincipal(res.locals.principal).customer,
     );
     res.location(`/api/v1/orders/${order.id}`).status(201).json(order);
   };

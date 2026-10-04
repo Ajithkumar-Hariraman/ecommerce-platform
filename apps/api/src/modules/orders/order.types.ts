@@ -10,6 +10,7 @@ export type OrderStatus =
 
 export interface OrderItemInput {
   productId: string;
+  name?: string;
   quantity: number;
   unitPriceInMinorUnits: number;
 }
@@ -27,6 +28,7 @@ export interface Order {
   // Historical customer reference; never used for authorization.
   customerId: string | null;
   ownerSubject?: string | null;
+  customer?: { name?: string; email?: string };
   items: OrderItem[];
   version: number;
   status: OrderStatus;

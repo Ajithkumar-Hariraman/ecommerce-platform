@@ -15,6 +15,7 @@ export interface Order {
   createdAt: string;
   items: {
     productId: string;
+    name?: string;
     quantity: number;
     unitPriceInMinorUnits: number;
     lineTotalInMinorUnits: number;

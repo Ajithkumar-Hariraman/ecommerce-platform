@@ -1,3 +1,6 @@
+import { notificationRouter, postPurchaseOrderRouter } from "./post-purchase/routes.js";
+import type { OrderDocumentService } from "./post-purchase/documents.js";
+import type { PostPurchaseRepository } from "./post-purchase/repository.js";
 import { createStorefrontRouter } from "./modules/products/storefront.routes.js";
 import { ProductService } from "./modules/products/product.service.js";
 import type { ProductImageStore } from "./modules/products/product-image.js";
@@ -28,6 +31,8 @@ import type { ProductRepository } from "./modules/products/product.repository.js
 
 export interface AppDependencies {
   docsEnabled?: boolean;
+  orderDocuments?: OrderDocumentService;
+  postPurchase?: PostPurchaseRepository;
   razorpay?: RazorpayPaymentClient;
   accessPolicy?: AccessPolicy;
   productCache?: ProductCache;
@@ -121,6 +126,15 @@ export function createApp(dependencies: AppDependencies): Express {
       ),
     );
   }
+  if (dependencies.postPurchase)
+    app.use(
+      "/api/v1/notifications",
+      access.authenticate,
+      limiter,
+      notificationRouter(dependencies.postPurchase),
+    );
+  if (dependencies.orderDocuments)
+    app.use("/api/v1/orders", postPurchaseOrderRouter(dependencies.orderDocuments));
   if (dependencies.razorpay && dependencies.orderRepository)
     app.use(
       "/api/v1/orders",

@@ -64,3 +64,30 @@ export async function request<T>(
 
 export const publicRequest = <T>(path: string, options: RequestInit = {}) =>
   request<T>("/storefront" + path, options, false);
+
+export async function downloadOrderDocument(id: string, kind: "invoice" | "receipt") {
+  const send = async (refresh = false) =>
+    fetch(`/api/v1/orders/${encodeURIComponent(id)}/${kind}`, {
+      headers: { Authorization: `Bearer ${await accessToken(refresh)}` },
+    });
+  let response = await send();
+  if (response.status === 401) response = await send(true);
+  if (!response.ok) {
+    if (response.status === 401) expireSession();
+    const body = await response.json().catch(() => null);
+    throw new ApiError(
+      body?.error?.message ?? "Document download is unavailable. Please try again.",
+      response.status,
+    );
+  }
+  if (!response.headers.get("content-type")?.includes("application/pdf"))
+    throw new Error("Unexpected document response");
+  const url = URL.createObjectURL(await response.blob()),
+    link = document.createElement("a");
+  link.href = url;
+  link.download = `${kind}-${id.slice(0, 8)}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

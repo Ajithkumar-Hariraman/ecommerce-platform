@@ -378,3 +378,40 @@ export function loadProductImageConfig() {
     throw new Error("Product asset URL TTL must be 60..900 seconds");
   return { bucket, projectId, signerServiceAccount, ttlSeconds: ttl };
 }
+
+export function loadPostPurchaseConfig() {
+  loadLocalEnv();
+  const host = process.env.SMTP_HOST ?? "127.0.0.1";
+  const port = Number(process.env.SMTP_PORT ?? "1025");
+  const from = process.env.SMTP_FROM ?? "Commerce <orders@commerce.local>";
+  const user = process.env.SMTP_USER ?? "",
+    password = process.env.SMTP_PASSWORD ?? "";
+  const bucket = process.env.ORDER_DOCUMENT_BUCKET ?? "";
+  const merchant = process.env.MERCHANT_NAME ?? "Commerce";
+  if (
+    !host ||
+    /[\s/@]/.test(host) ||
+    !Number.isInteger(port) ||
+    port < 1 ||
+    port > 65535 ||
+    /[\r\n]/.test(from) ||
+    !/^[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+$/.test(from.replace(/^.*<([^>]+)>$/, "$1")) ||
+    Boolean(user) !== Boolean(password) ||
+    !merchant ||
+    merchant.length > 100 ||
+    /[\r\n]/.test(merchant)
+  )
+    throw new Error("Invalid SMTP/merchant configuration");
+  if (bucket && !/^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/.test(bucket))
+    throw new Error("Invalid Order document bucket");
+  return {
+    host,
+    port,
+    from,
+    user,
+    password,
+    bucket,
+    merchant,
+    projectId: process.env.GOOGLE_CLOUD_PROJECT ?? "",
+  };
+}

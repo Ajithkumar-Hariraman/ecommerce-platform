@@ -20,6 +20,7 @@ export class MongoOrderRepository implements OrderRepository {
       _id: order.id,
 
       customerId: order.customerId,
+      ...(order.customer ? { customer: order.customer } : {}),
       ...(order.ownerSubject != null ? { ownerSubject: order.ownerSubject } : {}),
 
       items: order.items.map((item) => ({
@@ -95,6 +96,7 @@ function toOrder(document: MongoOrderDocument): Order {
     id: document._id,
 
     customerId: document.customerId,
+    ...(document.customer ? { customer: document.customer } : {}),
     ...(document.ownerSubject != null ? { ownerSubject: document.ownerSubject } : {}),
 
     items: document.items.map((item) => ({

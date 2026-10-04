@@ -43,7 +43,11 @@ export class OrderService {
       },
     };
   }
-  async create(input: CreateOrderInput, ownerSubject: string): Promise<Order> {
+  async create(
+    input: CreateOrderInput,
+    ownerSubject: string,
+    customer?: Order["customer"],
+  ): Promise<Order> {
     if (typeof ownerSubject !== "string" || !ownerSubject.trim())
       throw new AppError(401, "Authentication required");
     if (!input.items.length) throw new AppError(400, "Order must contain items");
@@ -56,6 +60,7 @@ export class OrderService {
         items.push({
           ...item,
           unitPriceInMinorUnits: product.priceInMinorUnits,
+          name: product.name,
         });
       }
       input = { ...input, items };
@@ -86,6 +91,7 @@ export class OrderService {
       id: randomUUID(),
       customerId: null,
       ownerSubject,
+      ...(customer ? { customer } : {}),
       items,
       totalInMinorUnits,
       status: "CREATED",
