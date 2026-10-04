@@ -1,6 +1,7 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package*.json ./
+COPY scripts/patch-kafkajs-timer.cjs ./scripts/patch-kafkajs-timer.cjs
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
@@ -10,7 +11,8 @@ FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+COPY scripts/patch-kafkajs-timer.cjs ./scripts/patch-kafkajs-timer.cjs
+RUN npm ci --omit=dev && rm scripts/patch-kafkajs-timer.cjs && rmdir scripts && npm cache clean --force
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node migrations ./migrations
 USER node
