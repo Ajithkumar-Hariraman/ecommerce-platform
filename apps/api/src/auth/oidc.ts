@@ -68,7 +68,7 @@ export function createJwtVerifier(config: EnabledAuthConfig, keys: JWTVerifyGetK
 export async function createOidcVerifier(config: EnabledAuthConfig): Promise<TokenVerifier> {
   try {
     const response = await fetch(config.issuer + "/.well-known/openid-configuration", {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(config.discoveryTimeoutMs ?? 5000),
       redirect: "error",
     });
     if (!response.ok) throw new Error();

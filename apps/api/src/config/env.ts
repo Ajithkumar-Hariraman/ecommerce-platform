@@ -177,6 +177,7 @@ export function loadPaymentConfig(): {
 }
 
 export interface EnabledAuthConfig {
+  discoveryTimeoutMs?: number;
   enabled: true;
   issuer: string;
   audience: string;
@@ -213,7 +214,10 @@ export function loadAuthConfig(): AuthConfig {
   } catch {
     throw new Error("Valid OIDC_ISSUER and OIDC_AUDIENCE are required");
   }
-  return { enabled: true, issuer, audience };
+  const discoveryTimeoutMs = Number(process.env.OIDC_DISCOVERY_TIMEOUT_MS ?? "5000");
+  if (!Number.isSafeInteger(discoveryTimeoutMs) || discoveryTimeoutMs < 1000 || discoveryTimeoutMs > 120000)
+    throw new Error("OIDC_DISCOVERY_TIMEOUT_MS must be 1000..120000 milliseconds");
+  return { enabled: true, issuer, audience, discoveryTimeoutMs };
 }
 
 export interface RedisConfig {
@@ -383,6 +387,10 @@ export function loadPostPurchaseConfig() {
   loadLocalEnv();
   const host = process.env.SMTP_HOST ?? "127.0.0.1";
   const port = Number(process.env.SMTP_PORT ?? "1025");
+  const enabledValue = process.env.SMTP_ENABLED ?? "true";
+  const secureValue = process.env.SMTP_SECURE ?? String(port === 465);
+  if (!["true", "false"].includes(enabledValue) || !["true", "false"].includes(secureValue))
+    throw new Error("SMTP_ENABLED and SMTP_SECURE must be booleans");
   const from = process.env.SMTP_FROM ?? "Commerce <orders@commerce.local>";
   const user = process.env.SMTP_USER ?? "",
     password = process.env.SMTP_PASSWORD ?? "";
@@ -405,6 +413,8 @@ export function loadPostPurchaseConfig() {
   if (bucket && !/^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/.test(bucket))
     throw new Error("Invalid Order document bucket");
   return {
+    enabled: enabledValue === "true",
+    secure: secureValue === "true",
     host,
     port,
     from,

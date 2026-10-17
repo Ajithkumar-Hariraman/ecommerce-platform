@@ -49,8 +49,12 @@ async function main(): Promise<void> {
           signal: abort.signal,
         }).catch(() => {});
     }
-  } catch {
-    console.error("Outbox relay startup failed");
+  } catch (error) {
+    console.error("Outbox relay startup failed", {
+      name: error instanceof Error ? error.name : "Unknown",
+      connectionTimeout: error instanceof Error && /connection.*timeout|timeout.*connection/i.test(error.message),
+      code: error && typeof error === "object" && "code" in error && typeof error.code === "string" && /^[A-Z0-9_]{2,24}$/.test(error.code) ? error.code : undefined,
+    });
     process.exitCode = 1;
   } finally {
     const results = await Promise.allSettled([

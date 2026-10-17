@@ -103,6 +103,67 @@ def main():
     print('Cloud deployment command completed; capture service revision, permitted health/readiness and logs before certifying it.')
     print(cloud('run','services','describe',service,'--region='+args.region,'--format=value(status.latestReadyRevisionName,status.url)'))
 
+
+def complete_existing():
+    """Deploy the audited existing platform; never create duplicate foundations."""
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--existing',action='store_true')
+    parser.add_argument('--region',default='asia-south1')
+    parser.add_argument('--image',required=True,help='Immutable Artifact Registry digest')
+    parser.add_argument('--apply',action='store_true')
+    args=parser.parse_args()
+    if not args.image.startswith('asia-south1-docker.pkg.dev/'+PROJECT+'/ecommerce-containers/ecommerce-api@sha256:'):
+        raise RuntimeError('An audited immutable project API digest is required')
+    print('Existing platform: migration job -> API -> outbox and notification worker pools; SMTP disabled until provisioned.')
+    if not args.apply: return
+    region='--region='+args.region
+    api=json.loads(cloud('run','services','describe','ecommerce-api',region,'--format=json'))
+    spec=api['spec']['template']['spec']; container=spec['containers'][0]
+    annotations=api['spec']['template']['metadata']['annotations']
+    interfaces=json.loads(annotations['run.googleapis.com/network-interfaces'])
+    network=['--network='+interfaces[0]['network'],'--subnet='+interfaces[0]['subnetwork'],'--vpc-egress=private-ranges-only']
+    account=spec['serviceAccountName']
+    if account!='ecommerce-runtime@'+PROJECT+'.iam.gserviceaccount.com': raise RuntimeError('Unexpected runtime identity')
+    values={e['name']:e['value'] for e in container['env'] if 'value' in e}
+    if values.get('BUSINESS_STORAGE')!='postgres' or values.get('DB_NAME')!='ecommerce_prod':
+        raise RuntimeError('Expected existing PostgreSQL production configuration')
+    cloud('run','jobs','update','ecommerce-db-migrate',region,'--image='+args.image,'--max-retries=0')
+    cloud('run','jobs','execute','ecommerce-db-migrate',region,'--wait')
+    cloud('run','services','update','ecommerce-api',region,'--image='+args.image,
+          '--update-env-vars=OIDC_DISCOVERY_TIMEOUT_MS=60000','--max-instances=1','--concurrency=20',
+          '--startup-probe=httpGet.path=/health,httpGet.port=8080,periodSeconds=10,failureThreshold=24')
+    # Preserve local Kafka architecture. Cloud uses existing authenticated ADC pull adapter.
+    names={'NODE_ENV','BUSINESS_STORAGE','ORDER_STORAGE','DB_HOST','DB_PORT','DB_NAME','DB_USER',
+           'EVENT_TRANSPORT','GOOGLE_CLOUD_PROJECT','GOOGLE_CLOUD_REGION','PUBSUB_ORDER_TOPIC',
+           'PUBSUB_ORDER_SUBSCRIPTION','ORDER_DOCUMENT_BUCKET'}
+    worker_env={k:v for k,v in values.items() if k in names}
+    worker_env['SMTP_ENABLED']='false'
+    worker_env['SMTP_SECURE']='false'
+    bindings=[]
+    for e in container['env']:
+        if e['name']=='DB_PASSWORD':
+            ref=e['valueFrom']['secretKeyRef']; bindings.append('DB_PASSWORD='+ref['name']+':'+ref['key'])
+    if len(bindings)!=1: raise RuntimeError('Expected pinned database secret')
+    with tempfile.TemporaryDirectory() as directory:
+        env_file=Path(directory)/'worker-env.json';env_file.write_text(json.dumps(worker_env));env_file.chmod(0o600)
+        existing_workers={x['metadata']['name'] for x in listed('run','worker-pools','list',region)}
+        for name,module in [('ecommerce-outbox-relay','outbox-relay'),('ecommerce-order-notification-worker','order-event')]:
+            if name in existing_workers:
+                current=json.loads(cloud('run','worker-pools','describe',name,region,'--format=json'))
+                current['spec']['template']['spec']['containers'][0]['image']=args.image
+                definition={'apiVersion':current['apiVersion'],'kind':current['kind'],
+                    'metadata':{key:current['metadata'][key] for key in ['name','namespace','labels']},'spec':current['spec']}
+                worker_file=Path(directory)/(name+'.json');worker_file.write_text(json.dumps(definition));worker_file.chmod(0o600)
+                cloud('run','worker-pools','replace',str(worker_file))
+                continue
+            cloud('run','worker-pools','deploy',name,region,'--image='+args.image,
+                  '--service-account='+account,'--instances=1','--cpu=1','--memory=512Mi',
+                  '--env-vars-file='+str(env_file),'--set-secrets='+','.join(bindings),
+                  '--command=node','--args=--enable-source-maps,dist/workers/'+module+'.worker.js',*network)
+    print('Existing platform deployment complete; verify endpoints, logs and real event delivery.')
+
 if __name__=='__main__':
-    try: main()
+    try:
+        import sys
+        complete_existing() if '--existing' in sys.argv else main()
     except (RuntimeError,FileNotFoundError) as error: raise SystemExit(str(error))

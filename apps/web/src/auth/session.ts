@@ -1,9 +1,10 @@
+/// <reference types="vite/client" />
 import { profileFromClaims, safeReturnPath } from "./access";
 import Keycloak from "keycloak-js";
 import { useSyncExternalStore } from "react";
 
 const keycloak = new Keycloak({
-  url: "http://127.0.0.1:8180",
+  url: import.meta.env?.VITE_KEYCLOAK_URL || "http://127.0.0.1:8180",
   realm: "ecommerce",
   clientId: "ecommerce-web",
 });

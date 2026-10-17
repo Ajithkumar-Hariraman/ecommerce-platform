@@ -10,15 +10,16 @@ installStructuredLogging();
 async function main(): Promise<void> {
   const business = await createBusinessResources();
   const emailConfig = loadPostPurchaseConfig(),
-    sender = new SmtpEmailSender(emailConfig);
-  const notifications = new PostPurchaseNotificationProcessor(
+    sender = emailConfig.enabled ? new SmtpEmailSender(emailConfig) : undefined;
+  const notifications = sender ? new PostPurchaseNotificationProcessor(
     business.notifications,
     business.orders,
     business.postPurchase,
     createOrderDocuments(business.orders, business.postPurchase),
     sender,
     emailConfig.merchant,
-  );
+  ) : business.notifications;
+  if (!sender) console.warn({ operation: "SMTP disabled; durable notifications remain active" });
   let worker: Awaited<ReturnType<typeof createConsumerRuntime>> | undefined;
   let closing = false;
   const shutdown = async (failed = false) => {
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
     } catch {
       process.exitCode = 1;
     } finally {
-      sender.close();
+      sender?.close();
       await Promise.allSettled([business.close()]);
       clearTimeout(deadline);
       process.off("SIGINT", stop);
@@ -60,8 +61,12 @@ async function main(): Promise<void> {
       operation: "Order worker started",
       consumerGroup: worker.identity,
     });
-  } catch {
-    console.error("Order worker startup failed");
+  } catch (error) {
+    console.error("Order worker startup failed", {
+      name: error instanceof Error ? error.name : "Unknown",
+      connectionTimeout: error instanceof Error && /connection.*timeout|timeout.*connection/i.test(error.message),
+      code: error && typeof error === "object" && "code" in error && typeof error.code === "string" && /^[A-Z0-9_]{2,24}$/.test(error.code) ? error.code : undefined,
+    });
     await shutdown(true);
   }
 }

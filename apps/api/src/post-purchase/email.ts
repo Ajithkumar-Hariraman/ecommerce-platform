@@ -24,13 +24,13 @@ export interface EmailSender {
 export class SmtpEmailSender implements EmailSender {
   private readonly transport;
   constructor(
-    config: { host: string; port: number; from: string; user: string; password: string },
+    config: { host: string; port: number; from: string; user: string; password: string; secure?: boolean },
     private readonly from = config.from,
   ) {
     this.transport = nodemailer.createTransport({
       host: config.host,
       port: config.port,
-      secure: config.port === 465,
+      secure: config.secure ?? config.port === 465,
       requireTLS:
         config.host !== "127.0.0.1" && config.host !== "localhost" && config.host !== "mailpit",
       ...(config.user ? { auth: { user: config.user, pass: config.password } } : {}),

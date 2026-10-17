@@ -270,3 +270,18 @@ test("local realm supports registration/recovery and safe profile claims without
   assert.equal(verified.config["user.attribute"], "emailVerified");
   assert.equal(verified.config["jsonType.label"], "boolean");
 });
+
+
+test("OIDC discovery has a bounded configurable cold-start timeout", () => {
+  const saved = { ...process.env };
+  try {
+    Object.assign(process.env, { NODE_ENV: "test", AUTH_ENABLED: "true", OIDC_ALLOW_HTTP: "false", OIDC_ISSUER: "https://identity.example/realms/ecommerce", OIDC_AUDIENCE: "ecommerce-api", OIDC_DISCOVERY_TIMEOUT_MS: "60000" });
+    const config = loadAuthConfig();
+    assert(config.enabled);
+    assert.equal(config.discoveryTimeoutMs, 60000);
+    for (const value of ["0", "999", "120001", "1.5", "invalid"]) {
+      process.env.OIDC_DISCOVERY_TIMEOUT_MS = value;
+      assert.throws(() => loadAuthConfig(), /OIDC_DISCOVERY_TIMEOUT_MS/);
+    }
+  } finally { process.env = saved; }
+});

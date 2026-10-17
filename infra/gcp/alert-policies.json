@@ -1,0 +1,53 @@
+[
+  {
+    "displayName": "Ecommerce sustained API 5xx",
+    "combiner": "OR",
+    "enabled": true,
+    "conditions": [
+      {
+        "displayName": "At least 10 API 5xx in each five-minute window",
+        "conditionThreshold": {
+          "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"ecommerce-api\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\"",
+          "comparison": "COMPARISON_GT",
+          "thresholdValue": 9,
+          "duration": "300s",
+          "aggregations": [
+            {
+              "alignmentPeriod": "300s",
+              "perSeriesAligner": "ALIGN_SUM",
+              "crossSeriesReducer": "REDUCE_SUM"
+            }
+          ],
+          "trigger": {
+            "count": 1
+          }
+        }
+      }
+    ]
+  },
+  {
+    "displayName": "Ecommerce PubSub backlog age",
+    "combiner": "OR",
+    "enabled": true,
+    "conditions": [
+      {
+        "displayName": "Order backlog older than five minutes for ten minutes",
+        "conditionThreshold": {
+          "filter": "resource.type=\"pubsub_subscription\" AND resource.labels.subscription_id=\"ecommerce-order-notification-worker\" AND metric.type=\"pubsub.googleapis.com/subscription/oldest_unacked_message_age\"",
+          "comparison": "COMPARISON_GT",
+          "thresholdValue": 300,
+          "duration": "600s",
+          "aggregations": [
+            {
+              "alignmentPeriod": "60s",
+              "perSeriesAligner": "ALIGN_MAX"
+            }
+          ],
+          "trigger": {
+            "count": 1
+          }
+        }
+      }
+    ]
+  }
+]

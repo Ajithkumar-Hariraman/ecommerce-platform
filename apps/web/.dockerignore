@@ -3,3 +3,6 @@ dist
 .env
 .env.*
 *.log
+
+# Temporary Google GitHub Actions federation credentials
+gha-creds-*.json

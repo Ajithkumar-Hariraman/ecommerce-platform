@@ -200,3 +200,18 @@ test("accepted SMTP message is never auto-resent after delivery-state persistenc
   await assert.rejects(f.processor.process(event), /in progress or uncertain/);
   assert.equal(f.sends, 1);
 });
+
+
+test("SMTP cloud enablement and TLS flags are explicitly validated", async () => {
+  const { loadPostPurchaseConfig } = await import("../src/config/env.js");
+  const saved = { ...process.env };
+  try {
+    Object.assign(process.env, { SMTP_HOST: "127.0.0.1", SMTP_PORT: "1025", SMTP_USER: "", SMTP_PASSWORD: "", SMTP_ENABLED: "false", SMTP_SECURE: "false" });
+    assert.equal(loadPostPurchaseConfig().enabled, false);
+    assert.equal(loadPostPurchaseConfig().secure, false);
+    process.env.SMTP_SECURE = "true";
+    assert.equal(loadPostPurchaseConfig().secure, true);
+    process.env.SMTP_ENABLED = "invalid";
+    assert.throws(loadPostPurchaseConfig, /booleans/);
+  } finally { process.env = saved; }
+});

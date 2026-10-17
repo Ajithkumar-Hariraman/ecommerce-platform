@@ -7,3 +7,6 @@ dist/
 build/
 coverage/
 *.tsbuildinfo
+
+# Temporary Google GitHub Actions federation credentials
+gha-creds-*.json
