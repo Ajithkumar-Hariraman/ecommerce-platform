@@ -1,3 +1,4 @@
+import { requestId } from "./middleware/request-id.js";
 import { notificationRouter, postPurchaseOrderRouter } from "./post-purchase/routes.js";
 import type { OrderDocumentService } from "./post-purchase/documents.js";
 import type { PostPurchaseRepository } from "./post-purchase/repository.js";
@@ -51,6 +52,7 @@ export interface AppDependencies {
 export function createApp(dependencies: AppDependencies): Express {
   const app = express();
   app.disable("x-powered-by");
+  app.use(requestId);
   if (dependencies.docsEnabled) {
     app.get("/openapi.json", (_req, res) => res.json(openApiDocument));
     app.use(

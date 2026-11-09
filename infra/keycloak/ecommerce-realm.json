@@ -90,9 +90,11 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
+        "https://ecommerce-web-eoiwssibea-el.a.run.app/*",
         "http://127.0.0.1:5173/*"
       ],
       "webOrigins": [
+        "https://ecommerce-web-eoiwssibea-el.a.run.app",
         "http://127.0.0.1:5173"
       ],
       "fullScopeAllowed": true,
@@ -103,7 +105,7 @@
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://127.0.0.1:5173/*"
+        "post.logout.redirect.uris": "https://ecommerce-web-eoiwssibea-el.a.run.app/##http://127.0.0.1:5173/"
       }
     }
   ],

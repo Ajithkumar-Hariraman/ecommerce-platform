@@ -1,3 +1,4 @@
+import { requestContext } from "./middleware/request-id.js";
 // Runtime entry points install JSON stdout/stderr for Cloud Logging and local collectors.
 // Call sites remain responsible for excluding credentials, payloads and provider details.
 export function installStructuredLogging(): void {
@@ -10,7 +11,14 @@ export function installStructuredLogging(): void {
     console[method] = (...values: unknown[]) => {
       const message = values.filter((value) => typeof value === "string").join(" ");
       const details = values.filter((value) => typeof value !== "string");
-      write(JSON.stringify({ severity, message, ...(details.length ? { details } : {}) }));
+      write(
+        JSON.stringify({
+          ...requestContext.getStore(),
+          severity,
+          message,
+          ...(details.length ? { details } : {}),
+        }),
+      );
     };
   }
 }

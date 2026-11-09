@@ -30,7 +30,7 @@ export function SignIn({ registration = false }: { registration?: boolean }) {
           Continue
         </Link>
       ) : (
-        <button onClick={() => void (registration ? register(returnTo) : login(returnTo))}>
+        <button disabled={!session.ready || session.unavailable} onClick={() => void (registration ? register(returnTo) : login(returnTo))}>
           {registration ? "Create account" : "Sign in"}
         </button>
       )}
@@ -48,7 +48,7 @@ export function SignIn({ registration = false }: { registration?: boolean }) {
       <details>
         <summary>Forgot your password?</summary>
         <p>Continue to secure sign-in, then choose “Forgot password?” to request a reset email.</p>
-        <button className="subtle" onClick={() => void forgotPassword()}>
+        <button className="subtle" disabled={!session.ready || session.unavailable} onClick={() => void forgotPassword()}>
           Continue to password recovery
         </button>
       </details>

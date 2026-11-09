@@ -4,13 +4,15 @@ import {
   GcsProductImageStore,
 } from "./modules/products/gcs-product-image.store.js";
 import { loadProductImageConfig } from "./config/env.js";
+import { S3Client } from "@aws-sdk/client-s3";
+import { S3ProductImageStore } from "./modules/products/s3-product-image.store.js";
 import { RazorpayPaymentClient } from "./modules/payments/razorpay.gateway.js";
 import { RazorpayHttpApi } from "./modules/payments/razorpay.api.js";
 import { installStructuredLogging } from "./logging.js";
 import { createRedisResources } from "./database/redis.js";
 import { RedisProductCache } from "./modules/products/redis-product.cache.js";
 import { rateLimit, RedisRateLimiter } from "./middleware/rate-limit.js";
-import { createOidcVerifier } from "./auth/oidc.js";
+import { createDeferredOidcVerifier } from "./auth/oidc.js";
 import { createAccessPolicy, disabledAccessPolicy } from "./auth/middleware.js";
 import { HttpPaymentClient } from "./modules/payments/payment.client.js";
 import { createBusinessResources } from "./database/business.js";
@@ -82,7 +84,7 @@ async function main(): Promise<void> {
   try {
     const authConfig = loadAuthConfig();
     const accessPolicy = authConfig.enabled
-      ? createAccessPolicy(await createOidcVerifier(authConfig))
+      ? createAccessPolicy(createDeferredOidcVerifier(authConfig))
       : disabledAccessPolicy();
     if (!authConfig.enabled)
       console.info("Authentication explicitly disabled for non-production runtime.");
@@ -108,11 +110,17 @@ async function main(): Promise<void> {
       : undefined;
     const imageConfig = loadProductImageConfig();
     const productImages = imageConfig
-      ? new GcsProductImageStore(
-          await createImageStorage(imageConfig),
-          imageConfig.bucket,
-          imageConfig.ttlSeconds,
-        )
+      ? imageConfig.provider === "aws"
+        ? new S3ProductImageStore(
+            new S3Client({ region: imageConfig.region, maxAttempts: 2 }),
+            imageConfig.bucket,
+            imageConfig.ttlSeconds,
+          )
+        : new GcsProductImageStore(
+            await createImageStorage(imageConfig),
+            imageConfig.bucket,
+            imageConfig.ttlSeconds,
+          )
       : undefined;
     const app = createApp({
       postPurchase: business.postPurchase,

@@ -180,11 +180,12 @@ test("JWT signatures, claims, JWKS caching/rotation and route RBAC", async (t) =
 
 test("auth config defaults enabled and rejects unsafe production opt-out", () => {
   loadEnv();
-  const keys = ["AUTH_ENABLED", "OIDC_ISSUER", "OIDC_AUDIENCE", "NODE_ENV"];
+  const keys = ["AUTH_ENABLED", "OIDC_ISSUER", "OIDC_AUDIENCE", "NODE_ENV", "OIDC_ALLOW_HTTP"];
   const saved = keys.map((key) => process.env[key]);
   try {
     process.env.NODE_ENV = "test";
     delete process.env.AUTH_ENABLED;
+    delete process.env.OIDC_ALLOW_HTTP;
     process.env.OIDC_ISSUER = "http://127.0.0.1:8180/realms/ecommerce";
     process.env.OIDC_AUDIENCE = "ecommerce-api";
     assert.equal(loadAuthConfig().enabled, true);
@@ -248,34 +249,50 @@ test("SPA API scope explicitly emits required subject into access tokens", async
   );
 });
 
-
 test("local realm supports registration/recovery and safe profile claims without mandatory email", async () => {
-  const realm = JSON.parse(await (await import("node:fs/promises")).readFile(
-    new URL("../../../infra/keycloak/ecommerce-realm.json", import.meta.url), "utf8"));
+  const realm = JSON.parse(
+    await (
+      await import("node:fs/promises")
+    ).readFile(new URL("../../../infra/keycloak/ecommerce-realm.json", import.meta.url), "utf8"),
+  );
   assert.equal(realm.registrationAllowed, true);
   assert.equal(realm.resetPasswordAllowed, true);
   assert.equal(realm.verifyEmail, false);
-  assert.equal(realm.requiredActions.find((action: {alias: string}) => action.alias === "VERIFY_EMAIL").defaultAction, false);
-  const spa = realm.clients.find((client: {clientId: string}) => client.clientId === "ecommerce-web");
+  assert.equal(
+    realm.requiredActions.find((action: { alias: string }) => action.alias === "VERIFY_EMAIL")
+      .defaultAction,
+    false,
+  );
+  const spa = realm.clients.find(
+    (client: { clientId: string }) => client.clientId === "ecommerce-web",
+  );
   assert.equal(spa.publicClient, true);
   assert.equal(spa.directAccessGrantsEnabled, false);
   assert.equal(spa.attributes["pkce.code.challenge.method"], "S256");
   for (const scopeName of ["profile", "email"]) {
     assert(spa.defaultClientScopes.includes(scopeName));
-    const scope = realm.clientScopes.find((scope: {name: string}) => scope.name === scopeName);
+    const scope = realm.clientScopes.find((scope: { name: string }) => scope.name === scopeName);
     assert(scope?.protocolMappers.length > 0, scopeName + " must resolve to actual mappers");
   }
-  const email = realm.clientScopes.find((scope: {name: string}) => scope.name === "email");
-  const verified = email.protocolMappers.find((mapper: {name: string}) => mapper.name === "email_verified");
+  const email = realm.clientScopes.find((scope: { name: string }) => scope.name === "email");
+  const verified = email.protocolMappers.find(
+    (mapper: { name: string }) => mapper.name === "email_verified",
+  );
   assert.equal(verified.config["user.attribute"], "emailVerified");
   assert.equal(verified.config["jsonType.label"], "boolean");
 });
 
-
 test("OIDC discovery has a bounded configurable cold-start timeout", () => {
   const saved = { ...process.env };
   try {
-    Object.assign(process.env, { NODE_ENV: "test", AUTH_ENABLED: "true", OIDC_ALLOW_HTTP: "false", OIDC_ISSUER: "https://identity.example/realms/ecommerce", OIDC_AUDIENCE: "ecommerce-api", OIDC_DISCOVERY_TIMEOUT_MS: "60000" });
+    Object.assign(process.env, {
+      NODE_ENV: "test",
+      AUTH_ENABLED: "true",
+      OIDC_ALLOW_HTTP: "false",
+      OIDC_ISSUER: "https://identity.example/realms/ecommerce",
+      OIDC_AUDIENCE: "ecommerce-api",
+      OIDC_DISCOVERY_TIMEOUT_MS: "60000",
+    });
     const config = loadAuthConfig();
     assert(config.enabled);
     assert.equal(config.discoveryTimeoutMs, 60000);
@@ -283,5 +300,7 @@ test("OIDC discovery has a bounded configurable cold-start timeout", () => {
       process.env.OIDC_DISCOVERY_TIMEOUT_MS = value;
       assert.throws(() => loadAuthConfig(), /OIDC_DISCOVERY_TIMEOUT_MS/);
     }
-  } finally { process.env = saved; }
+  } finally {
+    process.env = saved;
+  }
 });

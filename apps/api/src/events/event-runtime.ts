@@ -3,9 +3,23 @@ import { kafkaClient, kafkaProducer, KafkaEventPublisher } from "./kafka.js";
 import { pubSubClient, PubSubEventPublisher, startPubSubConsumer } from "./pubsub.js";
 import { startOrderConsumer } from "./order-consumer.js";
 import type { OrderNotificationRepository } from "./order-notification.repository.js";
+import { SNSClient } from "@aws-sdk/client-sns";
+import { SQSClient } from "@aws-sdk/client-sqs";
+import { SnsEventPublisher, startSqsConsumer } from "./aws.js";
 
 export async function createPublisherRuntime() {
   const config = loadEventTransportConfig();
+  if (config.transport === "sns-sqs") {
+    const client = new SNSClient({
+      region: config.region,
+      maxAttempts: 2,
+      requestHandler: { connectionTimeout: 2000, requestTimeout: 5000 },
+    });
+    return {
+      publisher: new SnsEventPublisher(client, config.topicArn),
+      close: async () => client.destroy(),
+    };
+  }
   if (config.transport === "pubsub") {
     const client = pubSubClient(config);
     try {
@@ -14,7 +28,11 @@ export async function createPublisherRuntime() {
       return {
         publisher: new PubSubEventPublisher(topic),
         close: async () => {
-          try {await topic.flush();} finally {await client.close();}
+          try {
+            await topic.flush();
+          } finally {
+            await client.close();
+          }
         },
       };
     } catch (error) {
@@ -40,6 +58,20 @@ export async function createConsumerRuntime(
   onCrash: () => void,
 ) {
   const config = loadEventTransportConfig();
+  if (config.transport === "sns-sqs") {
+    const client = new SQSClient({
+      region: config.region,
+      maxAttempts: 2,
+      requestHandler: { connectionTimeout: 2000, requestTimeout: 25000 },
+    });
+    try {
+      const worker = await startSqsConsumer(client, config.queueUrl, repository, onCrash);
+      return { identity: config.queueUrl, close: () => worker.close() };
+    } catch (error) {
+      client.destroy();
+      throw error;
+    }
+  }
   if (config.transport === "pubsub") {
     const client = pubSubClient(config);
     try {
@@ -47,7 +79,11 @@ export async function createConsumerRuntime(
       return {
         identity: config.subscription,
         close: async () => {
-          try {await worker.close();} finally {await client.close();}
+          try {
+            await worker.close();
+          } finally {
+            await client.close();
+          }
         },
       };
     } catch (error) {

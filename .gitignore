@@ -10,3 +10,31 @@ coverage/
 
 # Temporary Google GitHub Actions federation credentials
 gha-creds-*.json
+
+# Terraform private working files (commit provider lock files)
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+crash.log
+__pycache__/
+*.pyc
+
+# Local credentials, private keys and recovery artifacts
+.aws/
+credentials
+credentials.*
+*.key
+*.pem
+# Public RDS trust certificates are source assets, not private keys.
+!apps/api/certs/rds-ap-south-1-bundle.pem
+*service-account*.json
+*.tfplan.*
+*.tfstate.backup
+*.bak
+*.backup
+backup/
+backups/
+recovery/

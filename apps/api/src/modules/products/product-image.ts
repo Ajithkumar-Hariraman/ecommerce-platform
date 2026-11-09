@@ -4,7 +4,12 @@ export const maximumImageBytes = 5 * 1024 * 1024;
 export const productImageSchema = z.strictObject({
   bucket: z.string().min(3),
   objectName: z.string().max(200),
-  generation: z.string().regex(/^[0-9]+$/),
+  // Provider revision: numeric GCS generation or opaque S3 VersionId; never an ETag.
+  generation: z
+    .string()
+    .min(1)
+    .max(1024)
+    .regex(/^[A-Za-z0-9._~+\/=-]+$/),
   contentType: z.enum(imageContentTypes),
   size: z.number().int().min(1).max(maximumImageBytes),
 });

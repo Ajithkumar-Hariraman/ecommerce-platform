@@ -1,3 +1,4 @@
+import { SessionNotice } from "./auth/SessionNotice";
 import { Notifications } from "./commerce/Notifications";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useLocation } from "react-router-dom";
@@ -140,11 +141,7 @@ function Layout() {
           )}
         </nav>
       </header>
-      {session.error && (
-        <p role="alert" className="error session-error">
-          {session.error}
-        </p>
-      )}
+      <SessionNotice pathname={location.pathname} error={session.error} />
       <main
         id="main"
         ref={main}

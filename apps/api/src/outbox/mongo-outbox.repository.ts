@@ -4,15 +4,13 @@ import type { MongoOrderDocument } from "../modules/orders/mongo-order.document.
 import type { ClaimOptions, OutboxClaim, OutboxEvent, OutboxRepository } from "./outbox.js";
 export type OutboxOrderDocument = MongoOrderDocument & { outbox?: OutboxEvent };
 export async function ensureOutboxIndex(db: Db): Promise<void> {
-  await db
-    .collection("orders")
-    .createIndex(
-      { "outbox.status": 1, "outbox.availableAt": 1, "outbox.createdAt": 1 },
-      {
-        name: "order_outbox_dispatch_idx",
-        partialFilterExpression: { "outbox.id": { $exists: true } },
-      },
-    );
+  await db.collection("orders").createIndex(
+    { "outbox.status": 1, "outbox.availableAt": 1, "outbox.createdAt": 1 },
+    {
+      name: "order_outbox_dispatch_idx",
+      partialFilterExpression: { "outbox.id": { $exists: true } },
+    },
+  );
 }
 export class MongoOutboxRepository implements OutboxRepository {
   readonly storageBackend = "mongodb" as const;
@@ -66,55 +64,49 @@ export class MongoOutboxRepository implements OutboxRepository {
     return claims;
   }
   async markPublished(claim: OutboxClaim): Promise<boolean> {
-    const result = await this.db
-      .collection<OutboxOrderDocument>("orders")
-      .updateOne(
-        {
-          "outbox.id": claim.id,
-          "outbox.status": "PROCESSING",
-          "outbox.leaseToken": claim.leaseToken,
+    const result = await this.db.collection<OutboxOrderDocument>("orders").updateOne(
+      {
+        "outbox.id": claim.id,
+        "outbox.status": "PROCESSING",
+        "outbox.leaseToken": claim.leaseToken,
+      },
+      {
+        $set: {
+          "outbox.status": "PUBLISHED",
+          "outbox.leaseToken": null,
+          "outbox.lastErrorCategory": null,
         },
-        {
-          $set: {
-            "outbox.status": "PUBLISHED",
-            "outbox.leaseToken": null,
-            "outbox.lastErrorCategory": null,
-          },
-          $currentDate: { "outbox.publishedAt": true },
-        },
-      );
+        $currentDate: { "outbox.publishedAt": true },
+      },
+    );
     return result.matchedCount === 1;
   }
   async markFailed(
     claim: OutboxClaim,
-    category: "KAFKA_UNAVAILABLE" | "PUBSUB_UNAVAILABLE" | "INVALID_EVENT",
+    category: "KAFKA_UNAVAILABLE" | "PUBSUB_UNAVAILABLE" | "SNS_UNAVAILABLE" | "INVALID_EVENT",
     retryMs: number,
     maxAttempts: number,
   ): Promise<boolean> {
-    const result = await this.db
-      .collection<OutboxOrderDocument>("orders")
-      .updateOne(
+    const result = await this.db.collection<OutboxOrderDocument>("orders").updateOne(
+      {
+        "outbox.id": claim.id,
+        "outbox.status": "PROCESSING",
+        "outbox.leaseToken": claim.leaseToken,
+      },
+      [
         {
-          "outbox.id": claim.id,
-          "outbox.status": "PROCESSING",
-          "outbox.leaseToken": claim.leaseToken,
-        },
-        [
-          {
-            $set: {
-              "outbox.status":
-                claim.attempts >= maxAttempts || category === "INVALID_EVENT"
-                  ? "FAILED"
-                  : "PENDING",
-              "outbox.leaseToken": null,
-              "outbox.lastErrorCategory": category,
-              "outbox.availableAt": {
-                $dateAdd: { startDate: "$$NOW", unit: "millisecond", amount: retryMs },
-              },
+          $set: {
+            "outbox.status":
+              claim.attempts >= maxAttempts || category === "INVALID_EVENT" ? "FAILED" : "PENDING",
+            "outbox.leaseToken": null,
+            "outbox.lastErrorCategory": category,
+            "outbox.availableAt": {
+              $dateAdd: { startDate: "$$NOW", unit: "millisecond", amount: retryMs },
             },
           },
-        ],
-      );
+        },
+      ],
+    );
     return result.matchedCount === 1;
   }
 }

@@ -308,6 +308,10 @@ test(
           NODE_ENV: "test",
           HOST: "127.0.0.1",
           ORDER_STORAGE: "postgres",
+          BUSINESS_STORAGE: "postgres",
+          PRODUCT_ASSET_BUCKET: "",
+          ORDER_DOCUMENT_BUCKET: "",
+          PAYMENT_PROVIDER: "local",
           PAYMENT_WEBHOOK_SECRET: randomUUID() + randomUUID(),
           ...extra,
         },
@@ -325,7 +329,7 @@ test(
     }
     const unavailable = await launch({ DB_PORT: "1" });
     assert.equal((await unavailable.exited)[0], 1);
-    assert.match(unavailable.output(), /Database startup check failed/);
+    assert.match(unavailable.output(), /API startup failed/);
     assert.doesNotMatch(unavailable.output(), /API listening/);
     for (const signal of ["SIGINT", "SIGTERM"] as const) {
       const probe = httpServer().listen(0, "127.0.0.1");

@@ -173,3 +173,34 @@ The local start-dev/H2 setup is not a production IdP deployment.
 References: [Keycloak container configuration](https://www.keycloak.org/server/containers),
 [realm import semantics](https://www.keycloak.org/server/importExport),
 [jose remote JWKS](https://github.com/panva/jose/blob/main/docs/jwks/remote/functions/createRemoteJWKSet.md).
+
+## Production SPA redirect reconciliation (2026-10-20)
+
+The `ecommerce-web` client policy is recorded in `infra/keycloak/ecommerce-realm.json`.
+Cloud Keycloak stores its live realm/client configuration in its existing database;
+Terraform manages the service, not the realm. Startup realm import skips an existing
+realm and does not apply updates to it. Normal image redeployments retain the database
+configuration. Reconcile client-policy changes through the Keycloak Admin API/Console;
+do not delete/reimport the realm or reset users to apply this policy.
+
+The source allow-list includes the deployed storefront origin and the intentionally
+supported local Vite origin. In realm `ecommerce`, client `ecommerce-web`:
+
+- Login settings: copy `redirectUris` and `webOrigins` from the source client.
+- Valid post logout redirect URIs: use only the exact homepage for each allowed origin,
+  as listed in `attributes.post.logout.redirect.uris` (Admin API separator: `##`).
+- Client authentication OFF; standard flow ON; implicit/direct-access/service-account
+  flows OFF; PKCE S256. Self-registration remains enabled at realm level.
+- The public cloud frontend origin is a client allow-list value, not an application
+  secret. New frontend domains require explicit allow-list review, never wildcard origins.
+
+React login/register/logout use the Keycloak adapter. Registration returns to `/account`
+(or the existing safe return path); logout returns to the current origin homepage and
+uses the adapter POST method so its ID-token hint is sent in the form body. Passwords
+remain with Keycloak; no secret belongs in the SPA. The frontend Keycloak base URL and
+bounded cookie-check timeout are supplied at Vite image-build time. Public browsing
+survives provider initialization failure; account/protected routes fail closed.
+
+These production/ownership notes supersede the older broad-access limitations above:
+current customer Orders are owner-scoped by verified subject. Production SMTP delivery
+and password-reset email remain separately unverified until SMTP is provisioned.

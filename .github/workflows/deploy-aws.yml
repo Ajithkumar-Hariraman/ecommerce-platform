@@ -1,0 +1,85 @@
+name: Deploy AWS development
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ecommerce-aws-dev
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+      - run: npm ci && npm run typecheck && npm test && npm run build
+        working-directory: apps/api
+      - run: npm ci && npm run typecheck && npm test && npm run build
+        working-directory: apps/web
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/release/platform-readiness'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ap-south-1
+      PUBLIC_ORIGIN: ${{ vars.AWS_STOREFRONT_ORIGIN }}
+      AUTH_ORIGIN: ${{ vars.AWS_AUTH_ORIGIN }}
+      API_ORIGIN: ${{ vars.AWS_API_ORIGIN }}
+      REGISTRY: 201943655840.dkr.ecr.ap-south-1.amazonaws.com
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require configured exact HTTPS origin
+        run: |
+          for origin in "$PUBLIC_ORIGIN" "$AUTH_ORIGIN" "$API_ORIGIN"; do
+            test -n "$origin" && test "${origin#https://}" != "$origin" || exit 1
+          done
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::201943655840:role/ecommerce-dev-github-deploy
+          aws-region: ap-south-1
+          allowed-account-ids: '201943655840'
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push API
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/api
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/ecommerce-api:${{ github.sha }}
+      - name: Build and push Keycloak
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/aws/keycloak/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/ecommerce-keycloak:${{ github.sha }}
+      - name: Build and push storefront
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/ecommerce-web:${{ github.sha }}
+          build-args: |
+            VITE_KEYCLOAK_URL=${{ env.AUTH_ORIGIN }}/auth
+            API_UPSTREAM=http://127.0.0.1:3000
+            API_HOST=localhost
+      - name: Migrate, check exit code, deploy and wait
+        run: python3 infra/aws/scripts/deploy-release.py "$GITHUB_SHA"
+      - name: Smoke API and storefront
+        run: |
+          curl --fail --retry 3 "$API_ORIGIN/health"
+          curl --fail --retry 3 "$API_ORIGIN/ready"
+          curl --fail --retry 3 "$PUBLIC_ORIGIN/api/v1/storefront/products"
+          curl --fail --retry 3 "$PUBLIC_ORIGIN/"

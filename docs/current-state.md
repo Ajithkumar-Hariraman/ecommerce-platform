@@ -309,3 +309,117 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
 - Production prerequisites remain Keycloak HTTPS + SMTP + Verify Email ON, plus the separately documented cloud connectivity/deployment requirements. This repair does not certify production email verification or deploy infrastructure.
 - Final verification: 29 focused backend and five frontend tests passed; relevant real-database integration checks passed 28 with one opt-in live GCS check skipped. The broad fast suite ran once and passed all 199 tests. Backend/frontend typecheck and builds passed. Live GCS was not rerun and no temporary IAM grant was restored.
 - Administrative repair used the [Keycloak 26.7.4 Admin REST API](https://www.keycloak.org/docs-api/26.7.4/rest-api/index.html); credentials stayed in ignored local configuration and request memory, never in tracked files or output.
+
+## Fresh AWS deployment — in progress (2026-11-09)
+
+- Strategy supersedes GCP recovery: fresh AWS data only, existing application source,
+  no restoration, export, rollback, dual write or GCP cutover. No Git push authorized.
+- Verified cloudops account 201943655840, ap-south-1. Existing frontend/auth working
+  changes were preserved. AWS infrastructure is under infra/aws; GCP files remain.
+- Applied dedicated encrypted/versioned/private S3 state with S3 lockfiles; two-AZ
+  VPC, public task/private data subnets and separate workload security groups;
+  immutable dedicated ECR repositories; ECS cluster; private PostgreSQL 16.14
+  db.t4g.micro with seven-day backups/deletion protection/required TLS; private
+  Valkey 8.2 cache.t4g.micro with required TLS/auth/encryption; private versioned
+  product/document S3; SNS/raw SQS/source queue/DLQ; per-task logs; workload IAM;
+  exact repository/branch GitHub OIDC; ALB; eight CloudWatch alarms and dashboard.
+- AWS rejected temporary CloudFront HTTPS with account-verification 403. This is
+  BLOCKED MANUAL ACTION: contact AWS Support or supply usable domain/certificate.
+  No trusted public storefront/API/Keycloak URL or browser checkout is certified.
+- Built and pushed API/web/Keycloak Linux AMD64 images with immutable source tags.
+  No unrelated ECR repository was changed. Local code remains uncommitted/unpushed.
+- Added S3 adapters (opaque VersionId retained in historical generation field,
+  create-only signatures, bounded validation/read, private idempotent PDFs),
+  SNS/SQS adapters, verified RDS CA configuration, request IDs, and additive 012
+  SNS failure-category migration. Existing migrations were not modified.
+- Observed backend typecheck/build and 213 fast tests passing; frontend typecheck,
+  tests/build and all three Docker builds passed. Live S3 upload/overwrite/version/
+  read/PDF checks passed with owned-version cleanup. Real ecommerce_test outbox ->
+  AWS SNS/SQS -> duplicate durable notification processing passed using an owned
+  schema. These checks do not certify deployed ECS checkout.
+- Full integration run: 57 passed, nine failed, 13 skipped. Missing Mongo test
+  configuration blocks historical multi-provider suites; one runtime test inherited
+  local Mongo selection. No GCP recovery was attempted to satisfy old tests.
+- Fresh RDS bootstrap created all three roles and both databases; read-only ECS
+  probe confirmed ssl=true. Initial bootstrap then failed during ownership/grants;
+  the migration-role session fix passed in a new immutable image. Bootstrap and
+  migration/seed RunTasks both exited 0. Temporary bootstrap execution access was
+  removed and its task definition deregistered. Both background services stabilized
+  at desired/running 1 with deployment COMPLETED. An independent ECS probe passed
+  verified RDS TLS, runtime schema-creation denial, the INR 799 seed and authenticated
+  TLS Valkey PING/GET/SET EX/DEL/INCR/TTL/EXPIRE/Lua EVAL.
+- Razorpay Test Mode configuration was validated and copied to named AWS secrets
+  without value output. Dashboard configuration/captured checkout remain manual/
+  unverified. SMTP credentials are unavailable; durable notifications are independent.
+- AWS runbook, architecture and interview guide describe the implemented foundation
+  and remaining gates. No AWS E2E, portfolio-complete or remote-CI claim is made.
+
+- Additional live AWS failure verification passed: the owned poison event was
+  delivered five times, forwarded to the real DLQ, repaired and replayed into one
+  ecommerce_test notification, then removed. No queue-wide purge/redrive occurred.
+- Latest release: 5964dc48fd39-069cc14767bb. CloudWatch worker logs are structured
+  JSON. Public web/API/Keycloak services are not started; no HTTPS URL exists.
+  Native browser identity/checkout, real captured Razorpay payment and runtime
+  S3/cache HTTP behavior remain unverified. Remaining final hardening/CI/browser
+  checks must not be marked PASS from the foundation or local tests.
+
+- Hardening follow-up: compatible dependency patches removed the two high findings;
+  two moderate gaxios/uuid findings remain in the retained Google adapter chain.
+  Added migration 013 to revoke runtime writes to migration checksum history.
+  Fast tests passed 213/213 after patches. Configured local integration run passed
+  88 with zero failures and 12 explicit opt-in skips, using ecommerce_test only.
+  Startup test now explicitly selects PostgreSQL and disables unrelated external
+  adapters; historical GCS/Mailpit test is opt-in and was not invoked. Separate
+  live AWS adapter/DLQ checks above remain the evidence for AWS transports/storage.
+
+- Patched release was gated by successful AWS migration 013, then rolled to both
+  workers. The updated verification task exited 0, including a check that runtime
+  cannot UPDATE schema_migrations. Stopped-task EventBridge delivery to the new
+  seven-day log group was observed; nonzero essential-container exits have a ninth
+  console alarm. No external alarm recipient is configured.
+
+- Actual ECS transport verification passed with one temporary owned synthetic
+  event: deployed relay -> SNS -> SQS -> deployed notification worker -> one RDS
+  notification, with processed and duplicate outcomes observed in worker logs.
+  The fixture outbox/notification rows were cleaned. This is not payment/browser
+  E2E. Final full Terraform plan: eight additions remaining, zero changes/deletions,
+  covering the blocked HTTPS edge, public task definitions/services and exact CORS.
+
+## AWS ALB deployment continuation (2026-11-09)
+
+- Supersedes the previous eight-addition/public-service blocker: CloudFront is
+  optional and disabled. Web/API/Keycloak and both workers are now deployed,
+  each desired/running 1/1 with completed deployment; all three ALB targets healthy.
+- Release 5964dc48fd39-46653dc516c9; Keycloak 26.7.4 builds /auth into its optimized image,
+  imports a fresh ecommerce realm, uses verified RDS TLS and pool max 5.
+  Management readiness is restricted to ALB port 9000.
+- API OIDC discovery is deferred and fails closed for protected requests; missing
+  final issuer availability no longer prevents health/public catalog startup.
+  Gated health/ready/catalog and SPA fallback checks passed. Seed is INR 799.
+  Live missing/invalid bearer tokens and invalid Razorpay HMAC were rejected (401).
+- No user-owned domain found in Route53 registration/zones, regional ACM or project
+  configuration. PUBLIC HTTPS: BLOCKED MANUAL ACTION — DOMAIN OR CLOUDFRONT ACCOUNT
+  VERIFICATION REQUIRED. ACM/DNS/443 host routing/redirect code is prepared.
+  This is not a usable public HTTPS endpoint. CloudFront is not a core completion gate.
+- Live API-role ECS S3 versioned PUT/GET and authenticated Razorpay Test Mode HTTPS
+  GET passed; no payment/order was created. Owned S3 versions cleaned. Independent
+  RDS TLS/permissions and Valkey command probe exited 0. Repeated deployed synthetic
+  relay/SNS/SQS/worker duplicate replay persisted exactly one notification; fixture
+  cleaned. This is not browser payment E2E.
+- Backend typecheck/build and 215 fast tests pass; integration 88 pass/12 explicit
+  skips, ecommerce_test only. Frontend typecheck/tests/build and Docker builds pass.
+  Terraform fmt-check/validate pass; final full plan no changes, zero deletes.
+- Browser auth, captured Razorpay checkout, payment-originated PAID/outbox flow,
+  browser S3/revision/PDF and cache mutation certification remain pending HTTPS.
+  Checkpoint commit/push is now authorized; the AWS workflow remains manual-only
+  and remote deployment certification requires final URLs and separate dispatch.
+  GCP cleanup is deliberately deferred until full AWS application E2E passes.
+- Six requested docs updated; see aws-status.md for the complete matrix and scoring:
+  implementation 90/100; live certification 60/100. AWS migration is not complete.
+
+## AWS checkpoint Git authorization (2026-11-09)
+
+- User authorized committing and pushing this verified checkpoint on
+  release/platform-readiness. Earlier no-push notes record historical boundaries.
+- AWS is the active migration target; GCP is legacy with cleanup intentionally
+  pending final AWS application E2E. No manual AWS deployment is requested.

@@ -64,3 +64,7 @@ These explain earlier stages; current setup and state supersede historical comma
 Architecture decisions:
 [PostgreSQL/raw SQL](docs/decisions/001-postgresql-raw-sql.md) ·
 [Modular monolith](docs/decisions/002-modular-monolith.md).
+
+## Fresh AWS deployment — in progress
+
+The new AWS environment uses the existing application source and fresh data; no GCP recovery or data migration is planned. See [AWS architecture](docs/aws-architecture.md), [deployment/status gates](docs/aws-deployment.md), and [interview guide](docs/aws-interview-guide.md). CloudFront is optional and disabled. ALB + ACM is the prepared HTTPS path; no owned domain was found, so trusted public HTTPS remains a manual boundary. Web/API are deployed behind gated ALB routing. Public checkout and browser E2E are not certified. Existing GCP files remain until AWS E2E passes.

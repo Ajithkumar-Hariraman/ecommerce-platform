@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import { loadEnvFile } from "node:process";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 // Only this config layer reads application environment or loads local .env.
 let loaded = false;
@@ -28,6 +29,7 @@ export interface DatabaseConfig {
   database: string;
   user: string;
   password: string;
+  ssl?: { ca: string; rejectUnauthorized: true };
 }
 function port(value: string, label: string): number {
   if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 65535) {
@@ -62,6 +64,19 @@ export function loadDatabaseConfig(target: "application" | "test" = "application
       : (process.env.DB_NAME ?? (production ? "" : "ecommerce_dev"));
   const user = process.env.DB_USER ?? (production ? "" : "ecommerce_app");
   const password = process.env.DB_PASSWORD ?? "";
+  const tls = process.env.DB_TLS ?? "false";
+  if (tls !== "true" && tls !== "false") throw new Error("DB_TLS must be true or false");
+  // RDS certificate validation requires both a trusted CA and the actual RDS hostname.
+  if (production && /\.rds\.amazonaws\.com(?:\.cn)?$/.test(host) && tls !== "true")
+    throw new Error("RDS requires DB_TLS=true");
+  let ssl: DatabaseConfig["ssl"];
+  if (tls === "true") {
+    const caPath = process.env.DB_TLS_CA_FILE;
+    if (!caPath) throw new Error("DB_TLS_CA_FILE is required with DB_TLS=true");
+    const ca = readFileSync(caPath, "utf8");
+    if (!ca.includes("-----BEGIN CERTIFICATE-----")) throw new Error("Invalid DB TLS CA bundle");
+    ssl = { ca, rejectUnauthorized: true };
+  }
   if (
     !host.trim() ||
     /\s/.test(host) ||
@@ -83,6 +98,7 @@ export function loadDatabaseConfig(target: "application" | "test" = "application
     database,
     user,
     password,
+    ...(ssl ? { ssl } : {}),
   };
 }
 
@@ -215,7 +231,11 @@ export function loadAuthConfig(): AuthConfig {
     throw new Error("Valid OIDC_ISSUER and OIDC_AUDIENCE are required");
   }
   const discoveryTimeoutMs = Number(process.env.OIDC_DISCOVERY_TIMEOUT_MS ?? "5000");
-  if (!Number.isSafeInteger(discoveryTimeoutMs) || discoveryTimeoutMs < 1000 || discoveryTimeoutMs > 120000)
+  if (
+    !Number.isSafeInteger(discoveryTimeoutMs) ||
+    discoveryTimeoutMs < 1000 ||
+    discoveryTimeoutMs > 120000
+  )
     throw new Error("OIDC_DISCOVERY_TIMEOUT_MS must be 1000..120000 milliseconds");
   return { enabled: true, issuer, audience, discoveryTimeoutMs };
 }
@@ -345,8 +365,28 @@ export function loadDocsConfig(): boolean {
 export function loadEventTransportConfig() {
   loadLocalEnv();
   const transport = process.env.EVENT_TRANSPORT ?? "kafka";
+  if (transport === "sns-sqs") {
+    const region = process.env.AWS_REGION ?? "ap-south-1";
+    const topicArn = process.env.SNS_ORDER_TOPIC_ARN ?? "";
+    const queueUrl = process.env.SQS_ORDER_QUEUE_URL ?? "";
+    if (
+      !/^[a-z]{2}-[a-z]+-\d$/.test(region) ||
+      !new RegExp(`^arn:aws:sns:${region}:\\d{12}:[A-Za-z0-9_-]+$`).test(topicArn) ||
+      !new RegExp(`^https://sqs\\.${region}\\.amazonaws\\.com/\\d{12}/[A-Za-z0-9_-]+$`).test(
+        queueUrl,
+      )
+    )
+      throw new Error("Valid AWS region, SNS topic ARN and SQS queue URL required");
+    if (
+      loadEnv().nodeEnv === "test" &&
+      (!topicArn.split(":").at(-1)?.startsWith("test-") ||
+        !queueUrl.split("/").at(-1)?.startsWith("test-"))
+    )
+      throw new Error("AWS event tests require test-owned resources");
+    return { transport, region, topicArn, queueUrl } as const;
+  }
   if (transport === "kafka") return { transport } as const;
-  if (transport !== "pubsub") throw new Error("EVENT_TRANSPORT must be kafka or pubsub");
+  if (transport !== "pubsub") throw new Error("EVENT_TRANSPORT must be kafka, pubsub or sns-sqs");
   const projectId = process.env.GOOGLE_CLOUD_PROJECT ?? "";
   const region = process.env.GOOGLE_CLOUD_REGION ?? "asia-south1";
   const topic = process.env.PUBSUB_ORDER_TOPIC ?? "ecommerce-order-events";
@@ -369,6 +409,23 @@ export function loadProductImageConfig() {
   loadLocalEnv();
   const bucket = process.env.PRODUCT_ASSET_BUCKET ?? "";
   if (!bucket) return undefined;
+  const provider = loadCloudProvider();
+  if (provider === "aws") {
+    const ttlSeconds = Number(process.env.PRODUCT_ASSET_URL_TTL_SECONDS ?? "300");
+    if (
+      !/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket) ||
+      !Number.isSafeInteger(ttlSeconds) ||
+      ttlSeconds < 60 ||
+      ttlSeconds > 900
+    )
+      throw new Error("Invalid AWS product asset configuration");
+    return {
+      provider,
+      bucket,
+      ttlSeconds,
+      region: process.env.AWS_REGION ?? "ap-south-1",
+    } as const;
+  }
   const projectId = process.env.GOOGLE_CLOUD_PROJECT ?? "";
   const signerServiceAccount = process.env.PRODUCT_ASSET_SIGNER_SERVICE_ACCOUNT ?? "";
   if (
@@ -380,7 +437,14 @@ export function loadProductImageConfig() {
   const ttl = Number(process.env.PRODUCT_ASSET_URL_TTL_SECONDS ?? "300");
   if (!Number.isSafeInteger(ttl) || ttl < 60 || ttl > 900)
     throw new Error("Product asset URL TTL must be 60..900 seconds");
-  return { bucket, projectId, signerServiceAccount, ttlSeconds: ttl };
+  return { provider, bucket, projectId, signerServiceAccount, ttlSeconds: ttl } as const;
+}
+
+export function loadCloudProvider(): "aws" | "gcp" {
+  loadLocalEnv();
+  const provider = process.env.CLOUD_PROVIDER ?? "gcp";
+  if (provider !== "aws" && provider !== "gcp") throw new Error("Invalid CLOUD_PROVIDER");
+  return provider;
 }
 
 export function loadPostPurchaseConfig() {
@@ -424,4 +488,14 @@ export function loadPostPurchaseConfig() {
     merchant,
     projectId: process.env.GOOGLE_CLOUD_PROJECT ?? "",
   };
+}
+
+export function loadAwsDatabaseBootstrapConfig() {
+  loadLocalEnv();
+  const runtimePassword = process.env.RUNTIME_DB_PASSWORD ?? "";
+  const migrationPassword = process.env.MIGRATION_DB_PASSWORD ?? "";
+  const keycloakPassword = process.env.KEYCLOAK_DB_PASSWORD ?? "";
+  if ([runtimePassword, migrationPassword, keycloakPassword].some((value) => value.length < 32))
+    throw new Error("Fresh AWS database role passwords are required");
+  return { runtimePassword, migrationPassword, keycloakPassword };
 }

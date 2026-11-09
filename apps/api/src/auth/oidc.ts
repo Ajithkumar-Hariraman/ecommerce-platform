@@ -96,3 +96,24 @@ export async function createOidcVerifier(config: EnabledAuthConfig): Promise<Tok
     throw new Error("OIDC discovery failed; verify identity provider configuration");
   }
 }
+
+// Discovery failure must deny authentication, but need not stop public catalog/liveness.
+// Share concurrent discovery and retry after an outage without relaxing JWT checks.
+export function createDeferredOidcVerifier(
+  config: EnabledAuthConfig,
+  discover: typeof createOidcVerifier = createOidcVerifier,
+): TokenVerifier {
+  let pending: Promise<TokenVerifier> | undefined;
+  let retryAfter = 0;
+  return async (token) => {
+    if (!pending) {
+      if (Date.now() < retryAfter) throw new Error("OIDC discovery temporarily unavailable");
+      pending = discover(config).catch((error: unknown) => {
+        pending = undefined;
+        retryAfter = Date.now() + 5000;
+        throw error;
+      });
+    }
+    return (await pending)(token);
+  };
+}

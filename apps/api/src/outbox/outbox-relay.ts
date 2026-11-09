@@ -14,7 +14,12 @@ export class OutboxRelay {
       // Claim just in time: later batch members cannot exhaust their lease waiting for earlier sends.
       const claim = (await this.repository.claimBatch({ ...this.options, batchSize: 1 }))[0];
       if (!claim) break;
-      let category: "INVALID_EVENT" | "KAFKA_UNAVAILABLE" | "PUBSUB_UNAVAILABLE" | undefined;
+      let category:
+        | "INVALID_EVENT"
+        | "KAFKA_UNAVAILABLE"
+        | "PUBSUB_UNAVAILABLE"
+        | "SNS_UNAVAILABLE"
+        | undefined;
       const parsed = orderPaidSchema.safeParse(claim.event);
       if (!parsed.success) category = "INVALID_EVENT";
       else {

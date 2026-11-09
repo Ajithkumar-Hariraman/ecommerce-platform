@@ -36,7 +36,7 @@ async function until(check: () => Promise<boolean>, label: string) {
 for (const mode of ["postgres", "mongodb"] as const)
   test(
     `real ${mode}: private GCS PDFs, owner notifications, Kafka and Mailpit exactly one normal delivery`,
-    { timeout: 90000 },
+    { timeout: 90000, skip: process.env.GCS_POST_PURCHASE_INTEGRATION !== "true" },
     async () => {
       loadEnv();
       const saved = { ...process.env };

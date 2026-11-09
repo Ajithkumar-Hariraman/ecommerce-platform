@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import { initializationFailureCategory, initializationTimeout } from "./SessionNotice";
 import { profileFromClaims, safeReturnPath } from "./access";
 import Keycloak from "keycloak-js";
 import { useSyncExternalStore } from "react";
@@ -12,6 +13,7 @@ const redirectUri = () => window.location.origin + window.location.pathname;
 const returnUri = (path: string) => window.location.origin + safeReturnPath(path);
 type Session = {
   ready: boolean;
+  unavailable: boolean;
   authenticated: boolean;
   username: string;
   error: string;
@@ -23,6 +25,7 @@ type Session = {
 };
 let session: Session = {
   ready: false,
+  unavailable: false,
   authenticated: false,
   username: "",
   roles: [],
@@ -32,10 +35,12 @@ let session: Session = {
   emailVerified: null,
   error: "",
 };
+let initializationFailed = false;
 const listeners = new Set<() => void>();
 function publish(error = "") {
   session = {
     ready: true,
+    unavailable: initializationFailed,
     authenticated: !!keycloak.authenticated,
     ...profileFromClaims(keycloak.idTokenParsed ?? keycloak.tokenParsed),
     roles: (keycloak.tokenParsed?.resource_access?.["ecommerce-api"]?.roles ?? []).filter(
@@ -59,17 +64,29 @@ keycloak.onTokenExpired = () => {
 let initialization: Promise<void> | undefined;
 export function initializeSession(): Promise<void> {
   // One initialization across React StrictMode mounts; tokens remain in adapter memory.
-  return (initialization ??= keycloak
-    .init({
-      onLoad: "check-sso",
-      flow: "standard",
-      pkceMethod: "S256",
-      redirectUri: redirectUri(),
-    })
+  return (initialization ??= Promise.resolve()
+    .then(() =>
+      keycloak.init({
+        onLoad: "check-sso",
+        flow: "standard",
+        pkceMethod: "S256",
+        messageReceiveTimeout: initializationTimeout(
+          import.meta.env?.VITE_KEYCLOAK_MESSAGE_TIMEOUT_MS,
+        ),
+        redirectUri: redirectUri(),
+      }),
+    )
     .then(() => publish())
-    .catch(() =>
-      publish("Login initialization failed. Check the Keycloak SPA client, then reload."),
-    ));
+    .catch((error: unknown) => {
+      initializationFailed = true;
+      keycloak.clearToken();
+      console.warn("Account provider initialization failed", {
+        category: initializationFailureCategory(error),
+      });
+      publish(
+        "Sign-in is temporarily unavailable. You can still browse and use your cart. Reload to try again.",
+      );
+    }));
 }
 export function useSession() {
   return useSyncExternalStore(
@@ -83,6 +100,8 @@ export function useSession() {
   );
 }
 export async function login(returnTo = window.location.pathname + window.location.search) {
+  await initializeSession();
+  if (initializationFailed) return;
   try {
     await keycloak.login({ redirectUri: returnUri(returnTo) });
   } catch {
@@ -90,11 +109,14 @@ export async function login(returnTo = window.location.pathname + window.locatio
   }
 }
 export async function logout() {
-  // Construct the URL before clearing the ID token used for the logout hint.
-  const url = await keycloak.createLogoutUrl({ redirectUri: window.location.origin + "/" });
-  keycloak.clearToken();
-  publish();
-  window.location.assign(url);
+  try {
+    // Let the adapter submit the ID-token hint before clearing local tokens.
+    await keycloak.logout({ redirectUri: window.location.origin + "/", logoutMethod: "POST" });
+    keycloak.clearToken();
+    publish();
+  } catch {
+    publish("Unable to complete secure sign-out. Please try again.");
+  }
 }
 export async function accessToken(forceRefresh = false): Promise<string> {
   if (!session.authenticated) {
@@ -128,6 +150,8 @@ export async function accessToken(forceRefresh = false): Promise<string> {
 }
 
 export async function register(returnTo = "/account") {
+  await initializeSession();
+  if (initializationFailed) return;
   try {
     await keycloak.register({ redirectUri: returnUri(returnTo) });
   } catch {
@@ -135,6 +159,8 @@ export async function register(returnTo = "/account") {
   }
 }
 export async function forgotPassword() {
+  await initializeSession();
+  if (initializationFailed) return;
   // Keycloak's login page owns the native Forgot password flow and reset tokens.
   try {
     await keycloak.login({ redirectUri: returnUri("/account"), prompt: "login" });
