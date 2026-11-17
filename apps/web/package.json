@@ -8,7 +8,9 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --import tsx --test test/*.test.tsx"
+    "test": "node --import tsx --test test/*.test.tsx",
+    "test:e2e": "node test/e2e/local-shopping.mjs",
+    "test:e2e:checkout": "node test/e2e/local-checkout.mjs"
   },
   "dependencies": {
     "keycloak-js": "^26.2.4",
@@ -20,6 +22,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "playwright": "^1.65.1",
     "prettier": "^3.9.9",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",

@@ -1,6 +1,7 @@
+import { SimulatorActions } from "./SimulatorActions";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ordersApi, type Order } from "../../api/orders";
+import { ordersApi, type Order, type CheckoutConfig } from "../../api/orders";
 import { ApiError, errorMessage, request } from "../../api/http";
 import { useCart } from "../../commerce/CartProvider";
 import { cartSubtotal, money, retainedOrderId, statusLabel } from "../../commerce/cart";
@@ -59,6 +60,21 @@ export function CheckoutSection() {
   const cart = useCart();
   const [query, setQuery] = useSearchParams();
   const resumeId = query.get("order");
+  const [config, setConfig] = useState<CheckoutConfig>();
+  const [configError, setConfigError] = useState("");
+  const actionInProgress = useRef(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void ordersApi
+      .checkoutConfig(controller.signal)
+      .then((value) => {
+        if (!controller.signal.aborted) setConfig(value);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setConfigError(errorMessage(e));
+      });
+    return () => controller.abort();
+  }, []);
   const [order, setOrder] = useState<Order | null>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(!!resumeId),
@@ -78,7 +94,15 @@ export function CheckoutSection() {
     };
   }, []);
   useEffect(() => {
-    if (!resumeId) { setOrder(null); setLoading(false); return; }
+    if (!resumeId) {
+      setOrder(null);
+      setLoading(false);
+      return;
+    }
+    if (order?.id === resumeId) {
+      setLoading(false);
+      return;
+    }
     setOrder(null);
     const controller = new AbortController();
     setLoading(true);
@@ -106,6 +130,50 @@ export function CheckoutSection() {
       cart.purchased(order.items);
     }
   }, [order, cart]);
+  useEffect(() => {
+    if (!order || order.status !== "PAYMENT_PENDING") return;
+    const controller = new AbortController();
+    const timer = setInterval(() => {
+      void ordersApi
+        .get(order.id, controller.signal)
+        .then((value) => {
+          if (!controller.signal.aborted) setOrder(value);
+        })
+        .catch(() => {});
+    }, 2500);
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [order?.id, order?.status]);
+  async function simulate(outcome: "succeed" | "fail") {
+    if (!order || !config?.simulationEnabled || actionInProgress.current) return;
+    actionInProgress.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const value = await ordersApi.simulate(order.id, outcome);
+      if (mounted.current) {
+        setOrder(value);
+        setNotice(
+          value.status === "PAID"
+            ? "Your simulated payment is confirmed. No money was charged."
+            : value.status === "PAYMENT_FAILED"
+              ? "Simulation finished with a failed payment. No money was charged."
+              : "Waiting for the simulator confirmation. Refresh this order before retrying.",
+        );
+      }
+    } catch (e) {
+      if (mounted.current) {
+        await refresh(order.id);
+        setError(errorMessage(e));
+      }
+    } finally {
+      actionInProgress.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
   const currentItems = order?.items ?? cart.items;
   const total = order?.totalInMinorUnits ?? cartSubtotal(cart.items);
   async function refresh(id = order?.id) {
@@ -119,6 +187,8 @@ export function CheckoutSection() {
     }
   }
   async function pay(id: string) {
+    if (config?.provider !== "razorpay")
+      throw new Error("Razorpay is not configured for this checkout");
     const details = await request<Checkout>(`/orders/${id}/checkout`, { method: "POST" });
     await loadCheckout();
     if (!mounted.current) return;
@@ -188,6 +258,13 @@ export function CheckoutSection() {
     popup.open();
   }
   async function begin() {
+    if (
+      !config ||
+      actionInProgress.current ||
+      (config.provider === "local" && !config.simulationEnabled)
+    )
+      return;
+    actionInProgress.current = true;
     setBusy(true);
     setError("");
     setNotice("");
@@ -205,7 +282,14 @@ export function CheckoutSection() {
         setBusy(false);
         return;
       }
-      await pay(value.id);
+      if (config.provider === "local") {
+        setNotice(
+          value.status === "PAYMENT_FAILED"
+            ? "This simulation has finished. Start a new order to try another payment."
+            : "Order saved. Choose a simulated payment outcome below; no money will be charged.",
+        );
+        setBusy(false);
+      } else await pay(value.id);
     } catch (e) {
       if (!mounted.current) return;
       const retained = e instanceof Error ? retainedOrderId(e.message) : undefined;
@@ -216,6 +300,8 @@ export function CheckoutSection() {
           : errorMessage(e),
       );
       setBusy(false);
+    } finally {
+      actionInProgress.current = false;
     }
   }
   if (loading)
@@ -262,6 +348,7 @@ export function CheckoutSection() {
           <ul className="cart-lines">
             {currentItems.map((item, index) => {
               const name =
+                ("name" in item ? item.name : undefined) ??
                 cart.items.find((line) => line.productId === item.productId)?.name ??
                 "Purchased product";
               return (
@@ -273,10 +360,13 @@ export function CheckoutSection() {
             })}
           </ul>
           <p className="muted">
-            You’ll complete payment securely with Razorpay. Final prices are confirmed by the
-            server.
+            {config?.provider === "local"
+              ? "Local payment simulation. No money is charged."
+              : config?.provider === "razorpay"
+                ? "You’ll complete payment securely with Razorpay."
+                : "Loading payment options…"}{" "}
+            Final prices are confirmed by the server.
           </p>
-          <small className="muted">Sandbox checkout: no live money is charged.</small>
         </section>
         <aside className="panel order-summary">
           <h2>{order?.status === "PAID" ? "Payment confirmed" : "Order summary"}</h2>
@@ -284,14 +374,48 @@ export function CheckoutSection() {
             <span>{order ? "Total" : "Estimated subtotal"}</span>
             <strong>{total === null ? "Confirmed at checkout" : money(total)}</strong>
           </div>
-          {order && <p role="status">{statusLabel(order.status)}</p>}
+          {order && (
+            <p role="status">
+              {order.status === "PAYMENT_PENDING" && config?.provider === "local"
+                ? "Awaiting simulated payment"
+                : statusLabel(order.status)}
+            </p>
+          )}
+          {configError && <p role="alert">{configError}</p>}
+          {order && total !== null && total <= 0 && (
+            <p role="alert">
+              Saved order pricing needs repair before payment. Your order has been retained.
+            </p>
+          )}
+          {config?.provider === "local" && !config.simulationEnabled && (
+            <p role="alert">Local simulation is unavailable in this environment.</p>
+          )}
           {order?.status === "PAID" ? (
             <Link className="button-link" to={"/orders/" + order.id}>
               View your order
             </Link>
+          ) : config?.provider === "local" &&
+            order &&
+            ["PAYMENT_PENDING", "PAYMENT_FAILED"].includes(order.status) ? (
+            <SimulatorActions
+              status={order.status}
+              busy={busy || !config.simulationEnabled || total === null || total <= 0}
+              onOutcome={(outcome) => void simulate(outcome)}
+            />
           ) : (
-            <button disabled={busy} onClick={() => void begin()}>
-              {busy ? "Processing…" : order ? "Continue payment" : "Place order & pay"}
+            <button
+              disabled={
+                busy || !config || (config.provider === "local" && !config.simulationEnabled)
+              }
+              onClick={() => void begin()}
+            >
+              {busy
+                ? "Processing…"
+                : order
+                  ? "Continue payment"
+                  : config?.provider === "local"
+                    ? "Place order & simulate payment"
+                    : "Place order & pay"}
             </button>
           )}
           {order && (

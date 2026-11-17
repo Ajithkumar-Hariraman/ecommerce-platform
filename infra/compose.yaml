@@ -13,7 +13,8 @@ x-api-environment: &api-environment
   REDIS_URL: redis://redis-cache:6379
   AUTH_ENABLED: "true"
   OIDC_ALLOW_HTTP: "true"
-  OIDC_ISSUER: http://keycloak:8080/realms/ecommerce
+  OIDC_ISSUER: http://127.0.0.1:8180/realms/ecommerce
+  OIDC_BACKCHANNEL_URL: http://keycloak:8080
   OIDC_AUDIENCE: ecommerce-api
   PAYMENT_PROVIDER_BASE_URL: http://payment-provider:4100
   PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:?Set webhook secret}
@@ -199,6 +200,7 @@ services:
       - "127.0.0.1:8180:8080"
       - "127.0.0.1:9190:9000"
     environment:
+      KC_HOSTNAME: http://127.0.0.1:8180
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:?Set local admin username}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?Set local admin password}
       ECOMMERCE_READER_CLIENT_SECRET: ${ECOMMERCE_READER_CLIENT_SECRET:?Set reader client secret}

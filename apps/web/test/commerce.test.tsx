@@ -88,3 +88,28 @@ test("notifications route renders customer-facing heading and accessible loading
   assert.match(html, /Loading notifications/);
   assert.doesNotMatch(html, /Kafka|GCS|JWT subject/);
 });
+
+test("home account CTA follows session readiness, customer/admin login and logout", async () => {
+  const { HomeAccountCallout } = await import("../src/commerce/Storefront");
+  const render = (ready: boolean, authenticated: boolean, unavailable = false) =>
+    renderToStaticMarkup(
+      <MemoryRouter>
+        <HomeAccountCallout session={{ ready, authenticated, unavailable }} />
+      </MemoryRouter>,
+    );
+  assert.match(render(false, false), /Checking your session/);
+  assert.doesNotMatch(render(false, false), /Create an account|Sign in/);
+  for (const authenticated of [false, true, false]) {
+    const html = render(true, authenticated);
+    if (authenticated) {
+      assert.match(html, /Continue shopping/);
+      assert.match(html, /href="\/orders"/);
+      assert.doesNotMatch(html, /Create an account|\/register|\/login/);
+    } else {
+      assert.match(html, /href="\/register"/);
+      assert.match(html, /href="\/login"/);
+    }
+  }
+  assert.match(render(true, false, true), /temporarily unavailable/);
+  assert.doesNotMatch(render(true, false, true), /\/register/);
+});

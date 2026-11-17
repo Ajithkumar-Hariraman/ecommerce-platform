@@ -17,3 +17,12 @@ export function profileFromClaims(claims: Record<string, unknown> | undefined) {
     emailVerified: typeof claims?.email_verified === "boolean" ? claims.email_verified : null,
   };
 }
+
+// Preserve application query state across check-sso without retaining OAuth callback fields.
+export function sessionReturnPath(pathname: string, search: string) {
+  const query = new URLSearchParams(search);
+  for (const key of ["code", "state", "session_state", "iss", "error", "error_description"])
+    query.delete(key);
+  const suffix = query.toString();
+  return safeReturnPath(pathname + (suffix ? "?" + suffix : ""));
+}

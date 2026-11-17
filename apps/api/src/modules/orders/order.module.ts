@@ -8,7 +8,7 @@ import { createOrderRouter } from "./order.routes.js";
 export function createOrderModule(
   repository: OrderRepository,
   paymentClient: PaymentClient,
-  products?: ProductRepository,
+  products: ProductRepository,
 ) {
   return createOrderRouter(
     new OrderController(new OrderService(repository, paymentClient, products)),

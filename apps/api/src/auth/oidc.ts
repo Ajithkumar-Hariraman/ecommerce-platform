@@ -66,11 +66,24 @@ export function createJwtVerifier(config: EnabledAuthConfig, keys: JWTVerifyGetK
 }
 
 export async function createOidcVerifier(config: EnabledAuthConfig): Promise<TokenVerifier> {
+  // Rewrite only the origin of validated public URLs, never metadata trust claims.
+  const transportUrl = (publicUrl: URL): URL => {
+    const url = new URL(publicUrl);
+    if (config.backchannelUrl) {
+      const internal = new URL(config.backchannelUrl);
+      url.protocol = internal.protocol;
+      url.host = internal.host;
+    }
+    return url;
+  };
   try {
-    const response = await fetch(config.issuer + "/.well-known/openid-configuration", {
-      signal: AbortSignal.timeout(config.discoveryTimeoutMs ?? 5000),
-      redirect: "error",
-    });
+    const response = await fetch(
+      transportUrl(new URL(config.issuer + "/.well-known/openid-configuration")),
+      {
+        signal: AbortSignal.timeout(config.discoveryTimeoutMs ?? 5000),
+        redirect: "error",
+      },
+    );
     if (!response.ok) throw new Error();
     const metadata = (await response.json()) as {
       issuer?: unknown;
@@ -83,10 +96,11 @@ export async function createOidcVerifier(config: EnabledAuthConfig): Promise<Tok
       jwksUrl.origin !== new URL(config.issuer).origin ||
       jwksUrl.username ||
       jwksUrl.password ||
-      jwksUrl.hash
+      jwksUrl.hash ||
+      jwksUrl.search
     )
       throw new Error();
-    const keys = createRemoteJWKSet(jwksUrl, {
+    const keys = createRemoteJWKSet(transportUrl(jwksUrl), {
       timeoutDuration: 5000,
       cooldownDuration: 30000,
       cacheMaxAge: 600000,

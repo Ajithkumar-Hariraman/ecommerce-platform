@@ -1,3 +1,4 @@
+import { assertOrderPricing } from "../orders/order.service.js";
 import { assertOrderAccess } from "../orders/order-access.js";
 import { raw, Router } from "express";
 import { z } from "zod";
@@ -41,6 +42,7 @@ export function razorpayCheckoutRouter(gateway: RazorpayPaymentClient, orders: O
     assertOrderAccess(res.locals.principal, order);
     if (!["PAYMENT_PENDING", "PAYMENT_FAILED"].includes(order.status))
       throw new AppError(409, "Order cannot be checked out");
+    assertOrderPricing(order);
     res.json(await gateway.checkout(id.data));
   });
   router.post("/:id/checkout/verify", async (req, res) => {

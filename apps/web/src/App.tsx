@@ -121,7 +121,9 @@ function Layout() {
               {cart.items.reduce((sum, item) => sum + item.quantity, 0)}
             </span>
           </NavLink>
-          {session.authenticated ? (
+          {!session.ready ? (
+            <span role="status">Checking your session…</span>
+          ) : session.authenticated ? (
             <>
               <NavLink to="/orders">My orders</NavLink>
               <NavLink to="/account">My account</NavLink>
@@ -161,8 +163,18 @@ function Layout() {
         <p>Find your next everyday favourite.</p>
         <nav aria-label="Footer navigation">
           <Link to="/products">Shop</Link>
-          <Link to="/orders">My orders</Link>
-          <Link to="/account">My account</Link>
+          {session.ready &&
+            (session.authenticated ? (
+              <>
+                <Link to="/orders">My orders</Link>
+                <Link to="/account">My account</Link>
+              </>
+            ) : (
+              <>
+                <Link to="/login">Sign in</Link>
+                <Link to="/register">Create account</Link>
+              </>
+            ))}
         </nav>
         <small>Payments handled securely by Razorpay.</small>
       </footer>
@@ -179,6 +191,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="products" element={<ProductCatalog />} />
+          <Route path="shop" element={<ProductCatalog />} />
           <Route path="products/:id" element={<ProductDetails />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="login" element={<SignIn />} />

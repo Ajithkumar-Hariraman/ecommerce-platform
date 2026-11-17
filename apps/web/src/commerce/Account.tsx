@@ -13,6 +13,23 @@ export function SignIn({ registration = false }: { registration?: boolean }) {
   const session = useSession();
   const [query] = useSearchParams();
   const returnTo = safeReturnPath(query.get("returnTo") ?? (registration ? "/account" : "/"));
+  if (!session.ready)
+    return (
+      <p className="panel empty-state" role="status">
+        Checking your session…
+      </p>
+    );
+  if (session.authenticated)
+    return (
+      <section className="panel auth-card">
+        <h1>You’re signed in</h1>
+        <p>Continue shopping or manage your account.</p>
+        <Link className="button-link" to={returnTo}>
+          Continue
+        </Link>{" "}
+        <Link to="/account">My account</Link>
+      </section>
+    );
   return (
     <section className="panel auth-card">
       <span className="eyebrow">YOUR COMMERCE ACCOUNT</span>
@@ -30,7 +47,10 @@ export function SignIn({ registration = false }: { registration?: boolean }) {
           Continue
         </Link>
       ) : (
-        <button disabled={!session.ready || session.unavailable} onClick={() => void (registration ? register(returnTo) : login(returnTo))}>
+        <button
+          disabled={!session.ready || session.unavailable}
+          onClick={() => void (registration ? register(returnTo) : login(returnTo))}
+        >
           {registration ? "Create account" : "Sign in"}
         </button>
       )}
@@ -48,7 +68,11 @@ export function SignIn({ registration = false }: { registration?: boolean }) {
       <details>
         <summary>Forgot your password?</summary>
         <p>Continue to secure sign-in, then choose “Forgot password?” to request a reset email.</p>
-        <button className="subtle" disabled={!session.ready || session.unavailable} onClick={() => void forgotPassword()}>
+        <button
+          className="subtle"
+          disabled={!session.ready || session.unavailable}
+          onClick={() => void forgotPassword()}
+        >
           Continue to password recovery
         </button>
       </details>

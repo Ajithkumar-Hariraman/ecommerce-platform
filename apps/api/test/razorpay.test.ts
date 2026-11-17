@@ -106,14 +106,14 @@ test("Razorpay failed attempts may later settle; late failure never reverses PAI
   assert.equal(
     webhookAudit(
       { ...event, provider: "razorpay" },
-      { paymentId: event.paymentId, status: "PAYMENT_FAILED" },
+      { paymentId: event.paymentId, status: "PAYMENT_FAILED", totalInMinorUnits: 100 },
     )!.toStatus,
     "PAID",
   );
   assert.equal(
     webhookAudit(
       { ...event, provider: "razorpay", type: "payment.failed" },
-      { paymentId: event.paymentId, status: "PAID" },
+      { paymentId: event.paymentId, status: "PAID", totalInMinorUnits: 100 },
     ),
     null,
   );
@@ -122,6 +122,7 @@ test("Razorpay failed attempts may later settle; late failure never reverses PAI
       webhookAudit(event, {
         paymentId: event.paymentId,
         status: "PAYMENT_FAILED",
+        totalInMinorUnits: 100,
       }),
     { statusCode: 409 },
   );

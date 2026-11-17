@@ -136,6 +136,21 @@ for (const storage of ["postgres", "mongodb"] as const)
           401,
         );
       });
+      await t.test(
+        "checkout rejects excess stock including duplicate product lines before persisting",
+        async () => {
+          for (const items of [
+            [{ productId, quantity: 11, unitPriceInMinorUnits: 0 }],
+            [
+              { productId, quantity: 6, unitPriceInMinorUnits: 0 },
+              { productId, quantity: 5, unitPriceInMinorUnits: 0 },
+            ],
+          ])
+            assert.equal((await request("", alice, [], "POST", { items })).status, 409);
+          const listing = await request("", alice);
+          assert.equal((await listing.json()).pagination.total, 0);
+        },
+      );
       const created = await request("", alice, [], "POST", input);
       assert.equal(created.status, 201);
       const order = await created.json();

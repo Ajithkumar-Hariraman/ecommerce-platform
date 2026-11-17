@@ -47,6 +47,8 @@ test(
         HOST: "127.0.0.1",
         PORT: String(address.port),
         ORDER_STORAGE: "postgres",
+        BUSINESS_STORAGE: "postgres",
+        PAYMENT_PROVIDER: "local",
         AUTH_ENABLED: "true",
         OIDC_ISSUER: issuer,
         OIDC_AUDIENCE: "ecommerce-api",
@@ -92,19 +94,18 @@ test(
       assert.equal(created.status, 201);
       products.push((await created.json()).id);
       assert.equal((await call("/api/v1/orders/" + randomUUID(), tokens.reader)).status, 404);
-      assert.equal((await call("/api/v1/orders", tokens.reader, "POST", {})).status, 403);
+      assert.equal((await call("/api/v1/orders", tokens.reader, "POST", {})).status, 400);
       const response = await call("/api/v1/orders", tokens.manager, "POST", {
-        customerId: randomUUID(),
         items: [{ productId: products[0], quantity: 1, unitPriceInMinorUnits: 100 }],
       });
       assert.equal(response.status, 201);
       const order = await response.json();
       orders.push(order.id);
       assert.equal(order.status, "PAYMENT_PENDING");
-      assert.equal((await call(`/api/v1/orders/${order.id}`, tokens.reader)).status, 200);
+      assert.equal((await call(`/api/v1/orders/${order.id}`, tokens.reader)).status, 404);
       assert.equal(
         (await call(`/api/v1/orders/${order.id}/payment`, tokens.reader, "POST", {})).status,
-        403,
+        404,
       );
       // Provider supplies no Bearer token; HMAC is its only authentication.
       const delivered = await fetch(provider.baseUrl + `/payments/${order.paymentId}/succeed`, {
@@ -113,7 +114,7 @@ test(
       assert.equal(delivered.status, 200);
       events.push((await delivered.json()).eventId);
       assert.equal(
-        (await call(`/api/v1/orders/${order.id}`, tokens.reader).then((r) => r.json())).status,
+        (await call(`/api/v1/orders/${order.id}`, tokens.manager).then((r) => r.json())).status,
         "PAID",
       );
       assert.equal(

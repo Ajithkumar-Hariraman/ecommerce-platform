@@ -1,3 +1,4 @@
+import { localCatalogImageUrl } from "./local-catalog-image.js";
 import { AppError } from "../../errors/app-error.js";
 import type { ProductService } from "./product.service.js";
 import type { ProductImageStore, ImageUploadInput } from "./product-image.js";
@@ -22,6 +23,9 @@ export class ProductImageService {
   async readUrl(id: string) {
     const product = await this.products.findById(id);
     if (!product.image) throw new AppError(404, "Product image not found");
+    if (product.image.bucket === "local-catalog") return {
+      url: localCatalogImageUrl(product.image), expiresAt: new Date(Date.now() + 3600000).toISOString(),
+    };
     return this.images().readUrl(product.image);
   }
 }

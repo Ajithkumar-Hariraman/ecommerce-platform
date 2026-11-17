@@ -41,8 +41,10 @@ export function assertTransition(from: OrderStatus, to: OrderStatus): void {
 }
 export function webhookAudit(
   event: PaymentEvent,
-  order: { paymentId: string | null; status: OrderStatus },
+  order: { paymentId: string | null; status: OrderStatus; totalInMinorUnits: number },
 ): OrderAudit | null {
+  if (!Number.isSafeInteger(order.totalInMinorUnits) || order.totalInMinorUnits <= 0)
+    throw new AppError(409, "Saved order pricing is invalid; payment is blocked pending repair");
   if (order.paymentId !== event.paymentId)
     throw new AppError(409, "Payment does not belong to this order");
   const toStatus = event.type === "payment.succeeded" ? "PAID" : "PAYMENT_FAILED";

@@ -90,6 +90,8 @@ for (const mode of ["postgres", "mongodb"] as const) {
         HOST: "127.0.0.1",
         PORT: String(port),
         ORDER_STORAGE: mode,
+        BUSINESS_STORAGE: mode,
+        PAYMENT_PROVIDER: "local",
         MONGODB_URI: process.env.MONGODB_TEST_URI ?? "",
         MONGODB_DB_NAME: "ecommerce_test",
         PAYMENT_PROVIDER_BASE_URL: provider.baseUrl,
@@ -111,6 +113,7 @@ for (const mode of ["postgres", "mongodb"] as const) {
         return { child, exited: once(child, "exit"), output: () => output };
       };
       const children: ReturnType<typeof launch>[] = [];
+      let productId: string | undefined;
       let orderId: string | undefined;
       let eventId: string | undefined;
       const inspectMongo = (expected: string) => {
@@ -177,12 +180,23 @@ for (const mode of ["postgres", "mongodb"] as const) {
         });
         assert.equal(tokenRes.status, 200);
         const token = (await tokenRes.json()).access_token;
+        const productResponse = await fetch(base + "/api/v1/products", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sku: "EVENT-" + randomUUID(),
+            name: "Owned event fixture",
+            priceInMinorUnits: 100,
+            stock: 5,
+          }),
+        });
+        assert.equal(productResponse.status, 201);
+        productId = (await productResponse.json()).id;
         const created = await fetch(base + "/api/v1/orders", {
           method: "POST",
           headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
           body: JSON.stringify({
-            customerId: randomUUID(),
-            items: [{ productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 100 }],
+            items: [{ productId, quantity: 1, unitPriceInMinorUnits: 999 }],
           }),
         });
         assert.equal(created.status, 201);
@@ -308,6 +322,11 @@ for (const mode of ["postgres", "mongodb"] as const) {
               .collection<{ _id: string }>("processed_webhook_events")
               .deleteOne({ _id: eventId! });
           }
+        }
+        if (productId) {
+          if (mongo)
+            await mongo.db.collection<{ _id: string }>("products").deleteOne({ _id: productId });
+          else await pool.query("DELETE FROM products WHERE id=$1", [productId]);
         }
         await producer.disconnect();
         await admin.deleteGroups([c.consumerGroup]);

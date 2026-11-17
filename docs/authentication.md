@@ -12,6 +12,16 @@ Production forbids disabling auth and requires an HTTPS issuer. Local loopback H
 allowed outside production. AUTH_ENABLED=false is an explicit local/test opt-out; do not
 use it for a deployed public API. Omitting the app access policy fails closed.
 
+Local Docker uses public issuer `http://127.0.0.1:8180/realms/ecommerce` and
+Keycloak `KC_HOSTNAME=http://127.0.0.1:8180`. The API separately sets
+`OIDC_BACKCHANNEL_URL=http://keycloak:8080` with `OIDC_ALLOW_HTTP=true` outside
+production. This optional trusted origin replaces only the origin for discovery
+and JWKS network requests; realm paths remain intact. Metadata must still name
+the exact public issuer and a public same-origin JWKS URI without credentials,
+query or fragment. Token issuer/audience/signature/time/role checks are unchanged.
+Leave the backchannel unset for existing AWS/GCP public HTTPS connectivity.
+A configured production backchannel must also use HTTPS.
+
 Startup retrieves OIDC discovery metadata, checks its issuer and same-origin JWKS URI,
 and constructs a long-lived jose remote JWKS verifier. Each token must have an RS256
 signature, configured issuer/audience, exp/iat/sub claims, valid time bounds, header typ

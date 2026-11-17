@@ -1,0 +1,1 @@
+Original development catalog illustrations created for this repository using geometric drawing code. Dedicated to the public domain under CC0-1.0. No third-party photographs or trademarks. Illustrative samples, not photographs of shipped goods.

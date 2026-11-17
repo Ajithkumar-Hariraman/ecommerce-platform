@@ -194,6 +194,7 @@ export function loadPaymentConfig(): {
 
 export interface EnabledAuthConfig {
   discoveryTimeoutMs?: number;
+  backchannelUrl?: string;
   enabled: true;
   issuer: string;
   audience: string;
@@ -230,6 +231,25 @@ export function loadAuthConfig(): AuthConfig {
   } catch {
     throw new Error("Valid OIDC_ISSUER and OIDC_AUDIENCE are required");
   }
+  // Trusted transport origin only; the public issuer remains the token trust boundary.
+  const backchannelUrl = process.env.OIDC_BACKCHANNEL_URL;
+  if (backchannelUrl !== undefined) {
+    try {
+      const url = new URL(backchannelUrl);
+      if (
+        (url.protocol !== "https:" &&
+          !(env.nodeEnv !== "production" && insecure === "true" && url.protocol === "http:")) ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        url.pathname !== "/"
+      )
+        throw new Error();
+    } catch {
+      throw new Error("Invalid OIDC_BACKCHANNEL_URL: expected a trusted origin");
+    }
+  }
   const discoveryTimeoutMs = Number(process.env.OIDC_DISCOVERY_TIMEOUT_MS ?? "5000");
   if (
     !Number.isSafeInteger(discoveryTimeoutMs) ||
@@ -237,7 +257,13 @@ export function loadAuthConfig(): AuthConfig {
     discoveryTimeoutMs > 120000
   )
     throw new Error("OIDC_DISCOVERY_TIMEOUT_MS must be 1000..120000 milliseconds");
-  return { enabled: true, issuer, audience, discoveryTimeoutMs };
+  return {
+    enabled: true,
+    issuer,
+    audience,
+    discoveryTimeoutMs,
+    ...(backchannelUrl === undefined ? {} : { backchannelUrl }),
+  };
 }
 
 export interface RedisConfig {

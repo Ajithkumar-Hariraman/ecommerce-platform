@@ -57,12 +57,17 @@ export class PostgresPaymentWorkflowRepository implements PaymentWorkflowReposit
             status: OrderStatus;
             payment_id: string | null;
             version: number;
-          }>("SELECT status,payment_id,version FROM orders WHERE id=$1 FOR UPDATE", [event.orderId])
+            total_in_minor_units: string;
+          }>(
+            "SELECT status,payment_id,version,total_in_minor_units FROM orders WHERE id=$1 FOR UPDATE",
+            [event.orderId],
+          )
         ).rows[0];
         if (!row) throw new AppError(404, "Order not found");
         const audit = webhookAudit(event, {
           status: row.status,
           paymentId: row.payment_id,
+          totalInMinorUnits: Number(row.total_in_minor_units),
         });
         if (audit) {
           const updated = await client.query(

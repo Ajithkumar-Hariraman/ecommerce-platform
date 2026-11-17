@@ -16,6 +16,7 @@ RUN npm ci --omit=dev && rm scripts/patch-kafkajs-timer.cjs && rmdir scripts && 
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node migrations ./migrations
 COPY --chown=node:node certs ./certs
+COPY --chown=node:node assets/local-catalog ./assets/local-catalog
 USER node
 EXPOSE 3000
 CMD ["node", "--enable-source-maps", "dist/server.js"]

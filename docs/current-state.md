@@ -423,3 +423,58 @@ Latest backend integration verification: 2026-09-11, Phase 4A milestone.
   release/platform-readiness. Earlier no-push notes record historical boundaries.
 - AWS is the active migration target; GCP is legacy with cleanup intentionally
   pending final AWS application E2E. No manual AWS deployment is requested.
+
+## Local customer/admin audit (2026-11-17)
+
+- Home now follows session readiness/authentication; header/footer and signed-in
+  login/register pages use consistent account navigation. Stable server snapshot
+  preserves SSR tests. Existing uncommitted public-issuer/Docker-backchannel fixes
+  were retained and verified with strict JWT checks.
+- Order service rejects quantities exceeding stock, including repeated product
+  lines, before persistence. This does not implement inventory reservation.
+- API typecheck/build and 217 fast tests passed; web typecheck/build and 13 tests
+  passed. Complete local ecommerce_test integration: 97 passed, zero failed,
+  seven opt-in skips; PostgreSQL and MongoDB verified separately. Seven real
+  browser/protocol groups passed, including login/reload/cart/admin/logout and
+  direct refresh/revocation. Local application SMTP -> Mailpit smoke passed.
+- Local web/API rebuilt without volume resets. Dev catalog was empty; an explicit
+  idempotent PostgreSQL ecommerce_dev seed was provided, not executed.
+- Full browser payment remains unverified: UI uses Razorpay while Docker uses the
+  local simulator. Simulator API/payment/outbox/Kafka checks passed. Actual elapsed
+  automatic expiry, registration submission, verification email, browser admin
+  CRUD and payment PDFs/email remain uncertified. See [audit](local-ui-audit.md)
+  for the feature matrix, commands, exact files and manual verification steps.
+
+## Local development catalog (2026-11-18)
+
+- Expanded explicit local seed to six categories / 30 ACTIVE products with unique
+  SKUs, descriptions, INR paise prices, stock and bundled original CC0 PNGs.
+- Separate fixed-loopback PostgreSQL and MongoDB ecommerce_dev commands; insert
+  only, no overwrite, deletes or volume resets. Both applied twice independently.
+- Development-only image URL resolution checks actual bundled bytes against stored
+  size/revision. Existing S3/GCS stores and React rendering contract retained.
+- Added `/shop` catalog alias alongside `/products`; local API/web rebuilt.
+- API typecheck/build and 222 fast tests passed. Existing ecommerce_test integration:
+  97 passed, zero failed, seven opt-in skips. Web typecheck/build/tests passed.
+- Exact seed/backend-selection/HTTP/browser verification commands and asset details:
+  [local UI audit](local-ui-audit.md#development-catalog-updated-2026-11-18).
+
+## Local checkout correction (2026-11-18)
+
+- Both payment modes now price from ACTIVE products server-side, combine duplicate
+  lines, validate stock and reject unsafe/nonpositive prices before persistence.
+- Development simulator checkout is provider-selected and owner-authorized, uses
+  existing payment IDs/signed callbacks, and never opens Razorpay. Existing
+  Razorpay configuration/flow retained. Session restoration preserves checkout
+  query state; order responses are private/no-store.
+- Existing zero-price local order d24b1395-3d1d-4e49-a170-1d327868269a repaired in
+  place to INR 948, same owner/order/line/payment IDs, still PAYMENT_PENDING.
+- API typecheck/build: PASS; 223 fast tests PASS. Web typecheck/build: PASS;
+  16 tests PASS. ecommerce_test integration: 97 passed, zero failed, seven opt-in
+  skips. Actual Docker/browser simulator create/resume/success/failure/retries/
+  refresh/My Orders/ownership passed independently in PostgreSQL and MongoDB.
+- PostgreSQL restored as local API backend. Only affected API/web services rebuilt;
+  no existing data/volumes removed, no real charges or external email. Reported GET
+  Route-not-found was not reproduced: original logs/direct reads showed GET 200
+  and unsupported Razorpay checkout POST 404. Full evidence, limitations and exact
+  changed files: [local checkout report](local-checkout-fix.md).

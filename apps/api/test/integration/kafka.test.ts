@@ -238,6 +238,8 @@ test(
       HOST: "127.0.0.1",
       PORT: String(address.port),
       ORDER_STORAGE: "postgres",
+      BUSINESS_STORAGE: "postgres",
+      PAYMENT_PROVIDER: "local",
       PAYMENT_PROVIDER_BASE_URL: provider.baseUrl,
       PAYMENT_WEBHOOK_SECRET: secret,
       KAFKA_ORDER_TOPIC: f.c.orderTopic,
@@ -256,6 +258,7 @@ test(
       child.stderr!.on("data", () => {});
       return { child, exited: once(child, "exit"), output: () => output };
     });
+    let productId: string | undefined;
     let orderId: string | undefined;
     let eventId: string | undefined;
     try {
@@ -277,11 +280,23 @@ test(
       });
       assert.equal(tokenResponse.status, 200);
       const token = (await tokenResponse.json()).access_token;
+      const productResponse = await fetch(base + "/api/v1/products", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sku: "EVENT-" + randomUUID(),
+          name: "Owned event fixture",
+          priceInMinorUnits: 100,
+          stock: 5,
+        }),
+      });
+      assert.equal(productResponse.status, 201);
+      productId = (await productResponse.json()).id;
       const created = await fetch(base + "/api/v1/orders", {
         method: "POST",
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: [{ productId: randomUUID(), quantity: 1, unitPriceInMinorUnits: 100 }],
+          items: [{ productId, quantity: 1, unitPriceInMinorUnits: 999 }],
         }),
       });
       assert.equal(created.status, 201);
@@ -344,7 +359,11 @@ test(
         await pool.query("DELETE FROM order_notifications WHERE event_id=$1", [eventId]);
         await pool.query("DELETE FROM processed_webhook_events WHERE event_id=$1", [eventId]);
       }
-      if (orderId) await pool.query("DELETE FROM orders WHERE id=$1", [orderId]);
+      if (orderId) {
+        await pool.query("DELETE FROM order_email_deliveries WHERE order_id=$1", [orderId]);
+        await pool.query("DELETE FROM orders WHERE id=$1", [orderId]);
+      }
+      if (productId) await pool.query("DELETE FROM products WHERE id=$1", [productId]);
       await pool.end();
       await f.close();
     }

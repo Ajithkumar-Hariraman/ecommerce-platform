@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { initializationFailureCategory, initializationTimeout } from "./SessionNotice";
-import { profileFromClaims, safeReturnPath } from "./access";
+import { profileFromClaims, safeReturnPath, sessionReturnPath } from "./access";
 import Keycloak from "keycloak-js";
 import { useSyncExternalStore } from "react";
 
@@ -9,7 +9,7 @@ const keycloak = new Keycloak({
   realm: "ecommerce",
   clientId: "ecommerce-web",
 });
-const redirectUri = () => window.location.origin + window.location.pathname;
+const redirectUri = () => window.location.origin + sessionReturnPath(window.location.pathname, window.location.search);
 const returnUri = (path: string) => window.location.origin + safeReturnPath(path);
 type Session = {
   ready: boolean;
@@ -23,7 +23,7 @@ type Session = {
   email: string;
   emailVerified: boolean | null;
 };
-let session: Session = {
+const initialSession: Session = {
   ready: false,
   unavailable: false,
   authenticated: false,
@@ -35,6 +35,7 @@ let session: Session = {
   emailVerified: null,
   error: "",
 };
+let session = initialSession;
 let initializationFailed = false;
 const listeners = new Set<() => void>();
 function publish(error = "") {
@@ -97,6 +98,7 @@ export function useSession() {
       };
     },
     () => session,
+    () => initialSession,
   );
 }
 export async function login(returnTo = window.location.pathname + window.location.search) {

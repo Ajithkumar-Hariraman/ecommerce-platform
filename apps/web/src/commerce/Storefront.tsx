@@ -4,6 +4,7 @@ import { storefrontApi } from "../api/storefront";
 import { errorMessage } from "../api/http";
 import type { Product, ProductListResponse } from "../features/products/product.types";
 import { ProductImage } from "../features/products/ProductImage";
+import { useSession } from "../auth/session";
 import { useCart } from "./CartProvider";
 import { money } from "./cart";
 export function ProductVisual({ product }: { product: Product }) {
@@ -173,6 +174,7 @@ export function ProductCatalog({ featured = false }: { featured?: boolean }) {
   );
 }
 export function Home() {
+  const session = useSession();
   return (
     <>
       <section className="shop-hero">
@@ -203,15 +205,7 @@ export function Home() {
         <span>Your orders, in one place</span>
       </div>
       <ProductCatalog featured />
-      <section className="account-callout">
-        <div>
-          <h2>A little more personal.</h2>
-          <p>Create an account to checkout and keep track of your orders.</p>
-        </div>
-        <Link className="button-link subtle" to="/register">
-          Create an account
-        </Link>
-      </section>
+      <HomeAccountCallout session={session} />
     </>
   );
 }
@@ -286,5 +280,52 @@ export function ProductDetails() {
         </div>
       </article>
     </>
+  );
+}
+
+export function HomeAccountCallout({
+  session,
+}: {
+  session: { ready: boolean; authenticated: boolean; unavailable: boolean };
+}) {
+  if (!session.ready)
+    return (
+      <section className="account-callout" aria-busy="true">
+        <p role="status">Checking your session…</p>
+      </section>
+    );
+  if (session.unavailable)
+    return (
+      <section className="account-callout">
+        <p>Account access is temporarily unavailable. You can still browse the collection.</p>
+        <Link to="/products">Continue shopping</Link>
+      </section>
+    );
+  return (
+    <section className="account-callout">
+      <div>
+        <h2>A little more personal.</h2>
+        <p>
+          {session.authenticated
+            ? "Continue shopping or keep track of your orders."
+            : "Create an account to checkout and keep track of your orders."}
+        </p>
+      </div>
+      {session.authenticated ? (
+        <>
+          <Link className="button-link subtle" to="/products">
+            Continue shopping
+          </Link>
+          <Link to="/orders">My orders</Link>
+        </>
+      ) : (
+        <>
+          <Link className="button-link subtle" to="/register">
+            Create an account
+          </Link>
+          <Link to="/login">Sign in</Link>
+        </>
+      )}
+    </section>
   );
 }

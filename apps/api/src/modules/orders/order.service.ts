@@ -11,7 +11,7 @@ export class OrderService {
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly paymentClient: PaymentClient,
-    private readonly products?: ProductRepository,
+    private readonly products: ProductRepository,
   ) {}
 
   async list(ownerSubject: string | null, input: OrderListInput = {}): Promise<OrderListResponse> {
@@ -51,20 +51,36 @@ export class OrderService {
     if (typeof ownerSubject !== "string" || !ownerSubject.trim())
       throw new AppError(401, "Authentication required");
     if (!input.items.length) throw new AppError(400, "Order must contain items");
-    if (this.products) {
-      const items = [];
-      for (const item of input.items) {
-        const product = await this.products.findById(item.productId);
-        if (!product || product.status !== "ACTIVE")
-          throw new AppError(400, "Product is unavailable for checkout");
-        items.push({
-          ...item,
-          unitPriceInMinorUnits: product.priceInMinorUnits,
-          name: product.name,
-        });
-      }
-      input = { ...input, items };
+    const quantities = new Map<string, number>();
+    for (const item of input.items) {
+      if (
+        !Number.isSafeInteger(item.quantity) ||
+        item.quantity < 1 ||
+        item.quantity > 2_147_483_647
+      )
+        throw new AppError(400, "Invalid order quantity");
+      const quantity = (quantities.get(item.productId) ?? 0) + item.quantity;
+      if (!Number.isSafeInteger(quantity) || quantity > 2_147_483_647)
+        throw new AppError(400, "Invalid combined order quantity");
+      quantities.set(item.productId, quantity);
     }
+    const priced = [];
+    for (const [productId, quantity] of quantities) {
+      const product = await this.products.findById(productId);
+      if (!product || product.status !== "ACTIVE")
+        throw new AppError(400, "Product is unavailable for checkout");
+      if (quantity > product.stock)
+        throw new AppError(409, "Requested quantity exceeds available stock");
+      if (!Number.isSafeInteger(product.priceInMinorUnits) || product.priceInMinorUnits <= 0)
+        throw new AppError(409, "Product has no valid checkout price");
+      priced.push({
+        productId,
+        quantity,
+        name: product.name,
+        unitPriceInMinorUnits: product.priceInMinorUnits,
+      });
+    }
+    input = { ...input, items: priced };
     let totalInMinorUnits = 0;
     const items = input.items.map((item) => {
       if (
@@ -106,6 +122,7 @@ export class OrderService {
 
   async initiatePayment(id: string): Promise<Order> {
     const order = await this.findById(id);
+    assertOrderPricing(order);
     if (order.paymentId && order.status !== "CREATED") return order;
     assertTransition(order.status, "PAYMENT_PENDING");
     let payment;
@@ -147,4 +164,28 @@ export class OrderService {
     if (!order) throw new AppError(404, "Order not found");
     return order;
   }
+}
+
+// Snapshot prices remain stable when catalog prices change after order creation.
+export function assertOrderPricing(order: Order): void {
+  let total = 0;
+  for (const item of order.items) {
+    if (
+      !Number.isSafeInteger(item.quantity) ||
+      item.quantity <= 0 ||
+      !Number.isSafeInteger(item.unitPriceInMinorUnits) ||
+      item.unitPriceInMinorUnits <= 0 ||
+      !Number.isSafeInteger(item.lineTotalInMinorUnits) ||
+      item.lineTotalInMinorUnits !== item.quantity * item.unitPriceInMinorUnits
+    )
+      throw new AppError(409, "Saved order pricing is invalid; payment is blocked pending repair");
+    total += item.lineTotalInMinorUnits;
+  }
+  if (
+    !order.items.length ||
+    !Number.isSafeInteger(total) ||
+    total <= 0 ||
+    total !== order.totalInMinorUnits
+  )
+    throw new AppError(409, "Saved order pricing is invalid; payment is blocked pending repair");
 }

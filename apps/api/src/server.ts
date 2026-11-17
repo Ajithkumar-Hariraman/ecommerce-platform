@@ -1,3 +1,4 @@
+import { HttpSimulatorCheckout } from "./modules/payments/simulator-checkout.js";
 import { createOrderDocuments } from "./post-purchase/runtime.js";
 import {
   createImageStorage,
@@ -123,6 +124,8 @@ async function main(): Promise<void> {
           )
       : undefined;
     const app = createApp({
+      ...(paymentConfig && process.env.NODE_ENV === "development"
+        ? { simulatorCheckout: new HttpSimulatorCheckout(paymentConfig.baseUrl) } : {}),
       postPurchase: business.postPurchase,
       orderDocuments: createOrderDocuments(business.orders, business.postPurchase),
       ...(productImages ? { productImages } : {}),

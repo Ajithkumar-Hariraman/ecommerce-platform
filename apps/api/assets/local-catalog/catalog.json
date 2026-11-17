@@ -1,0 +1,552 @@
+{
+  "categories": [
+    {
+      "id": "7db43821-47da-58cb-a4fa-e8b12609c418",
+      "slug": "local-bags-travel",
+      "name": "Bags & Travel",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "2d9b68f4-9f42-5415-a630-1d9f6a933908",
+      "slug": "local-stationery",
+      "name": "Stationery",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "bba4a81a-b035-504e-b08e-63283e290bfa",
+      "slug": "local-drinkware",
+      "name": "Drinkware",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "bdb1f7c1-d2ba-5599-ac63-ca01ec71db67",
+      "slug": "local-home-textiles",
+      "name": "Home Textiles",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "94649db4-123a-5d6f-9f40-2cff613636ab",
+      "slug": "local-desk-accessories",
+      "name": "Desk Accessories",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "e30e9707-8e7c-531e-83db-e946ffba87ff",
+      "slug": "local-planters",
+      "name": "Planters",
+      "status": "ACTIVE"
+    }
+  ],
+  "products": [
+    {
+      "id": "3e955811-c87e-5229-91ad-919f3a62124e",
+      "sku": "LOCAL-CATALOG-01-01",
+      "name": "Canvas Market Tote",
+      "description": "Canvas Market Tote for everyday use. A practical addition to your bags & travel collection; original illustration shows the sample style.",
+      "categoryId": "7db43821-47da-58cb-a4fa-e8b12609c418",
+      "priceInMinorUnits": 79900,
+      "stock": 20,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "3e955811-c87e-5229-91ad-919f3a62124e.png",
+        "generation": "d138e7af641d23898f255b5db7ca2d84518f50a1c180d06ebba73a21ac37112a",
+        "contentType": "image/png",
+        "size": 1857
+      }
+    },
+    {
+      "id": "b69c7910-4da7-5618-88a1-e1d993f0156f",
+      "sku": "LOCAL-CATALOG-01-02",
+      "name": "Zip Top Cotton Tote",
+      "description": "Zip Top Cotton Tote for everyday use. A practical addition to your bags & travel collection; original illustration shows the sample style.",
+      "categoryId": "7db43821-47da-58cb-a4fa-e8b12609c418",
+      "priceInMinorUnits": 89900,
+      "stock": 27,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "b69c7910-4da7-5618-88a1-e1d993f0156f.png",
+        "generation": "30b8e6fe2c1c3f2a92742eadf49f412c372fa2cc6ec8d13c12863081b638bf72",
+        "contentType": "image/png",
+        "size": 1858
+      }
+    },
+    {
+      "id": "22fd9671-c919-5825-b9bd-77476c493056",
+      "sku": "LOCAL-CATALOG-01-03",
+      "name": "Daily Canvas Backpack",
+      "description": "Daily Canvas Backpack for everyday use. A practical addition to your bags & travel collection; original illustration shows the sample style.",
+      "categoryId": "7db43821-47da-58cb-a4fa-e8b12609c418",
+      "priceInMinorUnits": 189900,
+      "stock": 34,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "22fd9671-c919-5825-b9bd-77476c493056.png",
+        "generation": "1b2babbef4966642eb5af100e0ea1998f432a8ab8feb012b8cd33ece76c13855",
+        "contentType": "image/png",
+        "size": 1859
+      }
+    },
+    {
+      "id": "ce32656c-db39-5b31-9a86-dc323b7a2f8c",
+      "sku": "LOCAL-CATALOG-01-04",
+      "name": "Weekend Duffel Bag",
+      "description": "Weekend Duffel Bag for everyday use. A practical addition to your bags & travel collection; original illustration shows the sample style.",
+      "categoryId": "7db43821-47da-58cb-a4fa-e8b12609c418",
+      "priceInMinorUnits": 249900,
+      "stock": 41,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "ce32656c-db39-5b31-9a86-dc323b7a2f8c.png",
+        "generation": "36145819e47a507424c5ac131f232fbc5e7f336f1167c6b06f6a82869af907bc",
+        "contentType": "image/png",
+        "size": 1858
+      }
+    },
+    {
+      "id": "51a33de8-79b4-56da-9f58-9ccca504f856",
+      "sku": "LOCAL-CATALOG-01-05",
+      "name": "Compact Travel Pouch",
+      "description": "Compact Travel Pouch for everyday use. A practical addition to your bags & travel collection; original illustration shows the sample style.",
+      "categoryId": "7db43821-47da-58cb-a4fa-e8b12609c418",
+      "priceInMinorUnits": 49900,
+      "stock": 48,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "51a33de8-79b4-56da-9f58-9ccca504f856.png",
+        "generation": "7b08c2005cb7d4f75c4637bf444de5ca414706eab856892036f832c7772da74c",
+        "contentType": "image/png",
+        "size": 1859
+      }
+    },
+    {
+      "id": "8535d15d-4a8b-5ad4-abd4-304786988f0d",
+      "sku": "LOCAL-CATALOG-02-01",
+      "name": "A5 Hardcover Notebook",
+      "description": "A5 Hardcover Notebook for everyday use. A practical addition to your stationery collection; original illustration shows the sample style.",
+      "categoryId": "2d9b68f4-9f42-5415-a630-1d9f6a933908",
+      "priceInMinorUnits": 34900,
+      "stock": 20,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "8535d15d-4a8b-5ad4-abd4-304786988f0d.png",
+        "generation": "9215a4ac29a4bbe94558468a8f09f88e274acd529b98f91ed0f99ec8b72468f7",
+        "contentType": "image/png",
+        "size": 2315
+      }
+    },
+    {
+      "id": "83ba9d80-f378-569f-a0b1-9a12bd98b5ee",
+      "sku": "LOCAL-CATALOG-02-02",
+      "name": "Pocket Ruled Journal",
+      "description": "Pocket Ruled Journal for everyday use. A practical addition to your stationery collection; original illustration shows the sample style.",
+      "categoryId": "2d9b68f4-9f42-5415-a630-1d9f6a933908",
+      "priceInMinorUnits": 19900,
+      "stock": 27,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "83ba9d80-f378-569f-a0b1-9a12bd98b5ee.png",
+        "generation": "1f0e06b6233610c8d49b73301c1d431464faa872376b62e5ab97ed1e9f565c97",
+        "contentType": "image/png",
+        "size": 2316
+      }
+    },
+    {
+      "id": "f77573d5-8c3b-5e57-b8bd-4173d9cd12bc",
+      "sku": "LOCAL-CATALOG-02-03",
+      "name": "Dotted Desk Planner",
+      "description": "Dotted Desk Planner for everyday use. A practical addition to your stationery collection; original illustration shows the sample style.",
+      "categoryId": "2d9b68f4-9f42-5415-a630-1d9f6a933908",
+      "priceInMinorUnits": 59900,
+      "stock": 34,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "f77573d5-8c3b-5e57-b8bd-4173d9cd12bc.png",
+        "generation": "fb03804c2fd953e189f085a65abed313f50998d4f63f751df32989b138a22fcc",
+        "contentType": "image/png",
+        "size": 2316
+      }
+    },
+    {
+      "id": "df94e8f3-b584-544c-b75b-2acc777a5dbe",
+      "sku": "LOCAL-CATALOG-02-04",
+      "name": "Kraft Sketchbook",
+      "description": "Kraft Sketchbook for everyday use. A practical addition to your stationery collection; original illustration shows the sample style.",
+      "categoryId": "2d9b68f4-9f42-5415-a630-1d9f6a933908",
+      "priceInMinorUnits": 44900,
+      "stock": 41,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "df94e8f3-b584-544c-b75b-2acc777a5dbe.png",
+        "generation": "39545f438e4b7eb19ec93bfd31caf3413428fe727866cfda0044274a8a68beee",
+        "contentType": "image/png",
+        "size": 2316
+      }
+    },
+    {
+      "id": "0e452008-2e73-5cbf-aed4-05a4c52a56dc",
+      "sku": "LOCAL-CATALOG-02-05",
+      "name": "Recycled Paper Notebook",
+      "description": "Recycled Paper Notebook for everyday use. A practical addition to your stationery collection; original illustration shows the sample style.",
+      "categoryId": "2d9b68f4-9f42-5415-a630-1d9f6a933908",
+      "priceInMinorUnits": 29900,
+      "stock": 48,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "0e452008-2e73-5cbf-aed4-05a4c52a56dc.png",
+        "generation": "629b042a40977bc01710ca1aad79aa95d09f035008c4622d31df59dc30c01625",
+        "contentType": "image/png",
+        "size": 2316
+      }
+    },
+    {
+      "id": "2537c31d-bb58-5ed7-9800-4a598295d5a2",
+      "sku": "LOCAL-CATALOG-03-01",
+      "name": "Steel Water Bottle 750ml",
+      "description": "Steel Water Bottle 750ml for everyday use. A practical addition to your drinkware collection; original illustration shows the sample style.",
+      "categoryId": "bba4a81a-b035-504e-b08e-63283e290bfa",
+      "priceInMinorUnits": 89900,
+      "stock": 20,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "2537c31d-bb58-5ed7-9800-4a598295d5a2.png",
+        "generation": "fea3693f9fb42c1ed11b2367e687d1cb4b0fb695d75bd2eea32ef7bf49e56adf",
+        "contentType": "image/png",
+        "size": 2252
+      }
+    },
+    {
+      "id": "c0fe6a6f-d1ed-525d-90fa-1ce8bf623496",
+      "sku": "LOCAL-CATALOG-03-02",
+      "name": "Insulated Travel Flask 500ml",
+      "description": "Insulated Travel Flask 500ml for everyday use. A practical addition to your drinkware collection; original illustration shows the sample style.",
+      "categoryId": "bba4a81a-b035-504e-b08e-63283e290bfa",
+      "priceInMinorUnits": 129900,
+      "stock": 27,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "c0fe6a6f-d1ed-525d-90fa-1ce8bf623496.png",
+        "generation": "304b4936347946eb4289129451b827d21a42af3659a7ec523b1af1ea67f83f6f",
+        "contentType": "image/png",
+        "size": 2252
+      }
+    },
+    {
+      "id": "0641a690-68c4-5b65-a842-431220663f86",
+      "sku": "LOCAL-CATALOG-03-03",
+      "name": "Ceramic Coffee Mug 350ml",
+      "description": "Ceramic Coffee Mug 350ml for everyday use. A practical addition to your drinkware collection; original illustration shows the sample style.",
+      "categoryId": "bba4a81a-b035-504e-b08e-63283e290bfa",
+      "priceInMinorUnits": 49900,
+      "stock": 34,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "0641a690-68c4-5b65-a842-431220663f86.png",
+        "generation": "a05ffe918326cb8e41bac01f18747b82639a0dc557da92390817b6324a609652",
+        "contentType": "image/png",
+        "size": 2112
+      }
+    },
+    {
+      "id": "7b6e5b8c-3317-5c81-8dd0-7594935c73f4",
+      "sku": "LOCAL-CATALOG-03-04",
+      "name": "Glass Water Bottle 600ml",
+      "description": "Glass Water Bottle 600ml for everyday use. A practical addition to your drinkware collection; original illustration shows the sample style.",
+      "categoryId": "bba4a81a-b035-504e-b08e-63283e290bfa",
+      "priceInMinorUnits": 69900,
+      "stock": 41,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "7b6e5b8c-3317-5c81-8dd0-7594935c73f4.png",
+        "generation": "0683f404c02a2ddc35cb0e2929e6d74520b2d06960e2e100fd8cf471d4520a0b",
+        "contentType": "image/png",
+        "size": 2253
+      }
+    },
+    {
+      "id": "f1b1c432-00dd-57ee-ae01-0fbc4493c281",
+      "sku": "LOCAL-CATALOG-03-05",
+      "name": "Double Wall Tea Tumbler",
+      "description": "Double Wall Tea Tumbler for everyday use. A practical addition to your drinkware collection; original illustration shows the sample style.",
+      "categoryId": "bba4a81a-b035-504e-b08e-63283e290bfa",
+      "priceInMinorUnits": 79900,
+      "stock": 48,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "f1b1c432-00dd-57ee-ae01-0fbc4493c281.png",
+        "generation": "58ecd66c3ddcf6d948f28e45ce5afc8c60fca6a9b389695dd7a0e08b81bff389",
+        "contentType": "image/png",
+        "size": 2253
+      }
+    },
+    {
+      "id": "4f994095-6300-5a8a-bf1a-7bcd79bc0157",
+      "sku": "LOCAL-CATALOG-04-01",
+      "name": "Cotton Cushion Cover",
+      "description": "Cotton Cushion Cover for everyday use. A practical addition to your home textiles collection; original illustration shows the sample style.",
+      "categoryId": "bdb1f7c1-d2ba-5599-ac63-ca01ec71db67",
+      "priceInMinorUnits": 39900,
+      "stock": 20,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "4f994095-6300-5a8a-bf1a-7bcd79bc0157.png",
+        "generation": "fd8c00ade30f3e952166d3b6936fe4c4ef18c55369b0d4c78e7d1bae0392422f",
+        "contentType": "image/png",
+        "size": 1927
+      }
+    },
+    {
+      "id": "e65402f6-f70d-5900-b1bf-56551517ec3c",
+      "sku": "LOCAL-CATALOG-04-02",
+      "name": "Linen Blend Cushion Cover",
+      "description": "Linen Blend Cushion Cover for everyday use. A practical addition to your home textiles collection; original illustration shows the sample style.",
+      "categoryId": "bdb1f7c1-d2ba-5599-ac63-ca01ec71db67",
+      "priceInMinorUnits": 59900,
+      "stock": 27,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "e65402f6-f70d-5900-b1bf-56551517ec3c.png",
+        "generation": "efcc48d53522d621f1237d57113434625f174279ad7d3ee3faacd6ab62d21e06",
+        "contentType": "image/png",
+        "size": 1927
+      }
+    },
+    {
+      "id": "33099a2c-b0c1-5310-9ed0-8dbcd2154c64",
+      "sku": "LOCAL-CATALOG-04-03",
+      "name": "Woven Table Runner",
+      "description": "Woven Table Runner for everyday use. A practical addition to your home textiles collection; original illustration shows the sample style.",
+      "categoryId": "bdb1f7c1-d2ba-5599-ac63-ca01ec71db67",
+      "priceInMinorUnits": 89900,
+      "stock": 34,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "33099a2c-b0c1-5310-9ed0-8dbcd2154c64.png",
+        "generation": "470eb0f558ffc438ab70e445e955e06a2c7f8e571e829c70fe2a82a9a1fb3fe6",
+        "contentType": "image/png",
+        "size": 1928
+      }
+    },
+    {
+      "id": "04e5667f-8151-58c7-b080-911e313ac444",
+      "sku": "LOCAL-CATALOG-04-04",
+      "name": "Cotton Kitchen Towel Set",
+      "description": "Cotton Kitchen Towel Set for everyday use. A practical addition to your home textiles collection; original illustration shows the sample style.",
+      "categoryId": "bdb1f7c1-d2ba-5599-ac63-ca01ec71db67",
+      "priceInMinorUnits": 44900,
+      "stock": 41,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "04e5667f-8151-58c7-b080-911e313ac444.png",
+        "generation": "e37bbabc65971dad474c5513bad16eaa40c7f7b52db3a9ef9bdf4b4dd01f383b",
+        "contentType": "image/png",
+        "size": 1927
+      }
+    },
+    {
+      "id": "914bd2ff-62a9-59b8-9a6c-40ab41713179",
+      "sku": "LOCAL-CATALOG-04-05",
+      "name": "Handwoven Cotton Throw",
+      "description": "Handwoven Cotton Throw for everyday use. A practical addition to your home textiles collection; original illustration shows the sample style.",
+      "categoryId": "bdb1f7c1-d2ba-5599-ac63-ca01ec71db67",
+      "priceInMinorUnits": 159900,
+      "stock": 48,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "914bd2ff-62a9-59b8-9a6c-40ab41713179.png",
+        "generation": "4ce0a72f11960f3dc4765ce9e2af44f7a3634c38fd21238b76204b438fceac18",
+        "contentType": "image/png",
+        "size": 1928
+      }
+    },
+    {
+      "id": "2cc84dfa-dbe6-5bf3-8b60-c8f73aab98d7",
+      "sku": "LOCAL-CATALOG-05-01",
+      "name": "Bamboo Pen Holder",
+      "description": "Bamboo Pen Holder for everyday use. A practical addition to your desk accessories collection; original illustration shows the sample style.",
+      "categoryId": "94649db4-123a-5d6f-9f40-2cff613636ab",
+      "priceInMinorUnits": 44900,
+      "stock": 20,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "2cc84dfa-dbe6-5bf3-8b60-c8f73aab98d7.png",
+        "generation": "d37d95556652127d1ffa79025a274213c0350a664c392085824677594d233767",
+        "contentType": "image/png",
+        "size": 1831
+      }
+    },
+    {
+      "id": "3daba380-df7d-5bcf-8ae0-13e8a60bd7cb",
+      "sku": "LOCAL-CATALOG-05-02",
+      "name": "Oak Desk Organizer",
+      "description": "Oak Desk Organizer for everyday use. A practical addition to your desk accessories collection; original illustration shows the sample style.",
+      "categoryId": "94649db4-123a-5d6f-9f40-2cff613636ab",
+      "priceInMinorUnits": 129900,
+      "stock": 27,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "3daba380-df7d-5bcf-8ae0-13e8a60bd7cb.png",
+        "generation": "8225a2472793f3b7f70fc6d58f4fcc8c859ad28a6500aa614a3f1ebaa433e16b",
+        "contentType": "image/png",
+        "size": 1832
+      }
+    },
+    {
+      "id": "38191622-9a8a-55ec-8e2d-2df4701dd074",
+      "sku": "LOCAL-CATALOG-05-03",
+      "name": "Cork Desk Mat",
+      "description": "Cork Desk Mat for everyday use. A practical addition to your desk accessories collection; original illustration shows the sample style.",
+      "categoryId": "94649db4-123a-5d6f-9f40-2cff613636ab",
+      "priceInMinorUnits": 99900,
+      "stock": 34,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "38191622-9a8a-55ec-8e2d-2df4701dd074.png",
+        "generation": "a9798b6a844f9e4c26ea378a0447ea2a42299ec0b4a9618d8bc1993da168ba82",
+        "contentType": "image/png",
+        "size": 1829
+      }
+    },
+    {
+      "id": "f39dcab4-466c-549d-a8fc-311728f4a03d",
+      "sku": "LOCAL-CATALOG-05-04",
+      "name": "Wooden Phone Stand",
+      "description": "Wooden Phone Stand for everyday use. A practical addition to your desk accessories collection; original illustration shows the sample style.",
+      "categoryId": "94649db4-123a-5d6f-9f40-2cff613636ab",
+      "priceInMinorUnits": 59900,
+      "stock": 41,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "f39dcab4-466c-549d-a8fc-311728f4a03d.png",
+        "generation": "896a4e97b73a1f7f04690093ff1b96a1c4ddc9469d2c13d09c73545a4a425bbf",
+        "contentType": "image/png",
+        "size": 1831
+      }
+    },
+    {
+      "id": "109c5f7e-80c4-542c-bd1d-ccd0c2aa4ef6",
+      "sku": "LOCAL-CATALOG-05-05",
+      "name": "Bamboo Letter Tray",
+      "description": "Bamboo Letter Tray for everyday use. A practical addition to your desk accessories collection; original illustration shows the sample style.",
+      "categoryId": "94649db4-123a-5d6f-9f40-2cff613636ab",
+      "priceInMinorUnits": 89900,
+      "stock": 48,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "109c5f7e-80c4-542c-bd1d-ccd0c2aa4ef6.png",
+        "generation": "64d1e4534af7e24df6cc0e9711e32543bc6df60c51dab5566d2bbd5596fab9fb",
+        "contentType": "image/png",
+        "size": 1831
+      }
+    },
+    {
+      "id": "de2b6859-0b28-553d-835e-d2e7ec9761b2",
+      "sku": "LOCAL-CATALOG-06-01",
+      "name": "Terracotta Herb Pot",
+      "description": "Terracotta Herb Pot for everyday use. A practical addition to your planters collection; original illustration shows the sample style.",
+      "categoryId": "e30e9707-8e7c-531e-83db-e946ffba87ff",
+      "priceInMinorUnits": 29900,
+      "stock": 20,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "de2b6859-0b28-553d-835e-d2e7ec9761b2.png",
+        "generation": "89aac12430a0b1b0cfbd11ad94dab675c95cdad96a15445ca84ac32e3266b9d3",
+        "contentType": "image/png",
+        "size": 2373
+      }
+    },
+    {
+      "id": "53c36be8-5fa2-5c35-a3ef-18d214a5fb21",
+      "sku": "LOCAL-CATALOG-06-02",
+      "name": "Glazed Ceramic Planter",
+      "description": "Glazed Ceramic Planter for everyday use. A practical addition to your planters collection; original illustration shows the sample style.",
+      "categoryId": "e30e9707-8e7c-531e-83db-e946ffba87ff",
+      "priceInMinorUnits": 69900,
+      "stock": 27,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "53c36be8-5fa2-5c35-a3ef-18d214a5fb21.png",
+        "generation": "7ba383edae3353c53494e9f56762a724ffa207e0f5e9fe8842ea4a157d2a978d",
+        "contentType": "image/png",
+        "size": 2375
+      }
+    },
+    {
+      "id": "7a0ebe9d-92ff-511c-ad64-5c3b03763c03",
+      "sku": "LOCAL-CATALOG-06-03",
+      "name": "Ribbed Indoor Plant Pot",
+      "description": "Ribbed Indoor Plant Pot for everyday use. A practical addition to your planters collection; original illustration shows the sample style.",
+      "categoryId": "e30e9707-8e7c-531e-83db-e946ffba87ff",
+      "priceInMinorUnits": 79900,
+      "stock": 34,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "7a0ebe9d-92ff-511c-ad64-5c3b03763c03.png",
+        "generation": "b67367aa07e8066a565b31017ab6f2e67e163e0cf40f91fd908b2ff745abf348",
+        "contentType": "image/png",
+        "size": 2373
+      }
+    },
+    {
+      "id": "3256dfd1-c0de-534b-b93c-39b76dc14cb6",
+      "sku": "LOCAL-CATALOG-06-04",
+      "name": "Mini Succulent Pot",
+      "description": "Mini Succulent Pot for everyday use. A practical addition to your planters collection; original illustration shows the sample style.",
+      "categoryId": "e30e9707-8e7c-531e-83db-e946ffba87ff",
+      "priceInMinorUnits": 24900,
+      "stock": 41,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "3256dfd1-c0de-534b-b93c-39b76dc14cb6.png",
+        "generation": "aeb5091fea99793db1b00c601552ae09479bc0ea6fc52b5ed0105b115fb67adf",
+        "contentType": "image/png",
+        "size": 2372
+      }
+    },
+    {
+      "id": "b7431474-bdb6-5175-ace8-9721840e2eae",
+      "sku": "LOCAL-CATALOG-06-05",
+      "name": "Tall Stoneware Planter",
+      "description": "Tall Stoneware Planter for everyday use. A practical addition to your planters collection; original illustration shows the sample style.",
+      "categoryId": "e30e9707-8e7c-531e-83db-e946ffba87ff",
+      "priceInMinorUnits": 119900,
+      "stock": 48,
+      "status": "ACTIVE",
+      "image": {
+        "bucket": "local-catalog",
+        "objectName": "b7431474-bdb6-5175-ace8-9721840e2eae.png",
+        "generation": "1f699ef6f0d7361fce620228a4e0326833034c440e8f33362516f0932af9736b",
+        "contentType": "image/png",
+        "size": 2373
+      }
+    }
+  ]
+}

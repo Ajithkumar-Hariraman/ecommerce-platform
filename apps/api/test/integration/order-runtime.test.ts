@@ -1,3 +1,4 @@
+import { InMemoryProductRepository } from "../../src/modules/products/in-memory-product.repository.js";
 import { startOrderAuth } from "../helpers/order-auth.js";
 import { startProvider } from "../helpers/payment-provider.js";
 import { HttpPaymentClient } from "../../src/modules/payments/payment.client.js";
@@ -45,11 +46,18 @@ for (const mode of ["postgres", "mongodb"] as const) {
       const auth = await startOrderAuth();
       const secret = randomUUID() + randomUUID();
       const provider = await startProvider("http://127.0.0.1:1/api/v1/webhooks/payments", secret);
-      const service = new OrderService(repository, new HttpPaymentClient(provider.baseUrl));
+      const pricingProducts = new InMemoryProductRepository();
+      const service = new OrderService(repository, new HttpPaymentClient(provider.baseUrl), pricingProducts);
       let child: ReturnType<typeof spawn> | undefined;
       try {
         // Exercise the real service directly; no fake Order persistence.
         for (const items of [input().items.slice(0, 1), input().items]) {
+          for (const item of items) {
+            const now = new Date().toISOString();
+            await pricingProducts.create({ id: item.productId, sku: item.productId, name: "Runtime pricing fixture",
+              description: null, categoryId: null, priceInMinorUnits: item.unitPriceInMinorUnits, stock: 10,
+              status: "ACTIVE", createdAt: now, updatedAt: now });
+          }
           const created = await service.create({ items }, "runtime-order-owner");
           ids.push(created.id);
           assert.equal(created.totalInMinorUnits, items.length === 1 ? 100000 : 120000);
