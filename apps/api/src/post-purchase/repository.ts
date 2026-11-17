@@ -165,7 +165,7 @@ export class MongoPostPurchaseRepository implements PostPurchaseRepository {
     if (!row) return null;
     const p = await this.db
       .collection("razorpay_payment_attempts")
-      .findOne({ orderId: id, status: "captured" });
+      .findOne({ orderId: id, status: "captured" }, { sort: { updatedAt: 1, _id: 1 } });
     return {
       paidAt: row.changedAt.toISOString(),
       ...(p ? { providerPaymentId: p._id as unknown as string } : {}),
