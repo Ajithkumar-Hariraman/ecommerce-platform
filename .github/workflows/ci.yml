@@ -96,7 +96,18 @@ jobs:
             kafka \
             keycloak
 
-      - name: Diagnose infrastructure startup failure
+      - name: Complete unfiltered integration suite
+        run: python3 scripts/run-compose-integration.py
+
+      - name: Full application and HTTP event flow
+        run: |
+          for backend in postgres mongodb; do
+            export ORDER_STORAGE="$backend"
+            docker compose -f infra/compose.yaml up -d --wait
+            python3 scripts/verify-compose.py
+          done
+
+      - name: Diagnose integration failure
         if: failure()
         run: |
           echo "===== Docker Compose status ====="
@@ -117,13 +128,9 @@ jobs:
           echo "===== Keycloak logs ====="
           docker compose -f infra/compose.yaml logs --no-color --tail=150 keycloak || true
 
-      - name: Complete unfiltered integration suite
-        run: python3 scripts/run-compose-integration.py
-
-      - name: Full application and HTTP event flow
-        run: |
-          docker compose -f infra/compose.yaml up -d
-          python3 scripts/verify-compose.py
+          echo "===== Application and worker logs ====="
+          docker compose -f infra/compose.yaml logs --no-color --tail=100 \
+            api web payment-provider outbox-relay order-event-worker || true
 
       - name: Service status
         if: always()

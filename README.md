@@ -1,70 +1,99 @@
 # Ecommerce platform
 
-Production-learning Node.js backend with a PostgreSQL Product/Category catalog.
-Start with [current state](docs/current-state.md), then read
-[architecture](docs/architecture.md) or [learning map](docs/learning-map.md) as needed.
-Coding-agent rules live in [AGENTS.md](AGENTS.md).
+A full-stack ecommerce project for exploring authenticated checkout, interchangeable persistence and reliable event delivery. The React storefront includes product browsing, a cart and order history. The Express API also exposes role-protected catalog management.
 
-## Local setup (Ubuntu WSL)
+## Architecture
 
-Prerequisites: Node 24 via nvm, PostgreSQL running, ecommerce_app role and
-ecommerce_dev/ecommerce_test databases already provisioned.
-
-```sh
-cd /home/ak_soft_2017/projects/ecommerce-platform
-source ~/.nvm/nvm.sh
-nvm use
-cd apps/api
-npm ci
+```mermaid
+flowchart LR
+    Browser["React + TypeScript storefront"] --> Nginx["Nginx HTTP proxy"]
+    Browser --> Keycloak["Keycloak · OIDC"]
+    Nginx --> API["Node.js 24 · Express 5 · TypeScript"]
+    API --> Keycloak
+    API --> Redis["Redis · product cache"]
+    API --> Store["PostgreSQL or MongoDB"]
+    API --> Payments["Local payment simulator or Razorpay"]
+    Payments -->|Signed webhook| API
+    Store --> Relay["Outbox relay"]
+    Relay --> Kafka
+    Kafka --> Worker["Order event worker"]
+    Worker --> Store
 ```
 
-If apps/api/.env does not exist, create it using .env.example as a reference.
-Set your development-only database password locally; never commit or print it.
-Do not overwrite an existing private .env. The central config loads it automatically;
-shell variables take precedence.
+Routes validate requests before handing off to controllers and services. Repository interfaces isolate persistence. PostgreSQL adapters use parameterized SQL and versioned migrations. MongoDB adapters use indexed collections and an embedded order outbox. The backend selector applies to the catalog, orders, payment state and event processing. Redis caches product reads, with invalidation on writes. Kafka carries payment-completed events from the outbox relay to the notification worker. Mailpit is available for local email testing.
+
+| Directory | Contents |
+| --- | --- |
+| [apps/web](apps/web) | React, TypeScript and Vite, served by Nginx in Compose |
+| [apps/api](apps/api) | Express API, repositories, migrations and workers |
+| [services/payment-provider-simulator](services/payment-provider-simulator) | Local payment simulator with signed callbacks |
+| [infra](infra) | Docker Compose, Keycloak realm and optional cloud infrastructure |
+
+## Docker quick start
+
+Use Docker Engine with the Compose plugin (including `up --wait`) and Python 3. Run these commands from the repository root. The generator writes a private, ignored `infra/.env` from the same settings documented in [infra/.env.example](infra/.env.example). It refuses to overwrite an existing file. Keep the same credentials for the lifetime of the local volumes.
 
 ```sh
-npm run db:migrate
-npm run dev
+python3 scripts/prepare-ci-env.py --database ecommerce_dev
+docker compose --env-file infra/.env -f infra/compose.yaml up -d --build --wait
 ```
 
-Run API commands inside apps/api; the repository root has no package.json.
-Default address: http://127.0.0.1:3000. Stop with Ctrl+C.
-For compiled execution: npm run build, then npm start.
+Open the [storefront](http://localhost:8088), [API docs](http://127.0.0.1:3001/docs/), [Keycloak console](http://127.0.0.1:8180/admin/) or [Mailpit inbox](http://127.0.0.1:8025). Use `localhost:8088` for the browser because the realm registers that exact origin. The catalog starts empty. Sign up through the storefront to exercise the customer flow. Use the locally generated Keycloak administrator credentials to manage users and roles.
 
-## Verify
+To load the bundled sample catalog, use Node.js 24 and run the insert-only seed after Compose is ready.
 
 ```sh
-npm run typecheck
-npm run build
-npm test
-npm run test:integration
+(cd apps/api && npm ci)
+node scripts/local/seed-catalog.mjs postgres
 ```
 
-Integration runs apply test migrations and use ecommerce_test only. The status
-fixture requires an empty test products table and never clears unrelated rows.
-Expected diagnostic logs appear in intentional error/failure tests.
-See [current state](docs/current-state.md) for the latest verified counts.
+PostgreSQL is the default. To run MongoDB-backed business storage, set `ORDER_STORAGE=mongodb` in `infra/.env`, repeat the Compose start command, and run the seed with `mongodb`. Each backend retains its own data. Compose starts both database services in either mode, and the migration service uses PostgreSQL. Stop the local stack with `docker compose --env-file infra/.env -f infra/compose.yaml stop` to retain its volumes.
 
-## API surface
+## Screenshots
 
-- GET /health: liveness.
-- GET /ready: required database readiness.
-- POST/GET /api/v1/products.
-- GET /api/v1/products?status=ACTIVE or INACTIVE: filtered collection, possibly [].
-- GET/PUT/DELETE /api/v1/products/:id; PUT currently performs partial updates.
-- POST/GET /api/v1/categories and GET /api/v1/categories/:id.
-- Product categoryId is optional/nullable; assigned Categories must exist.
+The storefront and product detail below use the repository’s synthetic catalog.
 
-## Historical learning reports
+![Storefront with sample products](docs/screenshots/storefront.png)
 
-[Phase 1 archive](docs/phase-1.md) · [Phase 2](docs/phase-2.md) · [Phase 3](docs/phase-3.md) · [Phase 4A](docs/phase-4a.md).
-These explain earlier stages; current setup and state supersede historical commands.
+![Product detail for the sample Canvas Market Tote](docs/screenshots/product-detail.png)
 
-Architecture decisions:
-[PostgreSQL/raw SQL](docs/decisions/001-postgresql-raw-sql.md) ·
-[Modular monolith](docs/decisions/002-modular-monolith.md).
+## Verification
 
-## Fresh AWS deployment — in progress
+Use the Node.js version in [.nvmrc](.nvmrc).
 
-The new AWS environment uses the existing application source and fresh data; no GCP recovery or data migration is planned. See [AWS architecture](docs/aws-architecture.md), [deployment/status gates](docs/aws-deployment.md), and [interview guide](docs/aws-interview-guide.md). CloudFront is optional and disabled. ALB + ACM is the prepared HTTPS path; no owned domain was found, so trusted public HTTPS remains a manual boundary. Web/API are deployed behind gated ALB routing. Public checkout and browser E2E are not certified. Existing GCP files remain until AWS E2E passes.
+```sh
+(cd apps/api && npm ci && npm run typecheck && npm run build && npm test)
+(cd apps/web && npm ci && npm run typecheck && npm run build && npm test)
+```
+
+The integration suite uses real PostgreSQL, MongoDB, Keycloak, Redis and Kafka.
+With the development services running, use `python3 scripts/run-compose-integration.py`
+from the root. The runner targets `ecommerce_test` and exercises both backends.
+
+To reproduce the CI sequence, use a disposable checkout with the default ports
+available. Use a separate Docker host or context if the development stack is
+running on those ports. Run the host suite before starting the application relay
+and worker so they cannot claim its fixture events.
+
+```sh
+(cd apps/api && npm ci)
+python3 scripts/prepare-ci-env.py
+docker compose -f infra/compose.yaml config --quiet
+docker compose -f infra/compose.yaml build
+docker compose -f infra/compose.yaml up -d --wait postgres mongodb redis-cache kafka keycloak
+python3 scripts/run-compose-integration.py
+docker compose -f infra/compose.yaml up -d --wait
+python3 scripts/verify-compose.py
+ORDER_STORAGE=mongodb docker compose -f infra/compose.yaml up -d --wait
+ORDER_STORAGE=mongodb python3 scripts/verify-compose.py
+docker compose -f infra/compose.yaml stop
+```
+
+See the [readiness report](docs/recruiter-readiness.md) for the GitHub Actions failure, verification evidence and seven cloud test prerequisites.
+
+## Security model and limitations
+
+- The storefront uses Keycloak Authorization Code with PKCE. The API validates JWT signature, issuer and audience. Public storefront reads expose active catalog items. Management routes require scoped roles, and customer order access is bound to the token subject.
+- Checkout prices from the server-side catalog, checks stock and verifies signed payment callbacks. Payment processing and event consumption include idempotency checks. Stock validation currently provides no inventory reservation.
+- Docker uses the local simulator by default. The development checkout can simulate success or failure with no external charge. The storefront footer currently shows Razorpay branding in both modes. Optional Razorpay setup requires separate credentials and webhook configuration. [Payment integration](docs/payment-integration.md), [API environment example](apps/api/.env.example).
+- Compose is a local development stack with loopback ports, HTTP, development Keycloak and a single Kafka broker. Cloud integrations, public HTTPS, production operations and live payment certification remain outside this baseline. [Recruiter readiness](docs/recruiter-readiness.md).

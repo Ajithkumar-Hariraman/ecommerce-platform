@@ -1,14 +1,42 @@
 #!/usr/bin/env python3
-"""Generate disposable credentials on an ephemeral CI runner; never overwrite local config."""
+"""Generate private Compose credentials for a fresh development or CI stack."""
+from argparse import ArgumentParser
+import os
 from pathlib import Path
 import secrets
-root=Path(__file__).resolve().parents[1]
-p=root/'infra/.env'
-if p.exists(): raise SystemExit('Refusing to overwrite existing infra/.env')
-values={k:secrets.token_hex(24) for k in ['MONGO_INITDB_ROOT_PASSWORD','KC_BOOTSTRAP_ADMIN_PASSWORD','ECOMMERCE_READER_CLIENT_SECRET','ECOMMERCE_MANAGER_CLIENT_SECRET','ECOMMERCE_UNPRIVILEGED_CLIENT_SECRET','POSTGRES_PASSWORD','DB_PASSWORD','PAYMENT_WEBHOOK_SECRET']}
-values.update(MONGO_INITDB_ROOT_USERNAME='ecommerce_ci',KC_BOOTSTRAP_ADMIN_USERNAME='ecommerce_ci',COMPOSE_DB_NAME='ecommerce_test')
-values['COMPOSE_MONGODB_URI']='mongodb://ecommerce_ci:'+values['MONGO_INITDB_ROOT_PASSWORD']+'@mongodb:27017/?authSource=admin'
-with p.open('x') as f:
-    f.write(''.join(k+'='+v+'\n' for k,v in values.items()))
-p.chmod(0o600)
-print('Disposable CI configuration generated; values withheld')
+
+parser = ArgumentParser(description=__doc__)
+parser.add_argument(
+    "--database", choices=("ecommerce_test", "ecommerce_dev"), default="ecommerce_test"
+)
+args = parser.parse_args()
+
+path = Path(__file__).resolve().parents[1] / "infra/.env"
+secret_names = (
+    "MONGO_INITDB_ROOT_PASSWORD",
+    "KC_BOOTSTRAP_ADMIN_PASSWORD",
+    "ECOMMERCE_READER_CLIENT_SECRET",
+    "ECOMMERCE_MANAGER_CLIENT_SECRET",
+    "ECOMMERCE_UNPRIVILEGED_CLIENT_SECRET",
+    "POSTGRES_PASSWORD",
+    "DB_PASSWORD",
+    "PAYMENT_WEBHOOK_SECRET",
+)
+values = {name: secrets.token_hex(24) for name in secret_names}
+values.update(
+    MONGO_INITDB_ROOT_USERNAME="ecommerce_ci",
+    KC_BOOTSTRAP_ADMIN_USERNAME="ecommerce_ci",
+    COMPOSE_DB_NAME=args.database,
+)
+values["COMPOSE_MONGODB_URI"] = (
+    f"mongodb://{values['MONGO_INITDB_ROOT_USERNAME']}:"
+    f"{values['MONGO_INITDB_ROOT_PASSWORD']}@mongodb:27017/?authSource=admin"
+)
+try:
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as config:
+        for key, value in values.items():
+            config.write(f"{key}={value}\n")
+except FileExistsError:
+    raise SystemExit("Refusing to overwrite existing infra/.env") from None
+
+print("Private Compose configuration generated; values withheld")

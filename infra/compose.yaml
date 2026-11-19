@@ -38,7 +38,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sh:/docker-entrypoint-initdb.d/10-app.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -117,7 +117,10 @@ services:
     restart: unless-stopped
     ports: ["127.0.0.1:8088:8080"]
     depends_on:
-      api: {condition: service_healthy}
+      api:
+        condition: service_healthy
+        # Nginx resolves the API upstream at startup. Refresh it when Compose replaces the API.
+        restart: true
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
       interval: 10s
@@ -182,7 +185,7 @@ services:
     restart: unless-stopped
 
     ports:
-      - "27018:27017"
+      - "127.0.0.1:27018:27017"
 
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?Set MONGO_INITDB_ROOT_USERNAME in infra/.env}

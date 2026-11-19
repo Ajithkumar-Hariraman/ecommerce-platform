@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { loadDatabaseConfig } from "../../src/config/env.js";
 import { createPool } from "../../src/database/pool.js";
@@ -54,11 +53,11 @@ async function claimContract(
   a: OutboxRepository,
   b: OutboxRepository,
   eventId: string,
-  makeDue?: () => Promise<void>,
+  makeDue: () => Promise<void>,
 ) {
   const options = {
     batchSize: 1,
-    leaseMs: makeDue ? 300000 : 60,
+    leaseMs: 300000,
     maxAttempts: 5,
   };
   const concurrent = await Promise.all([a.claimBatch(options), b.claimBatch(options)]);
@@ -67,17 +66,15 @@ async function claimContract(
   const old = claims[0]!;
   assert.equal(old.event.eventId, eventId);
   assert.equal(old.attempts, 1);
-  if (makeDue) await makeDue();
-  else await delay(100);
+  await makeDue();
   const recovered = (await b.claimBatch({ ...options, leaseMs: 30000 }))[0]!;
   assert.equal(recovered.attempts, 2);
   assert.notEqual(recovered.leaseToken, old.leaseToken);
   assert.equal(await a.markPublished(old), false);
   assert.equal(await a.markFailed(old, "KAFKA_UNAVAILABLE", 0, 5), false);
-  assert.equal(await b.markFailed(recovered, "KAFKA_UNAVAILABLE", makeDue ? 300000 : 120, 5), true);
+  assert.equal(await b.markFailed(recovered, "KAFKA_UNAVAILABLE", 300000, 5), true);
   assert.deepEqual(await a.claimBatch(options), []);
-  if (makeDue) await makeDue();
-  else await delay(150);
+  await makeDue();
   const retry = (await a.claimBatch({ ...options, leaseMs: 30000 }))[0]!;
   assert.equal(retry.event.eventId, eventId);
   assert.equal(retry.attempts, 3);
@@ -104,6 +101,14 @@ test("PostgreSQL outbox atomic commit/rollback, SKIP LOCKED contention and crash
       "Test database has unrelated pending outbox work",
     );
     for (const o of rows) await orders.save(o);
+    const makeDue = async (eventId: string) => {
+      // Advance the persisted deadline for this fixture only.
+      const result = await pool.query(
+        "UPDATE outbox_events SET available_at = now() - interval '1 second' WHERE event_id=$1",
+        [eventId],
+      );
+      assert.equal(result.rowCount, 1);
+    };
     await t.test(
       "all four writes commit and duplicate webhook creates no second outbox",
       async () => {
@@ -128,7 +133,9 @@ test("PostgreSQL outbox atomic commit/rollback, SKIP LOCKED contention and crash
           ).rows[0].count,
           "1",
         );
-        await claimContract(repo, new PostgresOutboxRepository(pool), events[0]!.eventId);
+        await claimContract(repo, new PostgresOutboxRepository(pool), events[0]!.eventId, () =>
+          makeDue(events[0]!.eventId),
+        );
         assert.equal(
           (
             await pool.query("SELECT status FROM outbox_events WHERE event_id=$1", [
@@ -168,9 +175,12 @@ test("PostgreSQL outbox atomic commit/rollback, SKIP LOCKED contention and crash
     });
     await t.test("exhausted lease becomes FAILED without deletion", async () => {
       await workflow.applyEvent(events[2]!);
-      const claim = (await repo.claimBatch({ batchSize: 1, leaseMs: 50, maxAttempts: 1 }))[0]!;
-      await delay(80);
-      assert.deepEqual(await repo.claimBatch({ batchSize: 1, leaseMs: 50, maxAttempts: 1 }), []);
+      const claim = (await repo.claimBatch({ batchSize: 1, leaseMs: 300000, maxAttempts: 1 }))[0]!;
+      await makeDue(events[2]!.eventId);
+      assert.deepEqual(
+        await repo.claimBatch({ batchSize: 1, leaseMs: 300000, maxAttempts: 1 }),
+        [],
+      );
       assert.equal(
         (await pool.query("SELECT status FROM outbox_events WHERE id=$1", [claim.id])).rows[0]
           .status,
