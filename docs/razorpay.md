@@ -1,5 +1,7 @@
 # Razorpay Test Mode checkout
 
+> Historical implementation notes. For the current setup, storefront flow, and verification results, see [Milestone 2A](milestone-2a-razorpay.md).
+
 ## Runtime configuration
 
 Set these only in the ignored `apps/api/.env` (or process environment):

@@ -72,7 +72,7 @@ export function createApp(dependencies: AppDependencies): Express {
       }),
     );
   }
-  if (dependencies.paymentWorkflow && dependencies.paymentWebhookSecret) {
+  if (!dependencies.razorpay && dependencies.paymentWorkflow && dependencies.paymentWebhookSecret) {
     app.use(
       "/api/v1/webhooks",
       createPaymentWebhookRouter(dependencies.paymentWorkflow, dependencies.paymentWebhookSecret),
@@ -156,10 +156,10 @@ export function createApp(dependencies: AppDependencies): Express {
     );
   if (dependencies.orderDocuments)
     app.use("/api/v1/orders", postPurchaseOrderRouter(dependencies.orderDocuments));
-  if (dependencies.razorpay && dependencies.orderRepository)
+  if (dependencies.razorpay && dependencies.orderRepository && dependencies.paymentWorkflow)
     app.use(
       "/api/v1/orders",
-      razorpayCheckoutRouter(dependencies.razorpay, dependencies.orderRepository),
+      razorpayCheckoutRouter(dependencies.razorpay, dependencies.orderRepository, dependencies.paymentWorkflow),
     );
   app.use((_req, _res, next) => {
     next(new AppError(404, "Route not found"));

@@ -58,6 +58,7 @@ for (const storage of ["postgres", "mongodb"] as const)
           status: "created",
         }),
         findOrder: async () => null,
+        orderPayments: async () => [],
         payment: async () => {
           throw new Error("Not needed for denied verification");
         },

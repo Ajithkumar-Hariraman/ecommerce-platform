@@ -1,4 +1,3 @@
-import { assertOrderPricing } from "../orders/order.service.js";
 import { assertOrderAccess } from "../orders/order-access.js";
 import { raw, Router } from "express";
 import { z } from "zod";
@@ -32,7 +31,7 @@ export function razorpayWebhookRouter(
   return router;
 }
 // Mounted behind the existing Order authentication, rate limiter and per-Order authorization.
-export function razorpayCheckoutRouter(gateway: RazorpayPaymentClient, orders: OrderRepository) {
+export function razorpayCheckoutRouter(gateway: RazorpayPaymentClient, orders: OrderRepository, workflow: PaymentWorkflowRepository) {
   const router = Router();
   router.post("/:id/checkout", async (req, res) => {
     const id = z.uuid().safeParse(req.params.id);
@@ -42,8 +41,7 @@ export function razorpayCheckoutRouter(gateway: RazorpayPaymentClient, orders: O
     assertOrderAccess(res.locals.principal, order);
     if (!["PAYMENT_PENDING", "PAYMENT_FAILED"].includes(order.status))
       throw new AppError(409, "Order cannot be checked out");
-    assertOrderPricing(order);
-    res.json(await gateway.checkout(id.data));
+    res.json(await gateway.checkout(order, workflow));
   });
   router.post("/:id/checkout/verify", async (req, res) => {
     const id = z.uuid().safeParse(req.params.id);
@@ -52,8 +50,8 @@ export function razorpayCheckoutRouter(gateway: RazorpayPaymentClient, orders: O
     const order = await orders.findById(id.data);
     if (!order) throw new AppError(404, "Order not found");
     assertOrderAccess(res.locals.principal, order);
-    await gateway.verifyCheckout(id.data, input.data);
-    res.json({ verified: true, paymentStatus: "AWAITING_WEBHOOK" });
+    const paymentStatus = await gateway.verifyCheckout(order, input.data, workflow);
+    res.json({ verified: true, paymentStatus });
   });
   return router;
 }

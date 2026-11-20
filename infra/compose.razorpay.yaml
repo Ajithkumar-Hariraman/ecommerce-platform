@@ -1,0 +1,9 @@
+services:
+  api:
+    environment:
+      PAYMENT_PROVIDER: razorpay
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:?Set the Razorpay Test Mode key ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:?Set the Razorpay Test Mode key secret}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:?Set the Razorpay Test Mode webhook secret}
+      RAZORPAY_CURRENCY: INR
+      RAZORPAY_TIMEOUT_MS: ${RAZORPAY_TIMEOUT_MS:-8000}

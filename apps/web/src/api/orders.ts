@@ -11,6 +11,7 @@ export type OrderStatus =
 export interface Order {
   id: string;
   status: OrderStatus;
+  version: number;
   totalInMinorUnits: number;
   createdAt: string;
   items: {

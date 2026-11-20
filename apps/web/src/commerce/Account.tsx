@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   login,
@@ -11,7 +12,18 @@ import {
 import { safeReturnPath } from "../auth/access";
 export function SignIn({ registration = false }: { registration?: boolean }) {
   const session = useSession();
+  const [opening, setOpening] = useState<"account" | "recovery">();
   const [query] = useSearchParams();
+  async function start(action: "account" | "recovery") {
+    setOpening(action);
+    try {
+      if (action === "recovery") await forgotPassword();
+      else if (registration) await register(returnTo);
+      else await login(returnTo);
+    } finally {
+      setOpening(undefined);
+    }
+  }
   const returnTo = safeReturnPath(query.get("returnTo") ?? (registration ? "/account" : "/"));
   if (!session.ready)
     return (
@@ -42,18 +54,12 @@ export function SignIn({ registration = false }: { registration?: boolean }) {
       <p className="muted">
         You’ll continue to our secure account provider. Your password stays there.
       </p>
-      {session.authenticated ? (
-        <Link className="button-link" to={returnTo}>
-          Continue
-        </Link>
-      ) : (
-        <button
-          disabled={!session.ready || session.unavailable}
-          onClick={() => void (registration ? register(returnTo) : login(returnTo))}
-        >
-          {registration ? "Create account" : "Sign in"}
-        </button>
-      )}
+      <button
+        disabled={session.unavailable || !!opening}
+        onClick={() => void start("account")}
+      >
+        {opening === "account" ? "Opening secure sign-in…" : registration ? "Create account" : "Sign in"}
+      </button>
       <p>
         {registration ? (
           <>
@@ -70,10 +76,10 @@ export function SignIn({ registration = false }: { registration?: boolean }) {
         <p>Continue to secure sign-in, then choose “Forgot password?” to request a reset email.</p>
         <button
           className="subtle"
-          disabled={!session.ready || session.unavailable}
-          onClick={() => void forgotPassword()}
+          disabled={session.unavailable || !!opening}
+          onClick={() => void start("recovery")}
         >
-          Continue to password recovery
+          {opening === "recovery" ? "Opening password recovery…" : "Continue to password recovery"}
         </button>
       </details>
     </section>
@@ -81,6 +87,15 @@ export function SignIn({ registration = false }: { registration?: boolean }) {
 }
 export function Account() {
   const session = useSession();
+  const [openingVerification, setOpeningVerification] = useState(false);
+  async function openVerification() {
+    setOpeningVerification(true);
+    try {
+      await verifyEmail();
+    } finally {
+      setOpeningVerification(false);
+    }
+  }
   return (
     <section className="panel account-page">
       <span className="eyebrow">YOUR ACCOUNT</span>
@@ -106,9 +121,9 @@ export function Account() {
       </dl>
       {session.email && session.emailVerified === false && (
         <div className="notice">
-          <p>Your email is not verified.</p>
-          <button className="subtle" onClick={() => void verifyEmail()}>
-            Verify email
+          <p>Open the secure verification page to request an email or resend a missing link.</p>
+          <button className="subtle" disabled={openingVerification} onClick={() => void openVerification()}>
+            {openingVerification ? "Opening email verification…" : "Verify email"}
           </button>
         </div>
       )}

@@ -249,7 +249,7 @@ test("SPA API scope explicitly emits required subject into access tokens", async
   );
 });
 
-test("local realm supports registration/recovery and safe profile claims without mandatory email", async () => {
+test("local realm verifies new registrations while keeping existing accounts eligible for sign-in", async () => {
   const realm = JSON.parse(
     await (
       await import("node:fs/promises")
@@ -258,11 +258,27 @@ test("local realm supports registration/recovery and safe profile claims without
   assert.equal(realm.registrationAllowed, true);
   assert.equal(realm.resetPasswordAllowed, true);
   assert.equal(realm.verifyEmail, false);
-  assert.equal(
-    realm.requiredActions.find((action: { alias: string }) => action.alias === "VERIFY_EMAIL")
-      .defaultAction,
-    false,
+  const verification = realm.requiredActions.find(
+    (action: { alias: string }) => action.alias === "VERIFY_EMAIL",
   );
+  assert.equal(verification.enabled, true);
+  assert.equal(verification.defaultAction, true);
+  assert.equal(verification.config.emailResendCooldownSeconds, "30");
+  const passwordUpdate = realm.requiredActions.find(
+    (action: { alias: string }) => action.alias === "UPDATE_PASSWORD",
+  );
+  assert.equal(passwordUpdate.enabled, true);
+  assert.equal(passwordUpdate.defaultAction, false);
+  assert.ok(passwordUpdate.priority > verification.priority);
+  assert.deepEqual(realm.smtpServer, {
+    host: "mailpit",
+    port: "1025",
+    from: "accounts@example.invalid",
+    fromDisplayName: "Commerce Accounts",
+    auth: "false",
+    ssl: "false",
+    starttls: "false",
+  });
   const spa = realm.clients.find(
     (client: { clientId: string }) => client.clientId === "ecommerce-web",
   );

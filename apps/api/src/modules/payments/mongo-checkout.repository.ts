@@ -87,19 +87,17 @@ export class MongoCheckoutRepository implements CheckoutRepository {
     status: string,
     update: boolean,
   ): Promise<void> {
-    const fields = { orderId: id, status, updatedAt: new Date() };
-    await this.db.collection<Attempt>("razorpay_payment_attempts").updateOne(
+    const attempts = this.db.collection<Attempt>("razorpay_payment_attempts");
+    await attempts.updateOne(
       { _id: paymentId },
-      update
-        ? {
-            $set: { status, updatedAt: fields.updatedAt },
-            $setOnInsert: { orderId: id },
-          }
-        : { $setOnInsert: fields },
-      {
-        upsert: true,
-      },
+      { $setOnInsert: { orderId: id, status, updatedAt: new Date() } },
+      { upsert: true },
     );
+    if (update)
+      await attempts.updateOne(
+        { _id: paymentId, status: { $ne: "captured" } },
+        { $set: { status, updatedAt: new Date() } },
+      );
   }
   async claimEvent(id: string, hash: string): Promise<{ body_hash: string; processed: boolean }> {
     const c = this.db.collection<Event>("razorpay_webhook_events");

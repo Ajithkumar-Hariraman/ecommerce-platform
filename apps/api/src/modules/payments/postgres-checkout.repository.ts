@@ -50,7 +50,7 @@ class Session implements CheckoutSession {
     update: boolean,
   ): Promise<void> {
     await this.db.query(
-      `INSERT INTO razorpay_payment_attempts(provider_payment_id,order_id,status) VALUES($1,$2,$3) ON CONFLICT(provider_payment_id) ${update ? "DO UPDATE SET status=EXCLUDED.status,updated_at=now()" : "DO NOTHING"}`,
+      `INSERT INTO razorpay_payment_attempts(provider_payment_id,order_id,status) VALUES($1,$2,$3) ON CONFLICT(provider_payment_id) ${update ? "DO UPDATE SET status=EXCLUDED.status,updated_at=now() WHERE razorpay_payment_attempts.status<>'captured'" : "DO NOTHING"}`,
       [paymentId, id, status],
     );
   }

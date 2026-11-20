@@ -80,8 +80,7 @@ export function CheckoutSection() {
     [loading, setLoading] = useState(!!resumeId),
     [notice, setNotice] = useState(""),
     [error, setError] = useState("");
-  const active = useRef<AbortController | null>(null),
-    widget = useRef<{ close(): void } | null>(null),
+  const widget = useRef<{ close(): void } | null>(null),
     mounted = useRef(true),
     settled = useRef<string | null>(null),
     pending = useRef<string | null>(null);
@@ -89,7 +88,6 @@ export function CheckoutSection() {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      active.current?.abort();
       widget.current?.close();
     };
   }, []);
@@ -131,13 +129,17 @@ export function CheckoutSection() {
     }
   }, [order, cart]);
   useEffect(() => {
-    if (!order || order.status !== "PAYMENT_PENDING") return;
+    if (
+      !order ||
+      (order.status !== "PAYMENT_PENDING" &&
+        !(config?.provider === "razorpay" && order.status === "PAYMENT_FAILED"))
+    ) return;
     const controller = new AbortController();
     const timer = setInterval(() => {
       void ordersApi
         .get(order.id, controller.signal)
         .then((value) => {
-          if (!controller.signal.aborted) setOrder(value);
+          if (!controller.signal.aborted) updateOrder(value);
         })
         .catch(() => {});
     }, 2500);
@@ -145,7 +147,7 @@ export function CheckoutSection() {
       clearInterval(timer);
       controller.abort();
     };
-  }, [order?.id, order?.status]);
+  }, [order?.id, order?.status, config?.provider]);
   async function simulate(outcome: "succeed" | "fail") {
     if (!order || !config?.simulationEnabled || actionInProgress.current) return;
     actionInProgress.current = true;
@@ -176,12 +178,15 @@ export function CheckoutSection() {
   }
   const currentItems = order?.items ?? cart.items;
   const total = order?.totalInMinorUnits ?? cartSubtotal(cart.items);
+  function updateOrder(value: Order) {
+    setOrder((current) => current?.id === value.id && current.version <= value.version ? value : current);
+  }
   async function refresh(id = order?.id) {
     if (!id) return;
     setError("");
     try {
       const value = await ordersApi.get(id);
-      if (mounted.current) setOrder(value);
+      if (mounted.current) updateOrder(value);
     } catch (e) {
       if (mounted.current) setError(errorMessage(e));
     }
@@ -189,9 +194,16 @@ export function CheckoutSection() {
   async function pay(id: string) {
     if (config?.provider !== "razorpay")
       throw new Error("Razorpay is not configured for this checkout");
-    const details = await request<Checkout>(`/orders/${id}/checkout`, { method: "POST" });
+    let details: Checkout;
+    try {
+      details = await request<Checkout>(`/orders/${id}/checkout`, { method: "POST" });
+    } catch (error) {
+      await refresh(id);
+      throw error;
+    }
     await loadCheckout();
     if (!mounted.current) return;
+    let submitted = false;
     const popup = new window.Razorpay!({
       key: details.keyId,
       order_id: details.providerOrderId,
@@ -200,57 +212,42 @@ export function CheckoutSection() {
       name: "Commerce",
       modal: {
         ondismiss: () => {
-          if (mounted.current) {
-            setBusy(false);
-            setNotice("Payment window closed. Your order is saved and you can continue later.");
-          }
+          if (submitted || !mounted.current || widget.current !== popup) return;
+          widget.current = null;
+          setBusy(false);
+          setNotice("Payment window closed. Your order is saved and you can continue later.");
+          void refresh(id);
         },
       },
       handler: (result) => {
+        if (submitted || !mounted.current || widget.current !== popup) return;
+        submitted = true;
+        setNotice("Checking payment status…");
         void (async () => {
           try {
-            await request(`/orders/${id}/checkout/verify`, {
-              method: "POST",
-              body: JSON.stringify(result),
-            });
-            if (!mounted.current) return;
-            setNotice("Payment received. We’re waiting for confirmation—please don’t pay again.");
-            active.current?.abort();
-            const controller = new AbortController();
-            active.current = controller;
-            for (let attempt = 0; attempt < 12 && !controller.signal.aborted; attempt++) {
-              const value = await ordersApi.get(id, controller.signal);
-              if (controller.signal.aborted) return;
-              setOrder(value);
-              if (value.status === "PAID") {
-                setNotice("Thank you. Your payment is confirmed.");
-                return;
-              }
-              if (value.status === "PAYMENT_FAILED") {
-                setNotice("This payment wasn’t completed. You can retry the same order.");
-                return;
-              }
-              await new Promise((resolve) => setTimeout(resolve, 1500));
-            }
-            if (!controller.signal.aborted)
-              setNotice(
-                "Your payment is still processing. Refresh status or return to My Orders later.",
-              );
-          } catch (e) {
-            if (mounted.current && !active.current?.signal.aborted)
-              setError(
-                "We couldn’t confirm payment yet. Refresh your order status before trying again.",
-              );
+            const confirmation = await request<{ paymentStatus: "PAID" | "AWAITING_CAPTURE" }>(
+              `/orders/${id}/checkout/verify`,
+              { method: "POST", body: JSON.stringify(result) },
+            );
+            await refresh(id);
+            if (mounted.current)
+              setNotice(confirmation.paymentStatus === "AWAITING_CAPTURE"
+                ? "Payment was authorized. Wait for capture confirmation before trying again."
+                : "");
+          } catch {
+            await refresh(id);
+            if (mounted.current)
+              setError("We couldn’t confirm payment yet. Check your saved order status.");
           } finally {
+            widget.current = null;
             if (mounted.current) setBusy(false);
           }
         })();
       },
     });
     popup.on("payment.failed", () => {
-      if (mounted.current) {
-        setBusy(false);
-        setNotice("Payment was unsuccessful. Your order is saved for another attempt.");
+      if (mounted.current && widget.current === popup && !submitted) {
+        setNotice("This payment attempt failed. You can try again in checkout or close the payment window.");
         void refresh(id);
       }
     });
@@ -260,6 +257,7 @@ export function CheckoutSection() {
   async function begin() {
     if (
       !config ||
+      busy ||
       actionInProgress.current ||
       (config.provider === "local" && !config.simulationEnabled)
     )
@@ -363,7 +361,7 @@ export function CheckoutSection() {
             {config?.provider === "local"
               ? "Local payment simulation. No money is charged."
               : config?.provider === "razorpay"
-                ? "You’ll complete payment securely with Razorpay."
+                ? "Razorpay Test Mode. Use test payment details only."
                 : "Loading payment options…"}{" "}
             Final prices are confirmed by the server.
           </p>
@@ -425,12 +423,12 @@ export function CheckoutSection() {
           )}
         </aside>
       </div>
-      {notice && (
+      {notice && order?.status !== "PAID" && (
         <p className="notice" role="status">
           {notice}
         </p>
       )}
-      {error && (
+      {error && order?.status !== "PAID" && (
         <p className="error" role="alert">
           {error}
         </p>

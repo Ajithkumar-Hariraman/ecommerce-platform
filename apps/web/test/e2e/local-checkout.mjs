@@ -262,6 +262,62 @@ try {
   );
   assert.equal(razorpayRequests, 0);
   await page.screenshot({ path: "/tmp/checkout-simulator.png", fullPage: true });
+  // Exercise the hosted widget lifecycle with a browser stub and no external payment calls.
+  const mockOrder = { ...order, id: randomUUID() };
+  let mockStatus = "PAYMENT_PENDING", verificationCalls = 0;
+  await page.route("**/api/v1/orders/checkout-config", (route) =>
+    route.fulfill({ json: { provider: "razorpay", simulationEnabled: false } }));
+  await page.route(new RegExp("/api/v1/orders/" + mockOrder.id + "(?:/.*)?$"), async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/checkout")) {
+      await route.fulfill({ json: {
+        keyId: "rzp_test_browser", providerOrderId: "order_browser", amount: order.totalInMinorUnits,
+        currency: "INR", orderId: mockOrder.id,
+      } });
+    } else if (path.endsWith("/verify")) {
+      verificationCalls++;
+      assert.equal(route.request().postDataJSON().razorpay_order_id, "order_browser");
+      mockStatus = "PAID";
+      await route.fulfill({ json: { verified: true, paymentStatus: "PAID" } });
+    } else {
+      await route.fulfill({ json: { ...mockOrder, status: mockStatus, version: mockStatus === "PAID" ? 3 : 2 } });
+    }
+  });
+  await page.route("https://checkout.razorpay.com/v1/checkout.js", (route) =>
+    route.fulfill({ contentType: "application/javascript", body: `
+      window.Razorpay = class {
+        constructor(options) { this.options = options; }
+        open() { window.checkoutWidget = this; }
+        close() { this.options.modal.ondismiss(); }
+        on(event, handler) { this.fail = handler; }
+      };
+    ` }));
+  await page.goto(base + "/checkout?order=" + mockOrder.id);
+  const continuePayment = page.getByRole("button", { name: "Continue payment", exact: true });
+  await continuePayment.click();
+  await page.waitForFunction(() => !!window.checkoutWidget);
+  await page.evaluate(() => window.checkoutWidget.fail());
+  await page.getByText(/This payment attempt failed/).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Processing…" }).isDisabled(), true);
+  await page.evaluate(() => {
+    window.checkoutWidget.close();
+    window.checkoutWidget = undefined;
+  });
+  await page.getByText(/Payment window closed/).waitFor();
+  assert.equal(verificationCalls, 0);
+  await continuePayment.click();
+  await page.waitForFunction(() => !!window.checkoutWidget);
+  await page.evaluate(() => {
+    const { handler } = window.checkoutWidget.options;
+    const payment = { razorpay_order_id: "order_browser", razorpay_payment_id: "pay_browser",
+      razorpay_signature: "fixture" };
+    handler(payment);
+    window.checkoutWidget.close();
+    handler(payment);
+  });
+  await page.getByRole("heading", { name: "Thank you for your order", exact: true }).waitFor();
+  assert.equal(verificationCalls, 1);
+
   console.log(
     JSON.stringify({
       result: "PASS",
@@ -269,6 +325,7 @@ try {
       paidTotal: order.totalInMinorUnits,
       paymentIds: [order.paymentId, failed.paymentId],
       razorpayRequests,
+      mockedRazorpayBrowser: "PASS",
     }),
   );
 } finally {

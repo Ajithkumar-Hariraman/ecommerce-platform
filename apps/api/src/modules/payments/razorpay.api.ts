@@ -12,12 +12,13 @@ export const razorpayPayment = z.object({
   order_id: z.string().regex(/^order_[A-Za-z0-9]+$/),
   amount: z.number().int().positive(),
   currency: z.literal("INR"),
-  status: z.enum(["authorized", "captured", "failed"]),
+  status: z.enum(["created", "authorized", "captured", "refunded", "failed"]),
   created_at: z.number().int().nonnegative().max(253402300799),
 });
 export interface RazorpayApi {
   createOrder(orderId: string, amount: number): Promise<z.infer<typeof razorpayOrder>>;
   findOrder(orderId: string): Promise<z.infer<typeof razorpayOrder> | null>;
+  orderPayments(id: string): Promise<z.infer<typeof razorpayPayment>[]>;
   payment(id: string): Promise<z.infer<typeof razorpayPayment>>;
 }
 // Real HTTPS API, Basic authentication and bounded responses. No automatic POST retries.
@@ -78,6 +79,12 @@ export class RazorpayHttpApi implements RazorpayApi {
     if (matches.length > 1)
       throw new AppError(409, "Multiple provider Orders require reconciliation");
     return matches[0] ?? null;
+  }
+  async orderPayments(id: string) {
+    return this.parse(
+      z.object({ items: z.array(razorpayPayment) }),
+      await this.request("orders/" + encodeURIComponent(id) + "/payments"),
+    ).items;
   }
   async payment(id: string) {
     return this.parse(razorpayPayment, await this.request("payments/" + encodeURIComponent(id)));

@@ -201,7 +201,7 @@ export function Home() {
       </section>
       <div className="shop-promises">
         <span>Browse at your own pace</span>
-        <span>Secure payment with Razorpay</span>
+        <span>Review payment options at checkout</span>
         <span>Your orders, in one place</span>
       </div>
       <ProductCatalog featured />

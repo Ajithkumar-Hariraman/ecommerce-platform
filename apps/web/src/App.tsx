@@ -176,7 +176,7 @@ function Layout() {
               </>
             ))}
         </nav>
-        <small>Payments handled securely by Razorpay.</small>
+        <small>Review payment options at checkout.</small>
       </footer>
     </>
   );

@@ -24,9 +24,14 @@ import { MongoPaymentWorkflowRepository } from "../../src/modules/payments/mongo
 import { errorHandler } from "../../src/middleware/error-handler.js";
 import type { Order } from "../../src/modules/orders/order.types.js";
 
-for (const storage of ["postgres", "mongodb"] as const)
+for (const [storage, settlement] of [
+  ["postgres", "verify"],
+  ["postgres", "reopen"],
+  ["mongodb", "verify"],
+  ["mongodb", "reopen"],
+] as const)
   test(
-    `Razorpay ${storage}: durable idempotency, HTTPS boundary, raw webhook, retry settlement and one outbox`,
+    `Razorpay ${storage} (${settlement}): durable idempotency, HTTPS boundary, raw webhook, retry settlement and one outbox`,
     { skip: storage === "mongodb" && !process.env.MONGODB_TEST_URI },
     async (t) => {
       const pool = createPool(loadDatabaseConfig("test"));
@@ -46,6 +51,10 @@ for (const storage of ["postgres", "mongodb"] as const)
       const secret = randomUUID() + randomUUID(),
         keySecret = randomUUID();
       const headerIds: string[] = [];
+      let paymentStatus: "authorized" | "captured" = "authorized";
+      let paymentAmount = 1200;
+      let attempts: Awaited<ReturnType<RazorpayApi["orderPayments"]>> = [];
+      let paymentLookups = 0;
       const api: RazorpayApi = {
         createOrder: async (receipt, amount) => {
           posts++;
@@ -67,14 +76,18 @@ for (const storage of ["postgres", "mongodb"] as const)
             status: "created",
           };
         },
-        payment: async (payment) => ({
-          id: payment,
-          order_id: remoteId,
-          amount: 1200,
-          currency: "INR",
-          status: "captured",
-          created_at: 1700000000,
-        }),
+        orderPayments: async () => attempts,
+        payment: async (payment) => {
+          paymentLookups++;
+          return {
+            id: payment,
+            order_id: remoteId,
+            amount: paymentAmount,
+            currency: "INR",
+            status: paymentStatus,
+            created_at: 1700000000,
+          };
+        },
       };
       const checkout = mongo
         ? new MongoCheckoutRepository(mongo.db)
@@ -90,11 +103,11 @@ for (const storage of ["postgres", "mongodb"] as const)
       const app = express();
       app.use("/webhooks", razorpayWebhookRouter(gateway, orders, workflow));
       app.use(express.json());
-      app.use("/orders", (_req, res, next) => {
-        res.locals.principal = { subject: "test-manager", roles: ["order_manager"] };
+      app.use("/orders", (req, res, next) => {
+        res.locals.principal = { subject: req.get("Test-Other") ? "foreign-customer" : "owner", roles: [] };
         next();
       });
-      app.use("/orders", razorpayCheckoutRouter(gateway, orders));
+      app.use("/orders", razorpayCheckoutRouter(gateway, orders, workflow));
       app.use(errorHandler);
       const server = app.listen(0, "127.0.0.1");
       await once(server, "listening");
@@ -152,6 +165,7 @@ for (const storage of ["postgres", "mongodb"] as const)
         const order: Order = {
           id,
           customerId: randomUUID(),
+          ownerSubject: "owner",
           status: "PAYMENT_PENDING",
           paymentId: payment.paymentId,
           version: 2,
@@ -168,44 +182,48 @@ for (const storage of ["postgres", "mongodb"] as const)
           updatedAt: now,
         };
         await orders.save(order);
+        const openCheckout = () => fetch(base + `/orders/${id}/checkout`, { method: "POST" });
+        const paid = "pay_c" + id.replaceAll("-", "");
+        const confirmation = {
+          razorpay_order_id: remoteId,
+          razorpay_payment_id: paid,
+          razorpay_signature: createHmac("sha256", keySecret).update(remoteId + "|" + paid).digest("hex"),
+        };
+        const verify = (body: object, headers: Record<string, string> = {}) =>
+          fetch(base + `/orders/${id}/checkout/verify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...headers },
+            body: JSON.stringify(body),
+          });
         await t.test(
-          "checkout response exposes only public key; verified callback never marks PAID",
+          "checkout exposes only safe data and rejects unauthorized, forged or mismatched verification",
           async () => {
-            const response = await fetch(base + `/orders/${id}/checkout`, {
-              method: "POST",
-            });
+            const response = await openCheckout();
             assert.equal(response.status, 200);
             const body: any = await response.json();
             assert.deepEqual(
               Object.keys(body).sort(),
               ["amount", "currency", "keyId", "orderId", "providerOrderId"].sort(),
             );
-            const pay = "pay_" + id.replaceAll("-", "");
-            const confirmation = {
-              razorpay_order_id: remoteId,
-              razorpay_payment_id: pay,
-              razorpay_signature: createHmac("sha256", keySecret)
-                .update(remoteId + "|" + pay)
-                .digest("hex"),
-            };
-            assert.equal(
-              (
-                await fetch(base + `/orders/${id}/checkout/verify`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(confirmation),
-                })
-              ).status,
-              200,
-            );
+            assert.equal(body.amount, order.totalInMinorUnits);
+            assert.equal(body.providerOrderId, remoteId);
+            assert.equal((await verify(confirmation, { "Test-Other": "1" })).status, 404);
+            assert.equal((await verify({ ...confirmation, razorpay_order_id: "order_wrong" })).status, 400);
+            assert.equal((await verify({ ...confirmation, status: "PAID" })).status, 400);
+            assert.equal((await verify({ ...confirmation, razorpay_signature: "0".repeat(64) })).status, 401);
+            assert.equal(paymentLookups, 0);
+            paymentAmount++;
+            assert.equal((await verify(confirmation)).status, 409);
+            paymentAmount--;
+            const responseAuthorized = await verify(confirmation);
+            assert.equal(responseAuthorized.status, 200);
+            assert.equal((await responseAuthorized.json()).paymentStatus, "AWAITING_CAPTURE");
             assert.equal((await orders.findById(id))!.status, "PAYMENT_PENDING");
-            await assert.rejects(
-              gateway.verifyCheckout(id, {
-                ...confirmation,
-                razorpay_order_id: "order_wrong",
-              }),
-              { statusCode: 400 },
-            );
+            attempts = [await api.payment(paid)];
+            assert.equal((await openCheckout()).status, 409);
+            attempts = [{ ...attempts[0]!, status: "failed" }];
+            assert.equal((await openCheckout()).status, 200);
+            assert.equal(posts, 1);
           },
         );
         await t.test("invalid signature and mismatched amount cannot change Order", async () => {
@@ -217,20 +235,35 @@ for (const storage of ["postgres", "mongodb"] as const)
           assert.equal((await orders.findById(id))!.status, "PAYMENT_PENDING");
         });
         await t.test(
-          "failed attempt then captured payment settles once; duplicate and late failure are acknowledged",
+          "confirmed capture settles after failed attempt; duplicate and late callbacks are acknowledged",
           async () => {
             const failed = "pay_f" + id.replaceAll("-", "");
-            const paid = "pay_c" + id.replaceAll("-", "");
             const eventId = randomUUID();
             assert.equal((await delivery("failed", failed)).status, 200);
             assert.equal((await orders.findById(id))!.status, "PAYMENT_FAILED");
+            paymentStatus = "captured";
+            if (settlement === "verify") {
+              const verified = await verify(confirmation);
+              assert.equal(verified.status, 200);
+              assert.equal((await verified.json()).paymentStatus, "PAID");
+            } else {
+              attempts = [await api.payment(paid)];
+              assert.equal((await openCheckout()).status, 409);
+            }
+            assert.equal((await orders.findById(id))!.status, "PAID");
             assert.equal((await delivery("captured", paid, eventId)).status, 200);
             assert.equal((await delivery("captured", paid, eventId)).status, 200);
+            assert.equal((await delivery("failed", paid, eventId)).status, 409);
             assert.equal((await delivery("captured", paid)).status, 200);
             assert.equal((await delivery("failed", failed)).status, 200);
+            assert.equal((await delivery("failed", paid)).status, 200);
             assert.equal((await orders.findById(id))!.status, "PAID");
             assert.equal((await orders.findById(id))!.version, 4);
             if (mongo) {
+              const attempt = await mongo.db
+                .collection<{ _id: string; status: string }>("razorpay_payment_attempts")
+                .findOne({ _id: paid });
+              assert.equal(attempt?.status, "captured");
               assert.equal(
                 await mongo.db.collection("order_status_history").countDocuments({ orderId: id }),
                 2,
@@ -240,6 +273,13 @@ for (const storage of ["postgres", "mongodb"] as const)
                 .findOne({ _id: id });
               assert.equal(row!.outbox.event.eventType, "OrderPaid");
             } else {
+              assert.equal(
+                (await pool.query(
+                  "SELECT status FROM razorpay_payment_attempts WHERE provider_payment_id=$1",
+                  [paid],
+                )).rows[0]?.status,
+                "captured",
+              );
               assert.equal(
                 (
                   await pool.query("SELECT count(*) FROM order_status_history WHERE order_id=$1", [
