@@ -46,10 +46,11 @@ for (const action of actions) {
   });
   const configured = await request(url, { headers });
   if (configured.enabled !== action.enabled || configured.defaultAction !== action.defaultAction ||
-      Object.entries(action.config).some(([key, value]) => configured.config[key] !== value))
+      configured.priority !== action.priority ||
+      Object.entries(action.config).some(([key, value]) => configured.config?.[key] !== value))
     throw new Error("Local Keycloak required action could not be confirmed: " + action.alias);
 }
 const configuredRealm = await request(realm, { headers });
-if (configuredRealm.smtpServer?.host !== "mailpit" || configuredRealm.smtpServer?.port !== "1025")
+if (Object.entries(template.smtpServer).some(([key, value]) => configuredRealm.smtpServer?.[key] !== value))
   throw new Error("Local Keycloak SMTP configuration could not be confirmed");
 console.log("Local Keycloak uses Mailpit and requires email verification for new accounts.");

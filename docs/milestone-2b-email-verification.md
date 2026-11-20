@@ -7,6 +7,8 @@
 3. Keycloak checks the link and verifies that it still belongs to the account’s email address. For new registrations, Keycloak 26.7.4 collects the initial password after this step. Sign in and open **My account** to see **Verified**.
 4. For recovery, use **Forgot your password? → Continue to password recovery** in the storefront, then **Forgot Password?** on the Keycloak page. Open the reset message in Mailpit and set a new password on Keycloak. Keycloak uses the same request acknowledgement for known and unknown accounts. [Keycloak server administration guide](https://www.keycloak.org/docs/26.7.5/server_admin/) · [Keycloak 26.7.4 registration password behavior](https://github.com/keycloak/keycloak/blob/26.7.4/services/src/main/java/org/keycloak/authentication/forms/RegistrationPassword.java)
 
+Keycloak manages passwords and email links. After sign-in, it gives React a signed identity token with an `email_verified` field and a separate access token for API requests. React displays the verification status from the identity token. The API validates the access token and uses its signed user ID to look up the customer's orders.
+
 ## Findings and decisions
 
 - The running realm already allowed registration and recovery. SMTP was unset and `VERIFY_EMAIL` was enabled as an optional action. Registration did not trigger it. The realm import also omitted `UPDATE_PASSWORD`, the native action that registration and recovery need to set a password. The storefront already delegated login, password reset, profile management, and logout to Keycloak and displayed the boolean `email_verified` claim in My account.
@@ -36,7 +38,7 @@ node scripts/local/configure-keycloak-email.mjs
 docker compose --env-file infra/.env -f infra/compose.yaml up -d --build --wait --no-deps web
 ```
 
-The script reads existing admin credentials from ignored `infra/.env` and sends them only to the loopback Keycloak Admin CLI token endpoint. It updates SMTP and the two required actions in place. Mailpit catches local mail and the repository’s Compose service has no external relay configured. No realm reimport, volume reset, account deletion, provider switch, or cloud configuration change is needed.
+The script reads existing admin credentials from ignored `infra/.env` and sends them only to the loopback Keycloak Admin CLI token endpoint. It updates SMTP and the two required actions in place, then reads back the configured SMTP values, action priorities, and cooldown. Mailpit catches local mail and the repository’s Compose service has no external relay configured. No realm reimport, volume reset, account deletion, provider switch, or cloud configuration change is needed.
 
 ## Files changed
 
@@ -57,18 +59,18 @@ Set `CHROMIUM_EXECUTABLE` if using an existing Chromium binary outside Playwrigh
 
 ## Results
 
-Node 24.18.0, Keycloak 26.7.4, Chromium, and the local Docker stack.
+Node 24.18.0, Keycloak 26.7.4, Chromium, and the local Docker stack. The November 20, 2026 recheck used the running Docker services. Web, API, Keycloak, Mailpit, PostgreSQL, MongoDB, and the local payment simulator all reported healthy. The recheck applied the local realm configuration in place and used the existing images.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Local configuration and storefront Docker build | PASS | The in-place script read back Mailpit and both required actions. The storefront image built and served the browser flow. |
 | API typecheck, build, and fast tests | PASS | 223 tests passed. |
 | Web typecheck, build, and fast tests | PASS | 16 tests passed. |
-| PostgreSQL and MongoDB integration | PASS | 107 passed, 7 cloud opt-in skips. Includes order ownership and the simulator payment workflow on both adapters. |
+| PostgreSQL and MongoDB integration | PASS | 107 passed, 0 failed, 7 opt-in skips. Used `ecommerce_test` and covered JWT authorization, order ownership, and the signed local payment-provider workflow on both adapters. |
 | Registration, local email links, resend cooldown, and sign-in | PASS | Chromium received a local action link, verified after resend, set the initial password, and displayed Verified. |
 | Invalid and reused verification links | PASS | Chromium checked a modified signature and confirmed that replay could not verify the address a second time. |
 | Password reset and password replacement | PASS | Mailpit delivered the link. The old password was refused and the new password restored the verified session. Invalid and reused reset tokens were rejected. Known and unknown accounts received the same acknowledgement. |
-| Existing unverified customer and account management | PASS | An existing-account fixture signed in, loaded My Orders, opened the native account console, and completed optional verification from the storefront. |
+| Existing unverified customer and account management | PASS | A separate focused Chromium check was rerun with a new synthetic account representing a customer created before the verification requirement. It signed in, loaded My Orders, opened the native account console, and completed optional verification from the storefront. |
 | Naturally expired verification and reset links | PASS | Chromium opened both untouched signed links after their actual expiry and Keycloak rejected them. |
 | Session refresh and logout | PASS | Chromium observed a successful refresh-token exchange. My account still showed Verified and sign-out returned to the signed-out storefront. |
 | Full session expiry and revocation scenarios | NOT TESTED | Deferred to Milestone 2E. |
