@@ -119,6 +119,7 @@ export class OrderDocumentService {
     private readonly repo: PostPurchaseRepository,
     private readonly store: OrderDocumentStore | undefined,
     private readonly merchant: string,
+    private readonly allowUnstored = false,
   ) {}
   async forOwner(id: string, kind: DocumentKind, actor: AuthenticatedPrincipal) {
     const order = await this.orders.findById(id);
@@ -130,8 +131,10 @@ export class OrderDocumentService {
     const paid = await this.repo.paidInfo(order.id);
     if (kind === "receipt" && (order.status !== "PAID" || !paid))
       throw new AppError(409, "Receipt available only after confirmed payment");
-    if (!this.store) throw new AppError(503, "Order document storage is not configured");
+    if (!this.store && !this.allowUnstored)
+      throw new AppError(503, "Order document storage is not configured");
     const bytes = await renderOrderPdf(order, kind, this.merchant, paid ?? undefined);
+    if (!this.store) return bytes;
     const key = `orders/${order.id}/${kind}-v${order.version}.pdf`;
     await this.store.putIfAbsent(key, bytes);
     return this.store.read(key);

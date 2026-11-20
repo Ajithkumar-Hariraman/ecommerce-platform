@@ -26,6 +26,8 @@ import { startOrderConsumer } from "../../src/events/order-consumer.js";
 import { OutboxRelay } from "../../src/outbox/outbox-relay.js";
 import { orderPaid } from "../../src/events/order-paid.js";
 import type { Order } from "../../src/modules/orders/order.types.js";
+const local = process.env.LOCAL_POST_PURCHASE_INTEGRATION === "true";
+const gcs = process.env.GCS_POST_PURCHASE_INTEGRATION === "true";
 async function until(check: () => Promise<boolean>, label: string) {
   const end = Date.now() + 30000;
   while (!(await check())) {
@@ -35,8 +37,8 @@ async function until(check: () => Promise<boolean>, label: string) {
 }
 for (const mode of ["postgres", "mongodb"] as const)
   test(
-    `real ${mode}: private GCS PDFs, owner notifications, Kafka and Mailpit exactly one normal delivery`,
-    { timeout: 90000, skip: process.env.GCS_POST_PURCHASE_INTEGRATION !== "true" },
+    `real ${mode}: private ${local ? "local" : "GCS"} PDFs, owner notifications, Kafka and Mailpit`,
+    { timeout: 90000, skip: !local && !gcs },
     async () => {
       loadEnv();
       const saved = { ...process.env };
@@ -78,16 +80,17 @@ for (const mode of ["postgres", "mongodb"] as const)
         createdAt: now,
         updatedAt: now,
       };
-      const storage = new Storage({
+      const storage = local ? undefined : new Storage({
           projectId: "ecommerce-platform-510208",
           retryOptions: { totalTimeout: 10, maxRetries: 1 },
         }),
-        bucket = storage.bucket("ecommerce-platform-510208-product-assets");
+        bucket = storage?.bucket("ecommerce-platform-510208-product-assets");
       const docs = new OrderDocumentService(
         business.orders,
         business.postPurchase,
-        new GcsOrderDocumentStore(storage, bucket.name),
+        storage && bucket ? new GcsOrderDocumentStore(storage, bucket.name) : undefined,
         "Commerce",
+        local,
       );
       const sender = new SmtpEmailSender({
         host: "127.0.0.1",
@@ -96,12 +99,23 @@ for (const mode of ["postgres", "mongodb"] as const)
         user: "",
         password: "",
       });
+      let sendAttempts = 0;
+      let processed = 0;
+      let smtpFailureObserved = false;
       const processor = new PostPurchaseNotificationProcessor(
         business.notifications,
         business.orders,
         business.postPurchase,
         docs,
-        sender,
+        {
+          close: () => sender.close(),
+          async send(message) {
+            sendAttempts++;
+            if (local && sendAttempts === 1)
+              throw Object.assign(new Error("SMTP unavailable"), { command: "CONN" });
+            await sender.send(message);
+          },
+        },
         "Commerce",
       );
       const prefix = "test-" + randomUUID(),
@@ -151,12 +165,36 @@ for (const mode of ["postgres", "mongodb"] as const)
         };
         await business.payments.applyEvent(event);
         const paidOrder = (await business.orders.findById(id))!;
+        assert.equal(paidOrder.status, "PAID");
+        if (local && mode === "mongodb") {
+          const removed = await mongo.db.collection("order_status_history").deleteOne({ orderId: id });
+          assert.equal(removed.deletedCount, 1);
+          assert.ok(
+            await business.postPurchase.paidInfo(id),
+            "Embedded receipt survives a missing audit projection",
+          );
+        }
         await docs.generate(paidOrder, "invoice");
         await docs.generate(paidOrder, "receipt");
         await ensureOrderTopics(kafka, c);
         await producer.connect();
         await admin.connect();
-        worker = await startOrderConsumer(kafka, producer, c, processor);
+        worker = await startOrderConsumer(kafka, producer, c, {
+          async process(event) {
+            try {
+              const result = await processor.process(event);
+              processed++;
+              return result;
+            } catch (error) {
+              if (local && sendAttempts === 1) {
+                assert.equal((await business.orders.findById(id))?.status, "PAID");
+                assert.equal(await business.postPurchase.state(id), "PENDING");
+                smtpFailureObserved = true;
+              }
+              throw error;
+            }
+          },
+        });
         // Never publish another test's pending work from the shared test database.
         if (mode === "postgres")
           assert.equal(
@@ -189,7 +227,9 @@ for (const mode of ["postgres", "mongodb"] as const)
         assert.equal(await relay.runOnce(), 1);
         await until(async () => (await business.postPurchase.state(id)) === "SENT", "SMTP sent");
         await publisher.publish(orderPaid(event));
-        await delay(1500);
+        await until(async () => processed === 2, "duplicate consumed");
+        assert.equal(sendAttempts, local ? 2 : 1);
+        assert.equal(smtpFailureObserved, local);
         assert.equal(await business.postPurchase.state(id), "SENT");
         assert.equal((await business.postPurchase.list(owner, 0, 20)).total, 1);
         assert.equal((await business.postPurchase.list("other", 0, 20)).total, 0);
@@ -246,7 +286,12 @@ for (const mode of ["postgres", "mongodb"] as const)
           await fetch("http://127.0.0.1:8025/api/v1/message/" + mailboxIds[0])
         ).json();
         assert.equal(message.Attachments.length, 2);
+        assert.deepEqual(
+          message.Attachments.map((attachment: { FileName: string }) => attachment.FileName).sort(),
+          ["invoice.pdf", "receipt.pdf"],
+        );
         assert.match(message.Text, /Payment received/);
+        assert.match(message.Text, /Verified product x 2 - INR 2\.00/);
         assert.match(message.HTML, /Payment received/);
         assert.equal(
           mode === "postgres"
@@ -257,7 +302,7 @@ for (const mode of ["postgres", "mongodb"] as const)
         );
         console.log({
           storage: mode,
-          documents: "private GCS PDFs",
+          documents: local ? "private locally rendered PDFs" : "private GCS PDFs",
           mailpitMessages: 1,
           attachments: 2,
           duplicateEmail: false,
@@ -280,7 +325,7 @@ for (const mode of ["postgres", "mongodb"] as const)
           `orders/${pendingId}/invoice-v1.pdf`,
         ])
           await bucket
-            .file(key)
+            ?.file(key)
             .delete({ ignoreNotFound: true })
             .catch(() => {});
         const ownedMail = await (

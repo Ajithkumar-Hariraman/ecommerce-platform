@@ -90,18 +90,22 @@ export class PostPurchaseNotificationProcessor implements OrderNotificationRepos
     private readonly merchant: string,
   ) {}
   async process(event: OrderPaid) {
-    const result = await this.base.process(event),
-      order = await this.orders.findById(event.aggregateId);
+    const result = await this.base.process(event);
+    const order = await this.orders.findById(event.aggregateId).catch(() => {
+      throw new TransientProcessingError("Order lookup unavailable");
+    });
     if (!order || order.status !== "PAID")
       throw new PermanentProcessingError("Confirmed Order required");
-    const state = await this.repo.state(order.id);
+    const state = await this.repo.state(order.id).catch(() => {
+      throw new TransientProcessingError("Email delivery state unavailable");
+    });
     if (state === "SENT" || state === "SKIPPED") return result;
     if (state === "UNCERTAIN") throw new PermanentProcessingError("Email requires reconciliation");
     if (state === "SENDING")
       throw new TransientProcessingError("Email delivery already in progress or uncertain");
     if (!order.customer?.email) {
-      if (await this.repo.claim(order.id, `<order-paid-${order.id}@commerce.local>`))
-        await this.repo.finish(order.id, "SKIPPED");
+      if (await this.claim(order.id, `<order-paid-${order.id}@commerce.local>`))
+        await this.finish(order.id, "SKIPPED");
       return result;
     }
     let invoice: Buffer, receipt: Buffer;
@@ -112,7 +116,7 @@ export class PostPurchaseNotificationProcessor implements OrderNotificationRepos
       throw new TransientProcessingError("Order documents unavailable");
     }
     const email = confirmationEmail(order, this.merchant, invoice, receipt);
-    if (!(await this.repo.claim(order.id, email.messageId)))
+    if (!(await this.claim(order.id, email.messageId)))
       throw new TransientProcessingError("Email delivery in progress");
     try {
       await this.sender.send(email);
@@ -128,7 +132,7 @@ export class PostPurchaseNotificationProcessor implements OrderNotificationRepos
         "MAIL FROM",
         "RCPT TO",
       ].includes(command);
-      await this.repo.finish(order.id, safeRetry ? "PENDING" : "UNCERTAIN");
+      await this.finish(order.id, safeRetry ? "PENDING" : "UNCERTAIN");
       if (safeRetry) throw new TransientProcessingError("SMTP unavailable before acceptance");
       throw new PermanentProcessingError(
         "SMTP delivery outcome uncertain; reconcile before resend",
@@ -143,5 +147,19 @@ export class PostPurchaseNotificationProcessor implements OrderNotificationRepos
       );
     }
     return result;
+  }
+  private async claim(orderId: string, messageId: string) {
+    try {
+      return await this.repo.claim(orderId, messageId);
+    } catch {
+      throw new TransientProcessingError("Email delivery claim unavailable");
+    }
+  }
+  private async finish(orderId: string, state: "SKIPPED" | "PENDING" | "UNCERTAIN") {
+    try {
+      await this.repo.finish(orderId, state);
+    } catch {
+      throw new TransientProcessingError("Email delivery state could not be saved");
+    }
   }
 }

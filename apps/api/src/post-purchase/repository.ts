@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import type { Db } from "mongodb";
+import type { OrderAudit } from "../modules/payments/payment-workflow.js";
 export type CustomerNotification = {
   id: string;
   orderId: string;
@@ -159,15 +160,26 @@ export class MongoPostPurchaseRepository implements PostPurchaseRepository {
       );
   }
   async paidInfo(id: string) {
-    const row = await this.db
+    const history = await this.db
       .collection("order_status_history")
       .findOne({ orderId: id, toStatus: "PAID" }, { sort: { changedAt: 1 } });
-    if (!row) return null;
+    // The embedded receipt commits with PAID and the outbox. The audit projection can lag.
+    const paidAt =
+      history?.changedAt ??
+      (
+        await this.db
+          .collection<{ _id: string; paymentReceipt?: OrderAudit }>("orders")
+          .findOne(
+            { _id: id, "paymentReceipt.toStatus": "PAID" },
+            { projection: { "paymentReceipt.changedAt": 1 } },
+          )
+      )?.paymentReceipt?.changedAt;
+    if (!paidAt) return null;
     const p = await this.db
       .collection("razorpay_payment_attempts")
       .findOne({ orderId: id, status: "captured" }, { sort: { updatedAt: 1, _id: 1 } });
     return {
-      paidAt: row.changedAt.toISOString(),
+      paidAt: paidAt.toISOString(),
       ...(p ? { providerPaymentId: p._id as unknown as string } : {}),
     };
   }

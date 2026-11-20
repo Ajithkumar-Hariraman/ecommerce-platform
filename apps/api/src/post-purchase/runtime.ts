@@ -22,5 +22,6 @@ export function createOrderDocuments(orders: OrderRepository, repo: PostPurchase
           )
       : undefined,
     c.merchant,
+    process.env.NODE_ENV === "development",
   );
 }

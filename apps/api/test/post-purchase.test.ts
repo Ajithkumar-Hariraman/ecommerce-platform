@@ -11,6 +11,7 @@ import {
   PostPurchaseNotificationProcessor,
 } from "../src/post-purchase/email.js";
 import { orderPaid } from "../src/events/order-paid.js";
+import { TransientProcessingError } from "../src/events/order-notification.repository.js";
 import type { Order } from "../src/modules/orders/order.types.js";
 const order: Order = {
   id: randomUUID(),
@@ -157,6 +158,20 @@ test("pre-acceptance SMTP failure can retry; uncertain DATA outcome never auto-r
   assert.equal(uncertain.state, "UNCERTAIN");
   await assert.rejects(uncertain.processor.process(event), /reconciliation/);
   assert.equal(uncertain.sends, 1);
+});
+
+test("delivery-state database failure is retryable and sends only after recovery", async () => {
+  const f = fixture();
+  const state = f.repo.state;
+  f.repo.state = async () => {
+    throw new Error("Database unavailable");
+  };
+  await assert.rejects(f.processor.process(event), TransientProcessingError);
+  assert.equal(f.sends, 0);
+  f.repo.state = state;
+  await f.processor.process(event);
+  assert.equal(f.state, "SENT");
+  assert.equal(f.sends, 1);
 });
 
 test("SMTP configuration rejects header injection, missing auth pair and invalid ports", async () => {

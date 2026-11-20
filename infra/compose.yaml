@@ -92,7 +92,10 @@ services:
     image: ecommerce-api:local
     init: true
     restart: unless-stopped
-    environment: *api-environment
+    environment:
+      <<: *api-environment
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
     command: ["node", "dist/workers/order-event.worker.js"]
     depends_on:
       api: {condition: service_healthy}

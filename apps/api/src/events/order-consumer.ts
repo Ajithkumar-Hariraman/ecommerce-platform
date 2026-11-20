@@ -1,4 +1,5 @@
 import type { Kafka, Producer } from "kafkajs";
+import { setTimeout as delay } from "node:timers/promises";
 import type { KafkaConfig } from "../config/env.js";
 import type { OrderNotificationRepository } from "./order-notification.repository.js";
 import { OrderEventHandler } from "./order-event.handler.js";
@@ -31,6 +32,11 @@ export async function startOrderConsumer(
       autoCommit: false,
       partitionsConsumedConcurrently: 3,
       eachMessage: async ({ topic, partition, message, heartbeat }) => {
+        // Give a transient dependency time to recover before spending another retry.
+        if (topic === config.retryTopic) {
+          await heartbeat();
+          await delay(2000);
+        }
         await handler.handle({
           topic,
           partition,
