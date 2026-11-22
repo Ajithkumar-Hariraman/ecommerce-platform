@@ -271,10 +271,39 @@ for (const mode of ["postgres", "mongodb"] as const)
         }
         assert.equal((await get(`/orders/${pendingId}/receipt`)).status, 409);
         assert.equal((await get(`/orders/${pendingId}/invoice`)).status, 200);
-        const mine = await (await get("/notifications")).json();
+        const notificationResponse = await get("/notifications");
+        assert.equal(notificationResponse.headers.get("cache-control"), "private,no-store");
+        const mine = await notificationResponse.json();
         assert.equal(mine.notifications.length, 1);
         assert.equal(mine.notifications[0].orderId, id);
-        assert.deepEqual((await (await get("/notifications", "other")).json()).notifications, []);
+        assert.equal(mine.unreadCount, 1);
+        assert.equal(mine.notifications[0].readAt, null);
+        const foreign = await (await get("/notifications", "other")).json();
+        assert.deepEqual(foreign.notifications, []);
+        assert.equal(foreign.unreadCount, 0);
+        assert.equal(mine.notifications[0].id, eventId);
+        const mark = (notificationId: string, token?: string) =>
+          fetch(base + `/notifications/${notificationId}/read`, {
+            method: "PATCH",
+            headers: token ? { Authorization: "Bearer " + token + ".a.b" } : {},
+          });
+        assert.equal((await mark(eventId)).status, 401);
+        assert.equal((await mark("invalid", "owner")).status, 400);
+        assert.equal((await mark(eventId, "other")).status, 404);
+        assert.equal((await mark(eventId, "manager")).status, 404);
+        assert.equal((await mark(randomUUID(), "owner")).status, 404);
+        const offPage = await (await get("/notifications?page=2&limit=1")).json();
+        assert.deepEqual(offPage.notifications, []);
+        assert.equal(offPage.unreadCount, 1);
+        assert.equal((await mark(eventId.toUpperCase(), "owner")).status, 204);
+        const read = await (await get("/notifications")).json();
+        assert.equal(read.unreadCount, 0);
+        assert.equal(read.pagination.total, 1);
+        assert.ok(Number.isFinite(Date.parse(read.notifications[0].readAt)));
+        const repeats = await Promise.all([mark(eventId, "owner"), mark(eventId, "owner")]);
+        assert.deepEqual(repeats.map((response) => response.status), [204, 204]);
+        const replayed = await (await get("/notifications")).json();
+        assert.equal(replayed.notifications[0].readAt, read.notifications[0].readAt);
         const mailbox = await (
           await fetch(
             "http://127.0.0.1:8025/api/v1/search?query=" + encodeURIComponent("to:" + email),

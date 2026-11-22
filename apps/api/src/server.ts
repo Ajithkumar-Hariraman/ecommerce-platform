@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { LocalProductImageStore } from "./modules/products/local-product-image.store.js";
 import { HttpSimulatorCheckout } from "./modules/payments/simulator-checkout.js";
 import { createOrderDocuments } from "./post-purchase/runtime.js";
 import {
@@ -110,6 +112,11 @@ async function main(): Promise<void> {
         )
       : undefined;
     const imageConfig = loadProductImageConfig();
+    const localImageDirectory = process.env.LOCAL_PRODUCT_IMAGE_DIRECTORY;
+    const localProductImages = !imageConfig && process.env.NODE_ENV === "development" &&
+      localImageDirectory && authConfig.enabled
+      ? new LocalProductImageStore(localImageDirectory, randomUUID() + randomUUID())
+      : undefined;
     const productImages = imageConfig
       ? imageConfig.provider === "aws"
         ? new S3ProductImageStore(
@@ -122,13 +129,14 @@ async function main(): Promise<void> {
             imageConfig.bucket,
             imageConfig.ttlSeconds,
           )
-      : undefined;
+      : localProductImages;
     const app = createApp({
       ...(paymentConfig && process.env.NODE_ENV === "development"
         ? { simulatorCheckout: new HttpSimulatorCheckout(paymentConfig.baseUrl) } : {}),
       postPurchase: business.postPurchase,
       orderDocuments: createOrderDocuments(business.orders, business.postPurchase),
       ...(productImages ? { productImages } : {}),
+      ...(localProductImages ? { localProductImages } : {}),
       ...(razorpay ? { razorpay } : {}),
       docsEnabled: loadDocsConfig(),
       productCache: new RedisProductCache(

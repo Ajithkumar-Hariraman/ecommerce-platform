@@ -7,6 +7,7 @@ export function toMinorUnits(text: string): number {
     throw new Error("Enter a price with at most two decimal places.");
   const [whole, fraction = ""] = text.trim().split(".");
   const minor = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  if (minor === 0) throw new Error("Enter a price greater than zero.");
   if (!Number.isSafeInteger(minor)) throw new Error("Price is too large.");
   return minor;
 }

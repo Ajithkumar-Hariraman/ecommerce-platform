@@ -6,7 +6,19 @@ import type {
   CreateProductInput,
   UpdateProductInput,
 } from "../features/products/product.types";
+export interface ProductImportResult {
+  imported: number;
+  failed: number;
+  failures: { row: number; sku: string | null; message: string }[];
+  failuresTruncated: boolean;
+}
 export const productsApi = {
+  importCsv: (file: File) =>
+    request<ProductImportResult>("/products/import", {
+      method: "POST",
+      headers: { "Content-Type": "text/csv" },
+      body: file,
+    }),
   uploadImage: async (id: string, file: File) => {
     const upload = await request<{
       url: string;
@@ -16,7 +28,7 @@ export const productsApi = {
       method: "POST",
       body: JSON.stringify({ contentType: file.type, size: file.size }),
     });
-    // Signed capability goes directly to GCS; never attach the API Bearer token here.
+    // Signed capability goes directly to the image store; never attach the API Bearer token here.
     const response = await fetch(upload.url, {
       method: "PUT",
       headers: upload.headers,

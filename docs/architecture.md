@@ -1,53 +1,70 @@
-# Architecture
+# Local architecture
 
-## Request flow
+The Compose baseline runs an Express modular monolith, a browser SPA, and separate
+outbox and order-event workers built from the API image. One persistence backend
+is selected per process using the shared Compose configuration.
 
-Client -> Express -> route -> runtime validation -> controller -> service
--> repository interface -> repository adapter -> PostgreSQL.
+```mermaid
+flowchart LR
+    UI["React storefront and admin"] -->|"HTML, assets, /api"| Web["Nginx"]
+    UI <-->|"Authorization Code + PKCE"| KC["Keycloak"]
+    Web --> API["Node.js 24 / Express 5 API"]
+    API -->|"OIDC discovery and JWKS"| KC
+    API <-->|"Product cache and rate limits"| Redis
+    API -->|"Provider order and verification"| Pay["Simulator or Razorpay Test Mode"]
+    Pay -->|"Signed webhook"| API
+    API --> DB{"Selected repositories"}
+    DB --- PG[("PostgreSQL")]
+    DB --- Mongo[("MongoDB")]
+    DB -->|"Claim and update outbox records"| Relay["Outbox relay"]
+    Relay -->|"OrderPaid keyed by order ID"| Kafka
+    Kafka --> Worker["Order-event worker"]
+    Worker -->|"Notification and email state"| DB
+    Worker -->|"Retry / dead-letter topics"| Kafka
+    Worker -->|"Order SMTP"| Mailpit
+    KC -->|"Account SMTP"| Mailpit
+```
 
-Zod protects external shapes/types; ProductService owns business rules;
-database constraints protect persistent integrity. Errors reach the central handler.
-Product HTTP listing returns { products, pagination }; products may be []. ID lookup retains single-resource semantics.
-ProductService calculates page defaults/offset and metadata; repository.list returns a page plus matching total.
-PostgreSQL uses separate parameterized count/page queries without a shared snapshot.
-Existing findAll/findByStatus repository methods retain their array contracts.
+## HTTP and persistence boundaries
 
-## Composition / dependency injection
+Express routes apply access policy and Zod validation, then pass inputs through
+controllers to services. Services own pricing and state transitions and depend
+on repository interfaces. The composition root in
+[`server.ts`](../apps/api/src/server.ts) selects database adapters and opens
+resources. Central error handling normalizes failures. `/health` checks
+liveness and `/ready` checks required persistence. Migrations are explicit.
 
-Outer wiring (src/server.ts) creates Product and Category PostgreSQL adapters with one Pool.
-ProductService receives ProductRepository and CategoryRepository; CategoryService receives
-CategoryRepository. Each controller receives its service.
-src/app.ts accepts dependencies; product.module.ts connects repository, service,
-controller and router. ProductService depends on repository contracts, not pg or SQL.
-The interface defines WHAT; adapters define HOW; outer composition supplies WIRING.
+| Concern | PostgreSQL | MongoDB |
+| --- | --- | --- |
+| Business data | Normalized tables, foreign keys, parameterized SQL via `pg`, numbered migrations | Indexed collections, embedded order lines, atomic document updates, comparable repository contracts |
+| Paid transition | Payment receipt, order status, audit and outbox row commit in one transaction | Order status, canonical payment receipt and outbox commit in one order-document update. Audit and receipt collections are repairable projections |
+| Relay claim | Row locking with `SKIP LOCKED` and a claim lease | Atomic `findOneAndUpdate` with a claim lease |
 
-## Runtime lifecycle
+Catalog, orders, payment state, outbox and notification persistence follow the
+selection. Compose starts both engines and runs PostgreSQL migrations, while
+business writes go to the selected backend. [Raw SQL decision](decisions/001-postgresql-raw-sql.md) · [Module boundaries](decisions/002-modular-monolith.md)
 
-Central env validation -> one DB pool -> DB/table verification -> app -> listen.
-Startup does not silently create tables; explicit migration commands own schema changes.
+## Order, payment, event and email
 
-Shutdown: stop new HTTP -> drain active requests -> close DB pool -> exit.
-A bounded shutdown deadline covers HTTP and resource cleanup.
-/health checks liveness; /ready probes the required database/table.
+1. Checkout sends product IDs and quantities. The API resolves active products,
+   combines repeated lines, validates current stock and snapshots server-priced
+   line items. It persists an order and starts a provider payment. Provider
+   retries reuse stable identifiers.
+2. The simulator can issue a signed success or failure callback. Razorpay
+   checkout verification checks the signature and provider state against the
+   recorded payment, amount and currency. A valid captured webhook can also
+   settle the order. Both Razorpay paths converge on the same deterministic
+   payment event. Duplicate callbacks leave the paid order version stable.
+3. The paid transition persists `OrderPaid` in the outbox. The relay polls and
+   claims records, publishes to Kafka, and marks publication after broker
+   acknowledgement. A crash between publish and acknowledgement can redeliver.
+4. The worker persists an owner-scoped notification and tracks email delivery
+   separately. It commits the Kafka offset after durable handling or after an
+   acknowledged retry/dead-letter publication. The worker uses the order
+   snapshot for confirmation email and PDF attachments. The API serves private
+   invoice and paid receipt downloads. Local SMTP goes to Mailpit.
+5. The customer can view orders and mark a notification as read. A definite
+   SMTP failure before acceptance can retry. Ambiguous acceptance requires
+   evidence-based reconciliation using the stable Message-ID.
 
-## Test split
-
-Fast HTTP/service tests -> InMemoryProductRepository where appropriate.
-Shared lifecycle fixture -> same lifecycle code without a database.
-Integration tests -> real PostgreSQL in ecommerce_test, including actual runtime checks.
-Status collection assertions are shared between both adapters.
-The explicit developer smoke script targets ecommerce_dev; it is not part of automated tests.
-
-## Boundaries
-
-One backend application with Product and Category modules: a modular monolith.
-Many Products may reference one Category; nullable category_id preserves existing data.
-The database FK uses ON DELETE RESTRICT; service lookup provides friendly input errors.
-SQL and row mapping belong in the PostgreSQL adapter/database infrastructure.
-Schema changes use versioned SQL migrations; no ORM or distributed services.
-React uses API modules with native fetch; the Vite development proxy forwards /api to Express.
-Current setup is in [README](../README.md); changing operational facts belong in
-[current state](current-state.md), not this document.
-
-Decisions: [raw SQL](decisions/001-postgresql-raw-sql.md) and
-[module boundaries](decisions/002-modular-monolith.md).
+[Payment integration](payment-integration.md) · [Transactional outbox](transactional-outbox.md) · [Kafka contracts](kafka-order-events.md) · [SMTP reconciliation](milestone-3-reliability-security.md#payment-and-delivery-reliability)

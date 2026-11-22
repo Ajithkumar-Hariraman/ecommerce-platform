@@ -83,7 +83,7 @@ export async function createBusinessResources() {
     await pool.query("SELECT id FROM order_status_history LIMIT 0");
     await pool.query("SELECT event_id FROM processed_webhook_events LIMIT 0");
     await pool.query("SELECT event_id FROM outbox_events LIMIT 0");
-    await pool.query("SELECT event_id FROM order_notifications LIMIT 0");
+    await pool.query("SELECT read_at FROM order_notifications LIMIT 0");
     await pool.query("SELECT order_id FROM razorpay_checkouts LIMIT 0");
     await pool.query("SELECT provider_payment_id FROM razorpay_payment_attempts LIMIT 0");
     await pool.query("SELECT provider_event_id FROM razorpay_webhook_events LIMIT 0");

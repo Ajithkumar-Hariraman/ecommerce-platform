@@ -13,6 +13,7 @@ type AuthHandler = RequestHandler<
 >;
 export function authenticate(verifier: TokenVerifier): AuthHandler {
   return async (req, res, next) => {
+    res.setHeader("Cache-Control", "private, no-store");
     const header = req.get("Authorization") ?? "";
     const count = req.rawHeaders.filter(
       (value, index) => index % 2 === 0 && value.toLowerCase() === "authorization",

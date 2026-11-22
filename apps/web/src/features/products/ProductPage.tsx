@@ -3,6 +3,7 @@ import type { Product, ProductStatus, ProductListResponse } from "./product.type
 import type { Category } from "../categories/category.types";
 import { productsApi } from "../../api/products";
 import { errorMessage } from "../../api/http";
+import { ProductImport } from "./ProductImport";
 import { ProductForm } from "./ProductForm";
 import { ProductList } from "./ProductList";
 export function ProductPage({
@@ -148,6 +149,7 @@ export function ProductPage({
                 Refresh
               </button>
             </div>
+            <ProductImport onFinished={() => setRevision((n) => n + 1)} />
             {notice && (
               <p className="notice" role="status">
                 {notice}
@@ -231,6 +233,7 @@ export function ProductPage({
               product={editor}
               categories={categories}
               onCancel={() => setEditor(undefined)}
+              onImageFailed={() => setRevision((n) => n + 1)}
               onSaved={() => {
                 setEditor(undefined);
                 setNotice("Product saved. The list reflects the selected status.");

@@ -7,5 +7,7 @@ export function createCategoryRouter(controller: CategoryController): Router {
   router.post("/", validateCategoryCreate, controller.create);
   router.get("/", controller.findAll);
   router.get("/:id", validateCategoryId, controller.findById);
+  router.put("/:id", validateCategoryId, validateCategoryCreate, controller.update);
+  router.delete("/:id", validateCategoryId, controller.deleteById);
   return router;
 }

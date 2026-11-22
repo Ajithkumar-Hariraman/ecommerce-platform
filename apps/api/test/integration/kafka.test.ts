@@ -32,9 +32,9 @@ const config = (): KafkaConfig => {
   };
 };
 async function until(check: () => Promise<boolean>, label: string, ms = 15000) {
-  const start = Date.now();
+  const start = performance.now();
   while (!(await check())) {
-    if (Date.now() - start > ms) throw new Error("Timed out: " + label);
+    if (performance.now() - start > ms) throw new Error("Timed out: " + label);
     await delay(30);
   }
 }
@@ -242,6 +242,8 @@ test(
       PAYMENT_PROVIDER: "local",
       PAYMENT_PROVIDER_BASE_URL: provider.baseUrl,
       PAYMENT_WEBHOOK_SECRET: secret,
+      KAFKA_BROKERS: f.c.brokers.join(","),
+      EVENT_TRANSPORT: "kafka",
       KAFKA_ORDER_TOPIC: f.c.orderTopic,
       KAFKA_ORDER_RETRY_TOPIC: f.c.retryTopic,
       KAFKA_ORDER_DLQ_TOPIC: f.c.dlqTopic,

@@ -6,6 +6,7 @@ export type CustomerNotification = {
   orderId: string;
   message: string;
   occurredAt: string;
+  readAt: string | null;
 };
 export type DeliveryState = "SENDING" | "SENT" | "PENDING" | "UNCERTAIN" | "SKIPPED";
 export interface PostPurchaseRepository {
@@ -13,7 +14,8 @@ export interface PostPurchaseRepository {
     owner: string,
     offset: number,
     limit: number,
-  ): Promise<{ notifications: CustomerNotification[]; total: number }>;
+  ): Promise<{ notifications: CustomerNotification[]; total: number; unreadCount: number }>;
+  markRead(owner: string, eventId: string): Promise<boolean>;
   claim(orderId: string, messageId: string): Promise<boolean>;
   state(orderId: string): Promise<DeliveryState | null>;
   finish(orderId: string, state: DeliveryState): Promise<void>;
@@ -22,29 +24,37 @@ export interface PostPurchaseRepository {
 export class PostgresPostPurchaseRepository implements PostPurchaseRepository {
   constructor(private readonly pool: Pool) {}
   async list(owner: string, offset: number, limit: number) {
-    const total = Number(
-      (
-        await this.pool.query(
-          "SELECT COUNT(*) AS total FROM order_notifications n JOIN orders o ON o.id=n.order_id WHERE o.owner_subject=$1",
-          [owner],
-        )
-      ).rows[0].total,
-    );
+    const counts = (
+      await this.pool.query(
+        "SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE n.read_at IS NULL) AS unread FROM order_notifications n JOIN orders o ON o.id=n.order_id WHERE o.owner_subject=$1",
+        [owner],
+      )
+    ).rows[0];
     const rows = (
       await this.pool.query(
-        "SELECT n.event_id,n.order_id,n.occurred_at FROM order_notifications n JOIN orders o ON o.id=n.order_id WHERE o.owner_subject=$1 ORDER BY n.occurred_at DESC,n.event_id DESC LIMIT $2 OFFSET $3",
+        "SELECT n.event_id,n.order_id,n.occurred_at,n.read_at FROM order_notifications n JOIN orders o ON o.id=n.order_id WHERE o.owner_subject=$1 ORDER BY n.occurred_at DESC,n.event_id DESC LIMIT $2 OFFSET $3",
         [owner, limit, offset],
       )
     ).rows;
     return {
-      total,
+      total: Number(counts.total),
+      unreadCount: Number(counts.unread),
       notifications: rows.map((row) => ({
         id: row.event_id,
         orderId: row.order_id,
         message: "Payment received. Your order is confirmed.",
         occurredAt: row.occurred_at.toISOString(),
+        readAt: row.read_at?.toISOString() ?? null,
       })),
     };
+  }
+  async markRead(owner: string, eventId: string) {
+    const result = await this.pool.query(
+      `UPDATE order_notifications n SET read_at=COALESCE(n.read_at,now())
+       FROM orders o WHERE o.id=n.order_id AND o.owner_subject=$1 AND n.event_id=$2`,
+      [owner, eventId],
+    );
+    return result.rowCount === 1;
   }
   async claim(id: string, messageId: string) {
     return (
@@ -102,22 +112,44 @@ export class MongoPostPurchaseRepository implements PostPurchaseRepository {
             items: [
               { $skip: offset },
               { $limit: limit },
-              { $project: { _id: 1, orderId: 1, occurredAt: 1 } },
+              { $project: { _id: 1, orderId: 1, occurredAt: 1, readAt: 1 } },
             ],
             count: [{ $count: "total" }],
+            unread: [{ $match: { readAt: null } }, { $count: "total" }],
           },
         },
       ])
       .next();
     return {
       total: result?.count[0]?.total ?? 0,
+      unreadCount: result?.unread[0]?.total ?? 0,
       notifications: (result?.items ?? []).map((n: any) => ({
         id: n._id,
         orderId: n.orderId,
         message: "Payment received. Your order is confirmed.",
         occurredAt: n.occurredAt.toISOString(),
+        readAt: n.readAt?.toISOString() ?? null,
       })),
     };
+  }
+  async markRead(owner: string, eventId: string) {
+    const notifications = this.db.collection<{ _id: string; orderId: string; readAt?: Date }>(
+      "order_notifications",
+    );
+    const notification = await notifications.findOne(
+      { _id: eventId },
+      { projection: { orderId: 1 } },
+    );
+    if (!notification) return false;
+    // An order's owner is immutable. Keep the checked order ID in the write predicate.
+    const order = await this.db
+      .collection<{ _id: string; ownerSubject: string }>("orders")
+      .findOne({ _id: notification.orderId, ownerSubject: owner }, { projection: { _id: 1 } });
+    if (!order) return false;
+    const result = await notifications.updateOne({ _id: eventId, orderId: order._id }, [
+      { $set: { readAt: { $ifNull: ["$readAt", "$$NOW"] } } },
+    ]);
+    return result.matchedCount === 1;
   }
   async claim(id: string, messageId: string) {
     const c = this.db.collection<{

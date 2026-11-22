@@ -20,6 +20,8 @@ export class PostgresCategoryRepository implements CategoryRepository {
         if (error.code === "23505" && error.constraint === "categories_slug_key") {
           throw new DuplicateCategorySlugError();
         }
+        if (error.code === "23503")
+          throw new AppError(409, "Remove this category from its products before deleting it");
         if (error.code === "23514" || error.code === "23502") {
           throw new AppError(400, "Category violates storage constraints");
         }
@@ -47,6 +49,22 @@ export class PostgresCategoryRepository implements CategoryRepository {
     );
     if (!rows[0]) throw new Error("Insert did not return a category");
     return toCategory(rows[0]);
+  }
+
+  async update(category: Category): Promise<Category | null> {
+    const rows = await this.rows(
+      `UPDATE public.categories SET slug=$2, name=$3, status=$4, updated_at=$5
+       WHERE id=$1 RETURNING ${columns}`,
+      [category.id, category.slug, category.name, category.status, category.updatedAt],
+    );
+    return rows[0] ? toCategory(rows[0]) : null;
+  }
+
+  async deleteById(id: string): Promise<boolean> {
+    return (
+      (await this.rows(`DELETE FROM public.categories WHERE id=$1 RETURNING ${columns}`, [id]))
+        .length > 0
+    );
   }
 
   async findById(id: string): Promise<Category | null> {

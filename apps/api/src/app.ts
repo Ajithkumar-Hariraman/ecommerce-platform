@@ -1,3 +1,5 @@
+import type { LocalProductImageStore } from "./modules/products/local-product-image.store.js";
+import { maximumImageBytes } from "./modules/products/product-image.js";
 import { simulatorCheckoutRouter, type SimulatorCheckout } from "./modules/payments/simulator-checkout.js";
 import { localCatalogDirectory } from "./modules/products/local-catalog-image.js";
 import { requestId } from "./middleware/request-id.js";
@@ -41,6 +43,7 @@ export interface AppDependencies {
   accessPolicy?: AccessPolicy;
   productCache?: ProductCache;
   productImages?: ProductImageStore;
+  localProductImages?: LocalProductImageStore;
   rateLimiter?: RequestHandler;
   // Optional only for existing isolated Product/Category test apps; runtime always supplies it.
   orderRepository?: OrderRepository;
@@ -96,6 +99,27 @@ export function createApp(dependencies: AppDependencies): Express {
     res.setHeader("Cache-Control", "private, no-store");
     next();
   });
+  const localImages = dependencies.localProductImages;
+  if (localImages) {
+    const authorizeUpload: RequestHandler = (req, res, next) => {
+      res.locals.imageUpload = localImages.authorize("PUT", req.query);
+      next();
+    };
+    app.put("/api/v1/local-product-image", authorizeUpload,
+      express.raw({ type: ["image/png", "image/jpeg", "image/webp"], limit: maximumImageBytes, inflate: false }),
+      async (req, res) => {
+        const { objectName, size } = res.locals.imageUpload;
+        await localImages.upload(objectName, size, req.body, req.get("Content-Type"));
+        res.status(204).end();
+      },
+    );
+    app.get("/api/v1/local-product-image", async (req, res) => {
+      const { objectName } = localImages.authorize("GET", req.query);
+      const { bytes, contentType } = await localImages.read(objectName);
+      res.set({ "Content-Type": contentType, "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store" });
+      res.send(bytes);
+    });
+  }
   app.use(express.json({ limit: "100kb" }));
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });

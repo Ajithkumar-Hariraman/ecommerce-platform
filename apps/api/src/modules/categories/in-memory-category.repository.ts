@@ -15,6 +15,20 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     return { ...category };
   }
 
+  async update(category: Category): Promise<Category | null> {
+    if (!this.categories.has(category.id)) return null;
+    for (const stored of this.categories.values()) {
+      if (stored.slug === category.slug && stored.id !== category.id)
+        throw new DuplicateCategorySlugError();
+    }
+    this.categories.set(category.id, { ...category });
+    return { ...category };
+  }
+
+  async deleteById(id: string): Promise<boolean> {
+    return this.categories.delete(id);
+  }
+
   async findById(id: string): Promise<Category | null> {
     const category = this.categories.get(id);
     return category ? { ...category } : null;

@@ -64,7 +64,10 @@ services:
     image: ecommerce-api:local
     init: true
     restart: unless-stopped
-    environment: *api-environment
+    environment:
+      <<: *api-environment
+      LOCAL_PRODUCT_IMAGE_DIRECTORY: /app/local-product-images
+    volumes: ["product_images:/app/local-product-images"]
     ports: ["127.0.0.1:3001:3000"]
     depends_on:
       migrate: {condition: service_completed_successfully}
@@ -232,6 +235,7 @@ services:
       - "127.0.0.1:8025:8025"
 
 volumes:
+  product_images:
   postgres_data:
   payment_data:
   kafka_data:

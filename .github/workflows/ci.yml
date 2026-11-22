@@ -94,9 +94,12 @@ jobs:
             mongodb \
             redis-cache \
             kafka \
+            mailpit \
             keycloak
 
       - name: Complete unfiltered integration suite
+        env:
+          LOCAL_POST_PURCHASE_INTEGRATION: "true"
         run: python3 scripts/run-compose-integration.py
 
       - name: Full application and HTTP event flow

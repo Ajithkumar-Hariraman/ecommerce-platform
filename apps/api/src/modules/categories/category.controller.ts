@@ -29,6 +29,15 @@ export class CategoryController {
     res.location(`/api/v1/categories/${category.id}`).status(201).json(category);
   };
 
+  update: RequestHandler = async (_req, res) => {
+    res.json(await this.service.update(res.locals.categoryId, res.locals.categoryInput));
+  };
+
+  deleteById: IdHandler = async (_req, res) => {
+    await this.service.deleteById(res.locals.categoryId);
+    res.status(204).end();
+  };
+
   findAll: RequestHandler = async (_req, res) => {
     res.status(200).json(await this.service.findAll());
   };

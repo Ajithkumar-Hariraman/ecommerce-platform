@@ -2,10 +2,19 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { categoriesApi } from "../../api/categories";
 import { errorMessage } from "../../api/http";
-export function CategoryForm({ onCreated }: { onCreated: () => void }) {
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
+import type { Category } from "./category.types";
+export function CategoryForm({
+  category,
+  onSaved,
+  onCancel,
+}: {
+  category?: Category;
+  onSaved: () => void;
+  onCancel?: () => void;
+}) {
+  const [name, setName] = useState(category?.name ?? "");
+  const [slug, setSlug] = useState(category?.slug ?? "");
+  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">(category?.status ?? "ACTIVE");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent) {
@@ -13,11 +22,13 @@ export function CategoryForm({ onCreated }: { onCreated: () => void }) {
     setBusy(true);
     setError("");
     try {
-      await categoriesApi.create({ name, slug, status });
+      const input = { name, slug, status };
+      if (category) await categoriesApi.update(category.id, input);
+      else await categoriesApi.create(input);
       setName("");
       setSlug("");
       setStatus("ACTIVE");
-      onCreated();
+      onSaved();
     } catch (error) {
       setError(errorMessage(error));
     } finally {
@@ -26,7 +37,7 @@ export function CategoryForm({ onCreated }: { onCreated: () => void }) {
   }
   return (
     <form onSubmit={submit}>
-      <h3>New category</h3>
+      <h3>{category ? "Edit category" : "New category"}</h3>
       <fieldset disabled={busy}>
         <label>
           Category name
@@ -58,7 +69,14 @@ export function CategoryForm({ onCreated }: { onCreated: () => void }) {
             {error}
           </p>
         )}
-        <button type="submit">{busy ? "Creating…" : "Create category"}</button>
+        <button type="submit">
+          {busy ? "Saving…" : category ? "Save category" : "Create category"}
+        </button>
+        {onCancel && (
+          <button type="button" className="subtle" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
       </fieldset>
     </form>
   );

@@ -36,3 +36,33 @@ for (const [name, deadline, pending, expected] of [
     assert.equal(queue.throttleCheckTimeoutId, null);
   });
 }
+
+test("KafkaJS request expiry follows elapsed time across wall-clock changes", (t) => {
+  const SocketRequest = require("kafkajs/src/network/requestQueue/socketRequest");
+  let wall = 1791019000000;
+  t.mock.method(Date, "now", () => wall);
+  let tick!: () => void;
+  t.mock.method(globalThis, "setInterval", (callback: () => void) => {
+    tick = callback;
+    return {} as NodeJS.Timeout;
+  });
+  const queue = new RequestQueue({ enforceRequestTimeout: true, requestTimeout: 1000 });
+  let expired = false;
+  const request = new SocketRequest({
+    requestTimeout: 1000,
+    entry: { reject: () => {} },
+    send: () => {},
+    timeout: () => { expired = true; },
+  });
+  request.send();
+  queue.inflight.set(1, request);
+  queue.scheduleRequestTimeoutCheck();
+
+  wall += 60_000;
+  tick();
+  assert.equal(expired, false, "a wall-clock jump cannot expire a new request");
+  wall -= 120_000;
+  request.sentAtMonotonic -= 1001;
+  tick();
+  assert.equal(expired, true, "a wall-clock rewind cannot prevent expiry");
+});

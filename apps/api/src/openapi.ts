@@ -312,6 +312,13 @@ export const openApiDocument = {
       get: operation("Read category", 200, ref("Category"), read, {
         description: catalog,
       }),
+      put: operation("Update category", 200, ref("Category"), [...write, 404], {
+        description: catalog,
+        requestBody: body("CategoryCreate"),
+      }),
+      delete: operation("Delete category", 204, undefined, [...read, 409], {
+        description: catalog + " Unassign any products before deleting their category.",
+      }),
     },
     "/api/v1/storefront/products": {
       get: operation("Public ACTIVE product collection", 200, ref("ProductPage"), [400, 500], {
@@ -402,10 +409,12 @@ export const openApiDocument = {
                   id: { type: "string", format: "uuid" },
                   orderId: { type: "string", format: "uuid" },
                   message: { type: "string" },
+                  readAt: { type: ["string", "null"], format: "date-time" },
                   occurredAt: { type: "string", format: "date-time" },
                 },
               },
             },
+            unreadCount: { type: "integer", minimum: 0 },
             pagination: ref("Pagination"),
           },
         },
@@ -422,6 +431,19 @@ export const openApiDocument = {
           ],
         },
       ),
+    },
+    "/api/v1/notifications/{id}/read": {
+      parameters: [id],
+      patch: {
+        summary: "Mark own notification as read",
+        security: [{ BearerAuth: [] }],
+        responses: {
+          "204": { description: "Notification marked as read or already read" },
+          "400": { description: "Invalid notification ID" },
+          "401": { description: "Authentication required" },
+          "404": { description: "Notification not found for the authenticated subject" },
+        },
+      },
     },
     "/api/v1/orders/{id}/invoice": {
       parameters: [id],

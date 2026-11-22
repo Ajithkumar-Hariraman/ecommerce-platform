@@ -1,4 +1,5 @@
 import { MongoServerError, type Db } from "mongodb";
+import { withMongoCategoryWrite } from "../../database/mongo-category-writes.js";
 import { AppError } from "../../errors/app-error.js";
 import type { Product, ProductStatus } from "./product.js";
 import type { ProductListQuery, ProductListResult } from "./product-list.types.js";
@@ -31,14 +32,16 @@ export class MongoProductRepository implements ProductRepository {
   constructor(private readonly db: Db) {
     this.collection = db.collection<Document>("products");
   }
-  private async categoryExists(product: Product): Promise<void> {
-    if (
-      product.categoryId !== null &&
-      !(await this.db
-        .collection<{ _id: string }>("categories")
-        .findOne({ _id: product.categoryId }, { projection: { _id: 1 } }))
-    )
-      throw new AppError(400, "Referenced category does not exist");
+  private async writeWithCategory<T>(product: Product, write: () => Promise<T>): Promise<T> {
+    const id = product.categoryId;
+    if (id === null) return write();
+    return withMongoCategoryWrite(this.db, id, async () => {
+      const category = await this.db
+        .collection<{ _id: string; deleted?: true }>("categories")
+        .findOne({ _id: id, deleted: { $ne: true } }, { projection: { _id: 1 } });
+      if (!category) throw new AppError(400, "Referenced category does not exist");
+      return write();
+    });
   }
   private conflict(error: unknown): never {
     if (error instanceof MongoServerError && error.code === 11000 && error.keyPattern?.sku)
@@ -46,13 +49,14 @@ export class MongoProductRepository implements ProductRepository {
     throw new Error("Product storage operation failed");
   }
   async create(product: Product): Promise<Product> {
-    await this.categoryExists(product);
-    try {
-      await this.collection.insertOne(document(product));
-    } catch (error) {
-      this.conflict(error);
-    }
-    return { ...product };
+    return this.writeWithCategory(product, async () => {
+      try {
+        await this.collection.insertOne(document(product));
+      } catch (error) {
+        this.conflict(error);
+      }
+      return { ...product };
+    });
   }
   async findById(id: string): Promise<Product | null> {
     const row = await this.collection.findOne({ _id: id });
@@ -82,18 +86,19 @@ export class MongoProductRepository implements ProductRepository {
     return { products: rows.map(domain), total };
   }
   async update(product: Product): Promise<Product | null> {
-    await this.categoryExists(product);
-    const { _id, createdAt: _createdAt, ...fields } = document(product);
-    try {
-      const row = await this.collection.findOneAndUpdate(
-        { _id },
-        { $set: fields },
-        { returnDocument: "after" },
-      );
-      return row ? domain(row) : null;
-    } catch (error) {
-      return this.conflict(error);
-    }
+    return this.writeWithCategory(product, async () => {
+      const { _id, createdAt: _createdAt, ...fields } = document(product);
+      try {
+        const row = await this.collection.findOneAndUpdate(
+          { _id },
+          { $set: fields },
+          { returnDocument: "after" },
+        );
+        return row ? domain(row) : null;
+      } catch (error) {
+        return this.conflict(error);
+      }
+    });
   }
   async deleteById(id: string): Promise<boolean> {
     return (await this.collection.deleteOne({ _id: id })).deletedCount === 1;

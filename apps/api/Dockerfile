@@ -17,6 +17,7 @@ COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node migrations ./migrations
 COPY --chown=node:node certs ./certs
 COPY --chown=node:node assets/local-catalog ./assets/local-catalog
+RUN install -d -o node -g node /app/local-product-images
 USER node
 EXPOSE 3000
 CMD ["node", "--enable-source-maps", "dist/server.js"]

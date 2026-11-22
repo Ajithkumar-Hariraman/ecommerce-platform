@@ -26,26 +26,18 @@ export async function request<T>(
 
     if (token) headers.set("Authorization", `Bearer ${token}`);
 
-    return fetch(`/api/v1${path}`, {
-      ...options,
-      headers,
-    });
+    try {
+      return await fetch(`/api/v1${path}`, { ...options, headers });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") throw error;
+      throw new Error("Cannot reach the API. Check the connection and try again.");
+    }
   };
 
-  let response: Response;
+  let response = await send();
 
-  try {
-    response = await send();
-
-    // A token may expire between acquisition and API verification.
-    // Refresh once and retry before ending the user's session.
-    if (authenticated && response.status === 401) {
-      response = await send(true);
-    }
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw new Error("Cannot reach the API. Check the connection and try again.");
-  }
+  // A token may expire between acquisition and API verification.
+  if (authenticated && response.status === 401) response = await send(true);
   if (authenticated && response.status === 401) expireSession();
   if (response.status === 204 && response.ok) return undefined as T;
   const body: unknown = await response.json().catch(() => null);

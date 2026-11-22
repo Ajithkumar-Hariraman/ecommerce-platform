@@ -24,6 +24,17 @@ export function postPurchaseOrderRouter(documents: OrderDocumentService) {
 }
 export function notificationRouter(repo: PostPurchaseRepository) {
   const router = Router();
+  router.use((_req, res, next) => {
+    res.set("Cache-Control", "private,no-store");
+    next();
+  });
+  router.patch("/:id/read", async (req, res) => {
+    const id = z.uuid().safeParse(req.params.id);
+    if (!id.success) throw new AppError(400, "Invalid notification ID");
+    if (!(await repo.markRead(orderPrincipal(res.locals.principal).subject, id.data.toLowerCase())))
+      throw new AppError(404, "Notification not found");
+    res.sendStatus(204);
+  });
   router.get("/", async (req, res) => {
     const q = z
       .strictObject({
@@ -50,13 +61,14 @@ export function notificationRouter(repo: PostPurchaseRepository) {
       !Number.isSafeInteger(offset + limit)
     )
       throw new AppError(400, "Invalid notification pagination");
-    const { notifications, total } = await repo.list(
+    const { notifications, total, unreadCount } = await repo.list(
       orderPrincipal(res.locals.principal).subject,
       offset,
       limit,
     );
     res.json({
       notifications,
+      unreadCount,
       pagination: {
         page,
         limit,

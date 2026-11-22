@@ -9,11 +9,13 @@ export function ProductForm({
   product,
   categories,
   onSaved,
+  onImageFailed,
   onCancel,
 }: {
   product: Product | null;
   categories: Category[];
   onSaved: () => void;
+  onImageFailed: () => void;
   onCancel: () => void;
 }) {
   const [sku, setSku] = useState(product?.sku ?? "");
@@ -31,6 +33,7 @@ export function ProductForm({
     event.preventDefault();
     setError("");
     setBusy(true);
+    let detailsSaved = false;
     try {
       const input = {
         sku,
@@ -51,10 +54,16 @@ export function ProductForm({
         ? await productsApi.update(savedId, { ...input, status })
         : await productsApi.create(input);
       setSavedId(saved.id); // An upload retry must update this Product rather than create a duplicate.
+      detailsSaved = true;
       if (image) await productsApi.uploadImage(saved.id, image);
       onSaved();
     } catch (error) {
-      setError(errorMessage(error));
+      if (detailsSaved) onImageFailed();
+      setError(
+        detailsSaved
+          ? `Product details saved. Image upload failed. ${errorMessage(error)} Retry or clear the image to finish.`
+          : errorMessage(error),
+      );
     } finally {
       setBusy(false);
     }
@@ -89,6 +98,8 @@ export function ProductForm({
                 required
                 type="number"
                 step="1"
+                min="0"
+                max={Number.MAX_SAFE_INTEGER}
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
               />

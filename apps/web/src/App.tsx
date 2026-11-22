@@ -1,4 +1,5 @@
 import { SessionNotice } from "./auth/SessionNotice";
+import { request } from "./api/http";
 import { Notifications } from "./commerce/Notifications";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, Route, Routes, useLocation } from "react-router-dom";
@@ -64,6 +65,25 @@ function Layout() {
     cart = useCart(),
     location = useLocation();
   const [menu, setMenu] = useState(false);
+  const [notificationRevision, setNotificationRevision] = useState(0);
+  const [unread, setUnread] = useState<{ subject: string; count: number }>();
+  const subject = session.subject;
+  useEffect(() => {
+    if (!subject) {
+      setUnread(undefined);
+      return;
+    }
+    const controller = new AbortController();
+    void request<{ unreadCount: number }>("/notifications?limit=1", { signal: controller.signal })
+      .then(({ unreadCount }) => {
+        if (!controller.signal.aborted) setUnread({ subject, count: unreadCount });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setUnread(undefined);
+      });
+    return () => controller.abort();
+  }, [subject, location.key, notificationRevision]);
+  const unreadCount = unread?.subject === subject ? unread?.count : undefined;
   const main = useRef<HTMLElement>(null);
   const admin = canManageCatalog(session.roles) || canManageOrders(session.roles);
   useEffect(() => {
@@ -127,7 +147,14 @@ function Layout() {
             <>
               <NavLink to="/orders">My orders</NavLink>
               <NavLink to="/account">My account</NavLink>
-              <NavLink to="/notifications">Notifications</NavLink>
+              <NavLink to="/notifications">
+                Notifications
+                {!!unreadCount && (
+                  <span className="cart-count" aria-label={`${unreadCount} unread`}>
+                    {unreadCount}
+                  </span>
+                )}
+              </NavLink>
               {admin && <NavLink to="/admin">Operations</NavLink>}
               <button className="subtle" onClick={() => void logout()}>
                 Sign out
@@ -154,7 +181,7 @@ function Layout() {
             : "page-container"
         }
       >
-        <Outlet />
+        <Outlet context={() => setNotificationRevision((n) => n + 1)} />
       </main>
       <footer className="store-footer">
         <Link className="brand" to="/">

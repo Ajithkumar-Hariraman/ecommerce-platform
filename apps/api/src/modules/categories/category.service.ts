@@ -33,6 +33,34 @@ export class CategoryService {
     }
   }
 
+  async update(id: string, input: CreateCategoryInput): Promise<Category> {
+    const existing = await this.findById(id);
+    const slug = input.slug.trim();
+    const name = input.name.trim();
+    if (!slug || !name) throw new AppError(400, "Category slug and name must not be empty");
+    if (input.status !== undefined && input.status !== "ACTIVE" && input.status !== "INACTIVE")
+      throw new AppError(400, "Invalid category status");
+    try {
+      const category = await this.repository.update({
+        ...existing,
+        slug,
+        name,
+        status: input.status ?? existing.status,
+        updatedAt: new Date().toISOString(),
+      });
+      if (!category) throw new AppError(404, "Category not found");
+      return category;
+    } catch (error) {
+      if (error instanceof DuplicateCategorySlugError)
+        throw new AppError(409, "Category slug already exists");
+      throw error;
+    }
+  }
+
+  async deleteById(id: string): Promise<void> {
+    if (!(await this.repository.deleteById(id))) throw new AppError(404, "Category not found");
+  }
+
   async findAll(): Promise<Category[]> {
     return await this.repository.findAll();
   }
